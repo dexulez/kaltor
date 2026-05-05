@@ -11,8 +11,15 @@ const ROL_COLOR: Record<string, string> = {
   vendedor: 'bg-green-100 text-green-700',
 }
 
+type RoleRelation = Pick<Role, 'id' | 'nombre'> | Pick<Role, 'id' | 'nombre'>[] | null
+
+function getRoleName(roles: RoleRelation) {
+  if (Array.isArray(roles)) return roles[0]?.nombre ?? ''
+  return roles?.nombre ?? ''
+}
+
 type UsuarioListItem = UserProfile & {
-  roles: Pick<Role, 'id' | 'nombre'>[] | null
+  roles: RoleRelation
 }
 
 export default async function UsuariosPage() {
@@ -28,8 +35,8 @@ export default async function UsuariosPage() {
 
   const total = usuariosList.length
   const activos = usuariosList.filter(u => u.activo).length
-  const admins = usuariosList.filter(u => u.roles?.[0]?.nombre === 'administrador').length
-  const tecnicos = usuariosList.filter(u => u.roles?.[0]?.nombre === 'tecnico').length
+  const admins = usuariosList.filter(u => getRoleName(u.roles) === 'administrador').length
+  const tecnicos = usuariosList.filter(u => getRoleName(u.roles) === 'tecnico').length
 
   return (
     <div className="p-6 space-y-5">
@@ -74,7 +81,7 @@ export default async function UsuariosPage() {
             </thead>
             <tbody className="divide-y">
               {usuariosList.map((u) => {
-                const rolNombre = u.roles?.[0]?.nombre ?? ''
+                const rolNombre = getRoleName(u.roles)
                 const esPropio = u.id === user?.id
                 return (
                   <tr key={u.id} className={`hover:bg-gray-50 ${!u.activo ? 'opacity-50' : ''}`}>

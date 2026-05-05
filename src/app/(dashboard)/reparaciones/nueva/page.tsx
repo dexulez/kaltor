@@ -5,7 +5,12 @@ import Link from 'next/link'
 type TecnicoConRol = {
   id: string
   nombre_completo: string
-  roles: { nombre: string }[] | null
+  roles: { nombre: string } | { nombre: string }[] | null
+}
+
+function getRoleName(roles: TecnicoConRol['roles']) {
+  if (Array.isArray(roles)) return roles[0]?.nombre ?? ''
+  return roles?.nombre ?? ''
 }
 
 export default async function NuevaOTPage({
@@ -29,7 +34,7 @@ export default async function NuevaOTPage({
 
   const tecnicosData = (tecnicos ?? []) as TecnicoConRol[]
   const tecnicosFiltrados = tecnicosData.filter(
-    (t) => t.roles?.some((r) => r.nombre === 'tecnico' || r.nombre === 'administrador')
+    (t) => ['tecnico', 'administrador'].includes(getRoleName(t.roles))
   ) ?? []
 
   return (

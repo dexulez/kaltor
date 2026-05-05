@@ -2,13 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 
+type ProfileRoleResult = {
+  roles?: { nombre?: string | null } | { nombre?: string | null }[] | null
+}
+
+function getRoleName(profile: ProfileRoleResult | null) {
+  if (Array.isArray(profile?.roles)) return profile.roles[0]?.nombre ?? null
+  return profile?.roles?.nombre ?? null
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   const { data: profile } = await supabase.from('user_profiles').select('roles(nombre)').eq('id', user.id).single()
-  const rol = Array.isArray(profile?.roles) ? profile.roles[0]?.nombre : undefined
+  const rol = getRoleName(profile as ProfileRoleResult | null)
   if (rol !== 'administrador') return NextResponse.json({ error: 'Solo los administradores pueden invitar usuarios' }, { status: 403 })
 
   const { email, nombre, rol_id } = await req.json()
