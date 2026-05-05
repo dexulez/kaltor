@@ -1,0 +1,118 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { PurchaseOrder } from '@/types'
+import { formatCLP } from '@/lib/calculations'
+
+interface Props {
+  oc: PurchaseOrder
+}
+
+export default function RecibirMercanciaForm({ oc }: Props) {
+  const router = useRouter()
+  const supabase = createClient()
+  const [loading, setLoading] = useState(false)
+  const [cantidades, setCantidades] = useState<Record<string, number>>(
+    Object.fromEntries((oc.purchase_order_items ?? []).map(i => [i.id, i.cantidad_recibida]))
+  )
+
+  if (!oc.purchase_order_items?.length) return null
+  if (['recibida_completa', 'cancelada'].includes(oc.estado)) return null
+
+  function setCant(id: string, v: number) {
+    setCantidades(prev => ({ ...prev, [id]: v }))
+  }
+
+  async function handleRecibir() {
+    setLoading(true)
+    const items = oc.purchase_order_items ?? []
+
+    for (const item of items) {
+      const nuevaCantidad = cantidades[item.id] ?? item.cantidad_recibida
+      const cantidadNuevamenteRecibida = nuevaCantidad - item.cantidad_recibida
+      if (cantidadNuevamenteRecibida <= 0) continue
+
+      await supabase.from('purchase_order_items').update({ cantidad_recibida: nuevaCantidad }).eq('id', item.id)
+
+      if (item.product_id) {
+        const { data: producto } = await supabase.from('products').select('stock_actual').eq('id', item.product_id).single()
+        if (producto) {
+          const stockAnterior = producto.stock_actual
+          const stockNuevo = stockAnterior + cantidadNuevamenteRecibida
+          await supabase.from('products').update({ stock_actual: stockNuevo }).eq('id', item.product_id)
+          await supabase.from('stock_movements').insert({
+            product_id: item.product_id,
+            tipo: 'entrada',
+            cantidad: cantidadNuevamenteRecibida,
+            stock_anterior: stockAnterior,
+            stock_nuevo: stockNuevo,
+            razon: `Recepción OC ${oc.numero_oc}`,
+            referencia_id: oc.id,
+            referencia_tipo: 'purchase_order',
+          })
+        }
+      }
+    }
+
+    const totalSolicitado = items.reduce((s, i) => s + i.cantidad_solicitada, 0)
+    const totalRecibido = items.reduce((s, i) => s + (cantidades[i.id] ?? i.cantidad_recibida), 0)
+
+    const nuevoEstado = totalRecibido >= totalSolicitado
+      ? 'recibida_completa'
+      : totalRecibido > 0
+        ? 'recibida_parcial'
+        : 'en_transito'
+
+    await supabase.from('purchase_orders').update({
+      estado: nuevoEstado,
+      fecha_recepcion: new Date().toISOString(),
+    }).eq('id', oc.id)
+
+    toast.success('Recepción registrada correctamente')
+    router.refresh()
+    setLoading(false)
+  }
+
+  return (
+    <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between">
+        <p className="font-semibold text-amber-800 text-sm">Registrar recepción de mercancía</p>
+      </div>
+      <div className="divide-y">
+        {(oc.purchase_order_items ?? []).map(item => (
+          <div key={item.id} className="px-4 py-3 flex items-center gap-4">
+            <div className="flex-1">
+              <p className="font-medium text-gray-800 text-sm">{item.nombre}</p>
+              <p className="text-xs text-gray-400">Precio unit.: {formatCLP(item.precio_unitario)}</p>
+            </div>
+            <div className="text-center text-sm text-gray-500 w-24">
+              <p className="text-xs text-gray-400 mb-1">Solicitado</p>
+              <p className="font-bold text-gray-700">{item.cantidad_solicitada}</p>
+            </div>
+            <div className="w-28">
+              <p className="text-xs text-gray-400 mb-1 text-center">Recibido</p>
+              <Input
+                type="number"
+                min={item.cantidad_recibida}
+                max={item.cantidad_solicitada}
+                value={cantidades[item.id] ?? item.cantidad_recibida}
+                onChange={e => setCant(item.id, Math.min(item.cantidad_solicitada, Math.max(item.cantidad_recibida, parseInt(e.target.value) || 0)))}
+                className="text-center h-8 text-sm"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="px-4 py-3 border-t bg-gray-50">
+        <Button onClick={handleRecibir} disabled={loading} className="bg-amber-600 hover:bg-amber-700">
+          {loading ? 'Registrando...' : 'Confirmar recepción'}
+        </Button>
+      </div>
+    </div>
+  )
+}

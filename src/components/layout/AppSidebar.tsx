@@ -1,0 +1,136 @@
+'use client'
+
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { UserProfile } from '@/types'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { useState } from 'react'
+
+interface NavItem {
+  href: string
+  label: string
+  icon: string
+  roles: string[]
+}
+
+const navItems: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: '📊', roles: ['administrador', 'tecnico', 'vendedor'] },
+  { href: '/clientes', label: 'Clientes', icon: '👤', roles: ['administrador', 'vendedor'] },
+  { href: '/reparaciones', label: 'Reparaciones', icon: '🔧', roles: ['administrador', 'tecnico', 'vendedor'] },
+  { href: '/inventario', label: 'Inventario', icon: '📦', roles: ['administrador', 'tecnico', 'vendedor'] },
+  { href: '/caja', label: 'Caja / Ventas', icon: '💰', roles: ['administrador', 'vendedor'] },
+  { href: '/compras', label: 'Compras', icon: '🏭', roles: ['administrador'] },
+  { href: '/usuarios', label: 'Usuarios', icon: '👥', roles: ['administrador'] },
+  { href: '/informes', label: 'Informes', icon: '📈', roles: ['administrador', 'tecnico', 'vendedor'] },
+  { href: '/configuracion', label: 'Configuración', icon: '⚙️', roles: ['administrador'] },
+]
+
+export default function AppSidebar({ user }: { user: UserProfile | null }) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
+  const [collapsed, setCollapsed] = useState(false)
+  const roleName = user?.roles?.nombre ?? ''
+
+  const visibleItems = navItems.filter(item =>
+    !item.roles.length || item.roles.includes(roleName)
+  )
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    toast.success('Sesión cerrada')
+    router.push('/login')
+    router.refresh()
+  }
+
+  const initials = user?.nombre_completo
+    ?.split(' ')
+    .map(n => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() ?? 'U'
+
+  return (
+    <aside className={cn(
+      'flex flex-col bg-blue-900 text-white transition-all duration-300 shrink-0',
+      collapsed ? 'w-16' : 'w-64'
+    )}>
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-blue-800">
+        <span className="text-2xl shrink-0">🔧</span>
+        {!collapsed && (
+          <div className="overflow-hidden">
+            <p className="font-bold text-sm leading-tight">TechRepair Pro</p>
+            <p className="text-blue-300 text-xs truncate">Gestión de taller</p>
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto text-blue-300 hover:text-white hover:bg-blue-800 p-1 h-7 w-7 shrink-0"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? '→' : '←'}
+        </Button>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 py-4 overflow-y-auto">
+        <ul className="space-y-1 px-2">
+          {visibleItems.map((item) => {
+            const isActive = pathname === item.href ||
+              (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-blue-700 text-white'
+                      : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+                  )}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <span className="text-lg shrink-0">{item.icon}</span>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
+
+      {/* User info */}
+      <div className="border-t border-blue-800 p-3">
+        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+          <Avatar className="h-8 w-8 shrink-0">
+            <AvatarFallback className="bg-blue-600 text-white text-xs font-bold">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          {!collapsed && (
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-medium truncate">{user?.nombre_completo ?? 'Usuario'}</p>
+              <p className="text-xs text-blue-300 capitalize truncate">{roleName}</p>
+            </div>
+          )}
+        </div>
+        {!collapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2 text-blue-300 hover:text-white hover:bg-blue-800 text-xs"
+            onClick={handleLogout}
+          >
+            Cerrar sesión
+          </Button>
+        )}
+      </div>
+    </aside>
+  )
+}
