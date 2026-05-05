@@ -51,9 +51,14 @@ export default async function InventarioPage({
           <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
           <p className="text-gray-500 text-sm mt-0.5">{productos?.length ?? 0} producto(s)</p>
         </div>
-        <Link href="/inventario/nuevo">
-          <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo producto</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/inventario/carga-masiva">
+            <Button variant="outline" className="gap-1.5">⬆️ Carga masiva</Button>
+          </Link>
+          <Link href="/inventario/nuevo">
+            <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo producto</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Alerta stock crítico */}
