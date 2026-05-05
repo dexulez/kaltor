@@ -12,10 +12,10 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: usuario }, { data: roles }] = await Promise.all([
+  const [{ data: usuario, error: userError }, { data: roles }] = await Promise.all([
     supabase
       .from('user_profiles')
-      .select('id, nombre_completo, email, telefono, rol_id, activo, permisos_modulos')
+      .select('*')        // Usar * para no fallar si permisos_modulos aún no existe en DB
       .eq('id', id)
       .single(),
     supabase
@@ -24,7 +24,7 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
       .order('nombre'),
   ])
 
-  if (!usuario) notFound()
+  if (userError || !usuario) notFound()
 
   return (
     <div className="p-6 space-y-5 max-w-3xl">
