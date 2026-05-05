@@ -7,8 +7,15 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { MODULOS, ModuloKey, getDefaultPermisos } from '@/lib/modulos'
+
+const ROL_LABEL: Record<string, string> = {
+  administrador:     'Administrador',
+  tecnico:           'Técnico',
+  vendedor:          'Vendedor',
+  supervisor_ventas: 'Supervisor Ventas',
+}
 
 interface UsuarioDetalle {
   id: string
@@ -137,11 +144,19 @@ export default function UsuarioForm({ usuario, roles }: Props) {
           <div className="space-y-1.5">
             <Label>Rol</Label>
             <Select value={form.rol_id} onValueChange={handleRolChange}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
+              <SelectTrigger>
+                <span className="flex-1 text-left truncate text-sm">
+                  {form.rol_id === 'none'
+                    ? 'Sin rol'
+                    : (ROL_LABEL[getRolNombre(form.rol_id, roles)] ?? (getRolNombre(form.rol_id, roles) || 'Seleccionar rol'))}
+                </span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Sin rol</SelectItem>
                 {roles.map((rol) => (
-                  <SelectItem key={rol.id} value={rol.id}>{rol.nombre}</SelectItem>
+                  <SelectItem key={rol.id} value={rol.id}>
+                    {ROL_LABEL[rol.nombre] ?? rol.nombre}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -152,7 +167,9 @@ export default function UsuarioForm({ usuario, roles }: Props) {
               value={form.activo ? 'activo' : 'inactivo'}
               onValueChange={(value) => set('activo', value === 'activo')}
             >
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <span className="flex-1 text-left text-sm">{form.activo ? 'Activo' : 'Inactivo'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="activo">Activo</SelectItem>
                 <SelectItem value="inactivo">Inactivo</SelectItem>

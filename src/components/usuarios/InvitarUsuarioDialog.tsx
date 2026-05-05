@@ -5,8 +5,15 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+
+const ROL_LABEL: Record<string, string> = {
+  administrador:     'Administrador',
+  tecnico:           'Técnico',
+  vendedor:          'Vendedor',
+  supervisor_ventas: 'Supervisor Ventas',
+}
 
 interface Role { id: string; nombre: string }
 
@@ -57,10 +64,20 @@ export default function InvitarUsuarioDialog({ roles }: { roles: Role[] }) {
           <div className="space-y-1.5">
             <Label>Rol</Label>
             <Select value={rolId} onValueChange={v => setRolId(v ?? '')}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar rol..." /></SelectTrigger>
+              <SelectTrigger>
+                <span className="flex-1 text-left truncate text-sm">
+                  {rolId
+                    ? (ROL_LABEL[roles.find(r => r.id === rolId)?.nombre ?? '']
+                      ?? roles.find(r => r.id === rolId)?.nombre
+                      ?? rolId)
+                    : 'Seleccionar rol...'}
+                </span>
+              </SelectTrigger>
               <SelectContent>
                 {roles.map(r => (
-                  <SelectItem key={r.id} value={r.id}>{r.nombre}</SelectItem>
+                  <SelectItem key={r.id} value={r.id}>
+                    {ROL_LABEL[r.nombre] ?? r.nombre}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

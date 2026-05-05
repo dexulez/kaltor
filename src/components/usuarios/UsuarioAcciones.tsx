@@ -4,8 +4,15 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+
+const ROL_LABEL: Record<string, string> = {
+  administrador:     'Administrador',
+  tecnico:           'Técnico',
+  vendedor:          'Vendedor',
+  supervisor_ventas: 'Supervisor Ventas',
+}
 
 interface Role { id: string; nombre: string }
 
@@ -38,15 +45,20 @@ export default function UsuarioAcciones({ userId, rolActualId, activo, roles, es
     setLoading(false)
   }
 
+  const rolNombre = roles.find(r => r.id === rolId)?.nombre ?? ''
+  const rolLabel = ROL_LABEL[rolNombre] ?? rolNombre ?? 'Sin rol'
+
   return (
     <div className="flex items-center gap-2">
       <Select value={rolId} onValueChange={cambiarRol} disabled={esPropio}>
-        <SelectTrigger className="w-36 h-8 text-xs">
-          <SelectValue placeholder="Sin rol" />
+        <SelectTrigger className="w-40 h-8 text-xs">
+          <span className="flex-1 text-left truncate">{rolLabel}</span>
         </SelectTrigger>
         <SelectContent>
           {roles.map(r => (
-            <SelectItem key={r.id} value={r.id}>{r.nombre}</SelectItem>
+            <SelectItem key={r.id} value={r.id}>
+              {ROL_LABEL[r.nombre] ?? r.nombre}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
