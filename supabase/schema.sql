@@ -78,6 +78,19 @@ INSERT INTO roles (nombre, descripcion, es_sistema, permisos) VALUES
   "informes": "ventas",
   "configuracion": "ninguno",
   "creditos_proveedores": "ninguno"
+}'),
+('supervisor_ventas', 'Supervisa el equipo de ventas, acceso completo a caja e informes, lectura de compras', true, '{
+  "dashboard": "completo",
+  "clientes": "completo",
+  "recepcion": "completo",
+  "reparaciones": "lectura",
+  "caja": "completo",
+  "inventario": "lectura",
+  "compras": "lectura",
+  "usuarios": "ninguno",
+  "informes": "completo",
+  "configuracion": "ninguno",
+  "creditos_proveedores": "ninguno"
 }');
 
 -- ============================================================
@@ -574,22 +587,24 @@ CREATE POLICY "profiles_own" ON user_profiles FOR SELECT TO authenticated
   USING (id = auth.uid() OR is_admin());
 CREATE POLICY "profiles_admin" ON user_profiles FOR ALL TO authenticated USING (is_admin());
 
--- customers: vendedor y admin tienen acceso completo, técnico solo lectura
+-- customers: vendedor, supervisor y admin tienen acceso completo, técnico solo lectura
 CREATE POLICY "customers_read" ON customers FOR SELECT TO authenticated USING (true);
 CREATE POLICY "customers_write" ON customers FOR ALL TO authenticated
-  USING (get_user_role() IN ('administrador', 'vendedor'));
+  USING (get_user_role() IN ('administrador', 'vendedor', 'supervisor_ventas'));
 
 -- equipment: todos autenticados pueden leer y crear
 CREATE POLICY "equipment_all" ON equipment FOR ALL TO authenticated USING (true);
 
--- repair_orders: admin ve todas, técnico solo las suyas, vendedor puede leer todas
+-- repair_orders: admin ve todas, técnico solo las suyas, vendedor y supervisor pueden leer todas
 CREATE POLICY "ot_admin" ON repair_orders FOR ALL TO authenticated USING (is_admin());
 CREATE POLICY "ot_tecnico" ON repair_orders FOR SELECT TO authenticated
   USING (get_user_role() = 'tecnico' AND tecnico_id = auth.uid());
 CREATE POLICY "ot_tecnico_update" ON repair_orders FOR UPDATE TO authenticated
   USING (get_user_role() = 'tecnico' AND tecnico_id = auth.uid());
 CREATE POLICY "ot_vendedor" ON repair_orders FOR SELECT TO authenticated
-  USING (get_user_role() = 'vendedor');
+  USING (get_user_role() IN ('vendedor', 'supervisor_ventas'));
+CREATE POLICY "ot_vendedor_write" ON repair_orders FOR INSERT TO authenticated
+  WITH CHECK (get_user_role() IN ('vendedor', 'supervisor_ventas'));
 
 -- repair_status_history: todos pueden leer, autenticados insertar
 CREATE POLICY "history_read" ON repair_status_history FOR SELECT TO authenticated USING (true);
@@ -606,10 +621,10 @@ CREATE POLICY "products_admin" ON products FOR ALL TO authenticated USING (is_ad
 CREATE POLICY "stock_read" ON stock_movements FOR SELECT TO authenticated USING (true);
 CREATE POLICY "stock_write" ON stock_movements FOR INSERT TO authenticated WITH CHECK (true);
 
--- sales: admin y vendedor
+-- sales: admin, vendedor y supervisor
 CREATE POLICY "sales_admin" ON sales FOR ALL TO authenticated USING (is_admin());
 CREATE POLICY "sales_vendedor" ON sales FOR ALL TO authenticated
-  USING (get_user_role() = 'vendedor');
+  USING (get_user_role() IN ('vendedor', 'supervisor_ventas'));
 CREATE POLICY "sales_tecnico_read" ON sales FOR SELECT TO authenticated
   USING (get_user_role() = 'tecnico');
 
@@ -625,9 +640,13 @@ CREATE POLICY "commissions_admin" ON technician_commissions FOR ALL TO authentic
 CREATE POLICY "suppliers_read" ON suppliers FOR SELECT TO authenticated USING (true);
 CREATE POLICY "suppliers_admin" ON suppliers FOR ALL TO authenticated USING (is_admin());
 
--- purchase_orders y items: solo admin
+-- purchase_orders y items: admin modifica, supervisor solo lectura
 CREATE POLICY "po_admin" ON purchase_orders FOR ALL TO authenticated USING (is_admin());
+CREATE POLICY "po_supervisor_read" ON purchase_orders FOR SELECT TO authenticated
+  USING (get_user_role() = 'supervisor_ventas');
 CREATE POLICY "po_items_admin" ON purchase_order_items FOR ALL TO authenticated USING (is_admin());
+CREATE POLICY "po_items_supervisor_read" ON purchase_order_items FOR SELECT TO authenticated
+  USING (get_user_role() = 'supervisor_ventas');
 
 -- supplier_credits: solo admin
 CREATE POLICY "credits_admin" ON supplier_credits FOR ALL TO authenticated USING (is_admin());
@@ -635,9 +654,9 @@ CREATE POLICY "credits_admin" ON supplier_credits FOR ALL TO authenticated USING
 -- notifications_log: solo admin
 CREATE POLICY "notif_admin" ON notifications_log FOR ALL TO authenticated USING (is_admin());
 
--- cash_closings: admin y vendedor
+-- cash_closings: admin, vendedor y supervisor
 CREATE POLICY "cash_read" ON cash_closings FOR SELECT TO authenticated
-  USING (get_user_role() IN ('administrador', 'vendedor'));
+  USING (get_user_role() IN ('administrador', 'vendedor', 'supervisor_ventas'));
 CREATE POLICY "cash_admin" ON cash_closings FOR ALL TO authenticated USING (is_admin());
 
 -- ============================================================

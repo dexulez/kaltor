@@ -9,25 +9,14 @@ import { UserProfile } from '@/types'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
+import { MODULOS, tieneAccesoModulo } from '@/lib/modulos'
 
-interface NavItem {
-  href: string
-  label: string
-  icon: string
-  roles: string[]
+const ROL_LABEL: Record<string, string> = {
+  administrador:     'Administrador',
+  tecnico:           'Técnico',
+  vendedor:          'Vendedor',
+  supervisor_ventas: 'Supervisor Ventas',
 }
-
-const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: '📊', roles: ['administrador', 'tecnico', 'vendedor'] },
-  { href: '/clientes', label: 'Clientes', icon: '👤', roles: ['administrador', 'vendedor'] },
-  { href: '/reparaciones', label: 'Reparaciones', icon: '🔧', roles: ['administrador', 'tecnico', 'vendedor'] },
-  { href: '/inventario', label: 'Inventario', icon: '📦', roles: ['administrador', 'tecnico', 'vendedor'] },
-  { href: '/caja', label: 'Caja / Ventas', icon: '💰', roles: ['administrador', 'vendedor'] },
-  { href: '/compras', label: 'Compras', icon: '🏭', roles: ['administrador'] },
-  { href: '/usuarios', label: 'Usuarios', icon: '👥', roles: ['administrador'] },
-  { href: '/informes', label: 'Informes', icon: '📈', roles: ['administrador', 'tecnico', 'vendedor'] },
-  { href: '/configuracion', label: 'Configuración', icon: '⚙️', roles: ['administrador'] },
-]
 
 export default function AppSidebar({ user }: { user: UserProfile | null }) {
   const pathname = usePathname()
@@ -36,8 +25,8 @@ export default function AppSidebar({ user }: { user: UserProfile | null }) {
   const [collapsed, setCollapsed] = useState(false)
   const roleName = user?.roles?.nombre ?? ''
 
-  const visibleItems = navItems.filter(item =>
-    !item.roles.length || item.roles.includes(roleName)
+  const visibleItems = MODULOS.filter(m =>
+    tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)
   )
 
   async function handleLogout() {
@@ -116,7 +105,7 @@ export default function AppSidebar({ user }: { user: UserProfile | null }) {
           {!collapsed && (
             <div className="flex-1 overflow-hidden">
               <p className="text-sm font-medium truncate">{user?.nombre_completo ?? 'Usuario'}</p>
-              <p className="text-xs text-blue-300 capitalize truncate">{roleName}</p>
+              <p className="text-xs text-blue-300 truncate">{ROL_LABEL[roleName] ?? roleName}</p>
             </div>
           )}
         </div>

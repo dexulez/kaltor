@@ -6,9 +6,17 @@ import UsuarioAcciones from '@/components/usuarios/UsuarioAcciones'
 import { Role, UserProfile } from '@/types'
 
 const ROL_COLOR: Record<string, string> = {
-  administrador: 'bg-purple-100 text-purple-700',
-  tecnico: 'bg-blue-100 text-blue-700',
-  vendedor: 'bg-green-100 text-green-700',
+  administrador:     'bg-purple-100 text-purple-700',
+  tecnico:           'bg-blue-100 text-blue-700',
+  vendedor:          'bg-green-100 text-green-700',
+  supervisor_ventas: 'bg-orange-100 text-orange-700',
+}
+
+const ROL_LABEL: Record<string, string> = {
+  administrador:     'Administrador',
+  tecnico:           'Técnico',
+  vendedor:          'Vendedor',
+  supervisor_ventas: 'Supervisor Ventas',
 }
 
 type RoleRelation = Pick<Role, 'id' | 'nombre'> | Pick<Role, 'id' | 'nombre'>[] | null
@@ -102,8 +110,8 @@ export default async function UsuariosPage() {
                     <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{u.email}</td>
                     <td className="px-4 py-3">
                       {rolNombre ? (
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${ROL_COLOR[rolNombre] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {rolNombre}
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ROL_COLOR[rolNombre] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {ROL_LABEL[rolNombre] ?? rolNombre}
                         </span>
                       ) : (
                         <span className="text-gray-400 text-xs italic">Sin rol</span>

@@ -15,7 +15,7 @@ export type RepairType =
   | 'pantalla' | 'bateria' | 'placa' | 'software'
   | 'camara' | 'conector' | 'otro'
 
-export type UserRole = 'administrador' | 'tecnico' | 'vendedor'
+export type UserRole = 'administrador' | 'tecnico' | 'vendedor' | 'supervisor_ventas'
 
 export type PaymentMethod = 'efectivo' | 'transferencia' | 'debito' | 'credito'
 
@@ -47,6 +47,7 @@ export interface UserProfile {
   comision_conector: number
   comision_otro: number
   activo: boolean
+  permisos_modulos?: Record<string, boolean> | null
   created_at: string
   updated_at: string
   roles?: Role

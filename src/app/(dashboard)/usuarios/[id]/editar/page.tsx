@@ -4,7 +4,7 @@ import Link from 'next/link'
 import UsuarioForm from '@/components/usuarios/UsuarioForm'
 import { Role, UserProfile } from '@/types'
 
-type UsuarioDetalle = Pick<UserProfile, 'id' | 'nombre_completo' | 'email' | 'telefono' | 'rol_id' | 'activo'>
+type UsuarioDetalle = Pick<UserProfile, 'id' | 'nombre_completo' | 'email' | 'telefono' | 'rol_id' | 'activo' | 'permisos_modulos'>
 
 type RolOption = Pick<Role, 'id' | 'nombre'>
 
@@ -15,7 +15,7 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
   const [{ data: usuario }, { data: roles }] = await Promise.all([
     supabase
       .from('user_profiles')
-      .select('id, nombre_completo, email, telefono, rol_id, activo')
+      .select('id, nombre_completo, email, telefono, rol_id, activo, permisos_modulos')
       .eq('id', id)
       .single(),
     supabase
