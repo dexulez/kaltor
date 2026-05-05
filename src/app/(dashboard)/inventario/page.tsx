@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import { Product, ProductCategory, Supplier } from '@/types'
+import ProductoQRButton from '@/components/inventario/ProductoQRButton'
 
 const TIPO_LABELS: Record<string, string> = {
   repuesto: 'Repuesto', accesorio: 'Accesorio',
@@ -136,6 +137,7 @@ export default async function InventarioPage({
                     <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCLP(p.precio_venta)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1 justify-end">
+                        <ProductoQRButton productId={p.id} nombre={p.nombre} sku={p.sku} />
                         <Link href={`/inventario/${p.id}/editar`}>
                           <Button variant="outline" size="sm">Editar</Button>
                         </Link>

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatCLP } from '@/lib/calculations'
 import RecibirMercanciaForm from '@/components/compras/RecibirMercanciaForm'
+import CerrarCompraForm from '@/components/compras/CerrarCompraForm'
 import { PurchaseOrder, PurchaseOrderItem, Supplier } from '@/types'
 
 const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
@@ -141,8 +142,11 @@ export default async function DetalleOrdenCompraPage({ params }: { params: Promi
         </table>
       </div>
 
-      {/* Recepción */}
+      {/* Recepción de mercancía */}
       <RecibirMercanciaForm oc={orden} />
+
+      {/* Cerrar compra / registrar pago */}
+      <CerrarCompraForm oc={orden} />
     </div>
   )
 }

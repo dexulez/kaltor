@@ -7,9 +7,11 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { formatCLP, calcularIva, calcularPpm } from '@/lib/calculations'
 import { Product } from '@/types'
+import QRScanner from '@/components/shared/QRScanner'
+import { parseProductoQR } from '@/components/shared/ProductoQRCode'
 
 interface ItemCarrito { product: Product; cantidad: number }
 
@@ -30,6 +32,7 @@ export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, c
   const [metodo, setMetodo] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
   const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura'>('boleta')
   const [busqueda, setBusqueda] = useState('')
+  const [showScanner, setShowScanner] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const productosFiltrados = productos.filter(p =>
@@ -52,6 +55,17 @@ export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, c
   }
 
   function quitarItem(id: string) { setCarrito(c => c.filter(i => i.product.id !== id)) }
+
+  function handleQRScan(value: string) {
+    setShowScanner(false)
+    const productId = parseProductoQR(value)
+    if (!productId) { toast.error('Código QR no reconocido'); return }
+    const producto = productos.find(p => p.id === productId)
+    if (!producto) { toast.error('Producto no encontrado en inventario'); return }
+    if (producto.stock_actual <= 0) { toast.error(`${producto.nombre} sin stock disponible`); return }
+    agregarProducto(producto)
+    toast.success(`${producto.nombre} agregado al carrito`)
+  }
 
   const subtotal = carrito.reduce((s, i) => s + i.product.precio_venta * i.cantidad, 0)
   const precioNeto = (i: ItemCarrito) => i.product.precio_incluye_iva
@@ -116,11 +130,24 @@ export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, c
   }
 
   return (
+    <>
+    {showScanner && (
+      <QRScanner onScan={handleQRScan} onClose={() => setShowScanner(false)} />
+    )}
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Buscador de productos */}
       <div className="lg:col-span-3 space-y-3">
         <div className="bg-white rounded-xl border p-4 space-y-3">
-          <Label className="text-base font-semibold">Buscar producto</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold">Buscar producto</Label>
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors"
+            >
+              📷 Escanear QR
+            </button>
+          </div>
           <Input
             placeholder="Nombre del producto..."
             value={busqueda}
@@ -233,7 +260,9 @@ export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, c
             <div className="space-y-1.5">
               <Label>Documento</Label>
               <Select value={tipoDoc} onValueChange={(v) => setTipoDoc(v as typeof tipoDoc)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <span className="flex-1 text-left text-sm">{tipoDoc === 'boleta' ? 'Boleta' : 'Factura'}</span>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="boleta">Boleta</SelectItem>
                   <SelectItem value="factura">Factura</SelectItem>
@@ -249,5 +278,6 @@ export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, c
         </div>
       </div>
     </div>
+    </>
   )
 }
