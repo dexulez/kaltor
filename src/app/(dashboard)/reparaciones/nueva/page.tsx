@@ -1,0 +1,48 @@
+import { createClient } from '@/lib/supabase/server'
+import NuevaOTForm from '@/components/reparaciones/NuevaOTForm'
+import Link from 'next/link'
+
+type TecnicoConRol = {
+  id: string
+  nombre_completo: string
+  roles: { nombre: string }[] | null
+}
+
+export default async function NuevaOTPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cliente?: string }>
+}) {
+  const { cliente: clienteId } = await searchParams
+  const supabase = await createClient()
+
+  const { data: clientes } = await supabase
+    .from('customers')
+    .select('id, nombre, telefono, rut')
+    .eq('activo', true)
+    .order('nombre')
+
+  const { data: tecnicos } = await supabase
+    .from('user_profiles')
+    .select('id, nombre_completo, roles(nombre)')
+    .eq('activo', true)
+
+  const tecnicosData = (tecnicos ?? []) as TecnicoConRol[]
+  const tecnicosFiltrados = tecnicosData.filter(
+    (t) => t.roles?.some((r) => r.nombre === 'tecnico' || r.nombre === 'administrador')
+  ) ?? []
+
+  return (
+    <div className="p-6 space-y-5">
+      <div>
+        <Link href="/reparaciones" className="text-sm text-blue-600 hover:underline">← Volver a reparaciones</Link>
+        <h1 className="text-2xl font-bold text-gray-900 mt-1">Nueva orden de trabajo</h1>
+      </div>
+      <NuevaOTForm
+        clientes={clientes ?? []}
+        tecnicos={tecnicosFiltrados}
+        clienteIdInicial={clienteId}
+      />
+    </div>
+  )
+}

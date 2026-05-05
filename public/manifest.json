@@ -1,0 +1,42 @@
+{
+  "name": "TechRepair Pro",
+  "short_name": "TechRepair",
+  "description": "Sistema de gestión para taller de reparación de teléfonos",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "es-CL",
+  "shortcuts": [
+    {
+      "name": "Nueva OT",
+      "short_name": "Nueva OT",
+      "description": "Crear nueva orden de trabajo",
+      "url": "/reparaciones/nueva",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Caja",
+      "short_name": "Caja",
+      "description": "Ir a caja",
+      "url": "/caja",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

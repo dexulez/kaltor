@@ -1,0 +1,153 @@
+import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { formatCLP } from '@/lib/calculations'
+import { Product, ProductCategory, Supplier } from '@/types'
+
+const TIPO_LABELS: Record<string, string> = {
+  repuesto: 'Repuesto', accesorio: 'Accesorio',
+  equipo_usado: 'Equipo usado', insumo: 'Insumo',
+}
+const TIPO_COLORS: Record<string, string> = {
+  repuesto: 'bg-blue-100 text-blue-700', accesorio: 'bg-green-100 text-green-700',
+  equipo_usado: 'bg-purple-100 text-purple-700', insumo: 'bg-gray-100 text-gray-600',
+}
+
+type ProductListItem = Product & {
+  product_categories: Pick<ProductCategory, 'nombre' | 'tipo'> | null
+  suppliers: Pick<Supplier, 'nombre'> | null
+}
+
+export default async function InventarioPage({
+  searchParams,
+}: { searchParams: Promise<{ q?: string; categoria?: string; alerta?: string }> }) {
+  const { q, categoria, alerta } = await searchParams
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('products')
+    .select('*, product_categories(nombre, tipo), suppliers(nombre)')
+    .eq('activo', true)
+    .order('nombre')
+
+  if (q) query = query.ilike('nombre', `%${q}%`)
+  if (categoria) query = query.eq('categoria_id', categoria)
+  if (alerta === '1') query = query.filter('stock_actual', 'lte', 'stock_minimo')
+
+  const [{ data: productos }, { data: categorias }, { count: alertaCount }] = await Promise.all([
+    query.limit(100),
+    supabase.from('product_categories').select('*').order('nombre'),
+    supabase.from('products').select('*', { count: 'exact', head: true })
+      .eq('activo', true).filter('stock_actual', 'lte', 'stock_minimo'),
+  ])
+
+  const productosList: ProductListItem[] = (productos ?? []) as ProductListItem[]
+
+  return (
+    <div className="p-6 space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{productos?.length ?? 0} producto(s)</p>
+        </div>
+        <Link href="/inventario/nuevo">
+          <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo producto</Button>
+        </Link>
+      </div>
+
+      {/* Alerta stock crítico */}
+      {(alertaCount ?? 0) > 0 && (
+        <Link href="/inventario?alerta=1">
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3 hover:bg-red-100 transition-colors">
+            <span className="text-xl">⚠️</span>
+            <p className="text-red-700 text-sm font-medium">
+              {alertaCount} producto(s) con stock en nivel crítico — Click para ver
+            </p>
+          </div>
+        </Link>
+      )}
+
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          placeholder="Buscar producto..."
+          defaultValue={q}
+          className="border rounded-lg px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+        <Link href="/inventario">
+          <span className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border ${!categoria ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}>
+            Todos
+          </span>
+        </Link>
+        {categorias?.map(cat => (
+          <Link key={cat.id} href={`/inventario?categoria=${cat.id}`}>
+            <span className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition-colors
+              ${categoria === cat.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+              {cat.nombre}
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-xl border overflow-hidden">
+        {!productos?.length ? (
+          <div className="text-center py-16 text-gray-400">
+            <span className="text-5xl block mb-3">📦</span>
+            <p className="font-medium">No hay productos registrados</p>
+            <p className="text-sm mt-1">Agrega productos con &quot;+ Nuevo producto&quot;</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Producto</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Categoría</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Proveedor</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">Stock</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">Costo real</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">Precio venta</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {productosList.map((p) => {
+                const critico = p.stock_actual <= p.stock_minimo
+                const costoReal = (p.precio_costo ?? 0) + (p.costo_envio ?? 0)
+                const tipo = p.product_categories?.tipo ?? ''
+                return (
+                  <tr key={p.id} className={`hover:bg-gray-50 ${critico ? 'bg-red-50' : ''}`}>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">{p.nombre}</p>
+                      {p.sku && <p className="text-xs text-gray-400">{p.sku}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TIPO_COLORS[tipo] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {TIPO_LABELS[tipo] ?? tipo}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{p.suppliers?.nombre ?? '—'}</td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`font-bold ${critico ? 'text-red-600' : 'text-gray-800'}`}>
+                        {p.stock_actual}
+                      </span>
+                      <span className="text-gray-400 text-xs"> / mín {p.stock_minimo}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-600">{formatCLP(costoReal)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCLP(p.precio_venta)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1 justify-end">
+                        <Link href={`/inventario/${p.id}/editar`}>
+                          <Button variant="outline" size="sm">Editar</Button>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
