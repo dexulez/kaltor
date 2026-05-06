@@ -13,15 +13,17 @@ export default async function DashboardLayout({
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('*, roles(*)')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, { data: config }] = await Promise.all([
+    supabase.from('user_profiles').select('*, roles(*)').eq('id', user.id).single(),
+    supabase.from('system_config').select('nombre_local, logo_url').single(),
+  ])
+
+  const logoUrl = (config as { logo_url?: string | null } | null)?.logo_url ?? null
+  const nombreLocal = (config as { nombre_local?: string } | null)?.nombre_local ?? 'TechRepair Pro'
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <AppSidebar user={profile} />
+      <AppSidebar user={profile} logoUrl={logoUrl} nombreLocal={nombreLocal} />
       <main className="flex-1 overflow-auto pb-16 md:pb-0">
         {children}
       </main>

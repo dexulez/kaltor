@@ -18,7 +18,11 @@ const ROL_LABEL: Record<string, string> = {
   supervisor_ventas: 'Supervisor Ventas',
 }
 
-export default function AppSidebar({ user }: { user: UserProfile | null }) {
+export default function AppSidebar({ user, logoUrl, nombreLocal }: {
+  user: UserProfile | null
+  logoUrl?: string | null
+  nombreLocal?: string
+}) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -49,11 +53,16 @@ export default function AppSidebar({ user }: { user: UserProfile | null }) {
       collapsed ? 'w-16' : 'w-64'
     )}>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-blue-800">
-        <span className="text-2xl shrink-0">🔧</span>
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-blue-800">
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt="Logo" className={cn('object-contain shrink-0', collapsed ? 'h-8 w-8' : 'h-9 max-w-[40px]')} />
+        ) : (
+          <span className="text-2xl shrink-0">🔧</span>
+        )}
         {!collapsed && (
-          <div className="overflow-hidden">
-            <p className="font-bold text-sm leading-tight">TechRepair Pro</p>
+          <div className="overflow-hidden flex-1 min-w-0">
+            <p className="font-bold text-sm leading-tight truncate">{nombreLocal ?? 'TechRepair Pro'}</p>
             <p className="text-blue-300 text-xs truncate">Gestión de taller</p>
           </div>
         )}
