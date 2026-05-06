@@ -3,15 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
-interface DetectedBarcode { rawValue: string; format?: string }
-interface BarcodeDetectorInstance {
-  detect(src: HTMLVideoElement): Promise<DetectedBarcode[]>
-}
+// ── Tipos BarcodeDetector (Chrome/Android/Edge) ───────────────────────────────
+interface DetectedBarcode { rawValue: string }
+interface BarcodeDetectorInstance { detect(src: HTMLVideoElement): Promise<DetectedBarcode[]> }
 type BarcodeDetectorCtor = new(opts: { formats: string[] }) => BarcodeDetectorInstance
 
-const SUPPORTED_FORMATS = [
-  'qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e',
-  'code_128', 'code_39', 'code_93', 'itf', 'data_matrix', 'aztec',
+const BD_FORMATS = [
+  'qr_code','ean_13','ean_8','upc_a','upc_e',
+  'code_128','code_39','code_93','itf','data_matrix','aztec',
 ]
 
 interface Props {
@@ -29,60 +28,91 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
     let active = true
     let stream: MediaStream | null = null
 
-    const BDClass = (typeof window !== 'undefined')
-      ? (window as Window & { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector
-      : undefined
-
-    if (!BDClass) {
-      setEstado('error')
-      setMensajeError('Tu navegador no soporta el escáner. Usa Chrome en Android o Edge en PC.')
-      return
+    async function startStream() {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      })
+      if (!active) { stream.getTracks().forEach(t => t.stop()); return null }
+      const video = videoRef.current!
+      video.srcObject = stream
+      await video.play()
+      return video
     }
 
-    async function start() {
+    // ── Motor 1: BarcodeDetector nativo (Chrome, Edge, Android) ──────────────
+    async function startNative() {
+      const BDClass = (window as Window & { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector
+      if (!BDClass) return false
+      const video = await startStream()
+      if (!video) return true
+      setEstado('listo')
+      const detector = new BDClass({ formats: BD_FORMATS })
+      async function loop() {
+        if (!active || !video) return
+        if (video.readyState >= 2) {
+          try {
+            const hits = await detector.detect(video)
+            if (!active) return
+            if (hits.length > 0) {
+              active = false
+              stream?.getTracks().forEach(t => t.stop())
+              onScan(hits[0].rawValue)
+              return
+            }
+          } catch { /* sin código en este frame */ }
+        }
+        if (active) requestAnimationFrame(loop)
+      }
+      loop()
+      return true
+    }
+
+    // ── Motor 2: ZXing (iOS Safari, Firefox, cualquier otro) ─────────────────
+    async function startZXing() {
+      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      const video = await startStream()
+      if (!video) return
+      setEstado('listo')
+      const reader = new BrowserMultiFormatReader()
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        })
-        if (!active) { stream.getTracks().forEach(t => t.stop()); return }
-        const video = videoRef.current
-        if (!video) return
-        video.srcObject = stream
-        await video.play()
-        setEstado('listo')
-
-        const detector = new BDClass!({ formats: SUPPORTED_FORMATS })
-
-        async function loop() {
-          if (!active || !video) return
-          if (video.readyState >= 2) {
-            try {
-              const hits = await detector.detect(video)
-              if (!active) return
-              if (hits.length > 0) {
-                active = false
-                stream?.getTracks().forEach(t => t.stop())
-                onScan(hits[0].rawValue)
-                return
-              }
-            } catch { /* frame sin código */ }
+        await reader.decodeFromVideoElement(video, (result, err) => {
+          if (!active) return
+          if (result) {
+            active = false
+            stream?.getTracks().forEach(t => t.stop())
+            onScan(result.getText())
           }
-          if (active) requestAnimationFrame(loop)
-        }
-        loop()
+          // err es normal cuando no hay código visible en el frame
+          void err
+        })
       } catch {
-        if (active) {
-          setEstado('error')
-          setMensajeError('No se pudo acceder a la cámara. Verifica los permisos del navegador.')
-        }
+        // ZXing puede lanzar si el stream se detiene antes de decodificar
       }
     }
 
-    start()
+    async function init() {
+      try {
+        // Verificar acceso a cámara
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setEstado('error')
+          setMensajeError('Cámara no disponible. Abre la app en el navegador del teléfono (no en webview de otra app).')
+          return
+        }
+        const nativeOk = await startNative()
+        if (!nativeOk) await startZXing()
+      } catch (e) {
+        if (!active) return
+        const msg = e instanceof Error ? e.message : ''
+        if (msg.includes('Permission') || msg.includes('NotAllowed')) {
+          setMensajeError('Permiso de cámara denegado. Ve a Ajustes > Safari (o Chrome) > Cámara y permite el acceso.')
+        } else {
+          setMensajeError('No se pudo iniciar la cámara. Intenta recargar la página.')
+        }
+        setEstado('error')
+      }
+    }
+
+    init()
     return () => { active = false; stream?.getTracks().forEach(t => t.stop()) }
   }, [onScan])
 
@@ -106,42 +136,39 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
           <div className="p-8 text-center space-y-3">
             <p className="text-5xl">📷</p>
             <p className="text-sm text-red-600 font-medium">{mensajeError}</p>
-            <p className="text-xs text-gray-400">
-              El escáner funciona en Chrome para Android y Edge/Chrome en PC.
-            </p>
-            <Button variant="outline" onClick={onClose} className="mt-2">Cerrar</Button>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 text-left space-y-1">
+              <p className="font-semibold">En iPhone:</p>
+              <p>• Abre la app en <strong>Safari</strong></p>
+              <p>• Ve a <strong>Ajustes → Safari → Cámara → Permitir</strong></p>
+              <p>• O abre en <strong>Chrome para iOS</strong></p>
+            </div>
+            <Button variant="outline" onClick={onClose} className="mt-2 w-full">Cerrar</Button>
           </div>
         ) : (
           <div className="relative bg-black">
-            {/* 4:3 para mejor captura de barcodes horizontales */}
             <video
               ref={videoRef}
               className="w-full"
               style={{ aspectRatio: '4/3' }}
               muted
               playsInline
+              autoPlay
             />
 
-            {/* Overlay con guía rectangular para barcode */}
+            {/* Overlay guía rectangular para barcodes */}
             <div className="absolute inset-0 pointer-events-none">
-              {/* Oscurecer zonas fuera del área de escaneo */}
               <div className="absolute inset-0 bg-black/50" />
-              {/* Ventana limpia rectangular centrada */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div
                   className="relative"
-                  style={{
-                    width: '80%',
-                    height: '25%',
-                    boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                  }}
+                  style={{ width: '82%', height: '26%', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}
                 >
-                  {/* Esquinas blancas */}
+                  {/* Esquinas */}
                   <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl" />
                   <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr" />
                   <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl" />
                   <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white rounded-br" />
-                  {/* Línea roja de escaneo */}
+                  {/* Línea de escaneo */}
                   {estado === 'listo' && (
                     <div className="absolute top-1/2 left-2 right-2 h-0.5 bg-red-500 opacity-90 animate-pulse" />
                   )}
@@ -150,10 +177,10 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
             </div>
 
             {estado === 'iniciando' && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
                 <div className="text-center text-white space-y-2">
                   <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-sm animate-pulse">Iniciando cámara...</p>
+                  <p className="text-sm">Iniciando cámara…</p>
                 </div>
               </div>
             )}
@@ -162,7 +189,7 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
 
         <div className="px-4 py-3 bg-gray-50 border-t text-center">
           <p className="text-xs text-gray-500">
-            Apunta el código de barras o QR al centro del recuadro
+            Centra el código de barras o QR dentro del recuadro
           </p>
         </div>
       </div>
