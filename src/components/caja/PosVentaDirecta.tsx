@@ -117,7 +117,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       id: data.id as string,
       nombre: data.nombre as string,
       telefono: (data.telefono as string) ?? '',
-      rut: (data.rut as string | null) ?? null,
+      rut: (data.rut as string | null) ?? undefined,
     }
 
     setClientesList(prev => [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre)))
