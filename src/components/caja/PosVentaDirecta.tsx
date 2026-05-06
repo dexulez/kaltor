@@ -70,6 +70,13 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const [busqueda, setBusqueda] = useState('')
   const [showScanner, setShowScanner] = useState(false)
   const [loading, setLoading] = useState(false)
+  // Descuento
+  const [descuentoInput, setDescuentoInput] = useState('')
+  const [tipoDescuento, setTipoDescuento] = useState<'monto' | 'pct'>('monto')
+  // Cobro mixto
+  const [cobromixto, setCobromixto] = useState(false)
+  const [metodo2, setMetodo2] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
+  const [monto2Input, setMonto2Input] = useState('')
 
   const productosFiltrados = productos.filter(p =>
     p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && p.stock_actual > 0
@@ -173,6 +180,13 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const subtotalProductos = carrito.reduce((s, i) => s + i.product.precio_venta * i.cantidad, 0)
   const subtotalOTs = serviciosOT.reduce((s, ot) => s + ot.precio, 0)
   const subtotal = subtotalProductos + subtotalOTs
+  // Descuento
+  const descuentoNum = parseFloat(descuentoInput) || 0
+  const descuentoFinal = tipoDescuento === 'pct' ? Math.round(subtotal * descuentoNum / 100) : Math.round(descuentoNum)
+  const totalFinalConDesc = Math.max(0, subtotal - descuentoFinal)
+  // Cobro mixto
+  const monto2 = Math.min(parseInt(monto2Input) || 0, totalFinalConDesc)
+  const monto1 = Math.max(0, totalFinalConDesc - monto2)
   const clienteSeleccionado = clientesList.find(c => c.id === clienteId)
   const clienteValue = clienteSeleccionado ? clienteId : ''
 
@@ -222,14 +236,12 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     ? Math.round(i.product.precio_venta / 1.19)
     : i.product.precio_venta
 
-  const netoProductos = carrito.reduce((s, i) => s + precioNeto(i) * i.cantidad, 0)
-  const netoOTs = serviciosOT.reduce((s, ot) => s + Math.round(ot.precio / (1 + IVA / 100)), 0)
-  const netoTotal = netoProductos + netoOTs
-  const ivaTotal = calcularIva(netoTotal, IVA)
+  const netoTotal = Math.round(totalFinalConDesc / (1 + IVA / 100))
+  const ivaTotal = totalFinalConDesc - netoTotal
   const ppmTotal = calcularPpm(netoTotal, PPM)
   const comisionPct = metodo === 'debito' ? comisionDebito : metodo === 'credito' ? comisionCredito : 0
-  const comisionBancaria = Math.round(subtotal * comisionPct / 100)
-  const totalFinal = subtotal
+  const comisionBancaria = Math.round(totalFinalConDesc * comisionPct / 100)
+  const totalFinal = totalFinalConDesc
 
   async function handleVenta() {
     if (!carrito.length && !serviciosOT.length) { toast.error('Agrega al menos un producto u OT'); return }
@@ -243,7 +255,10 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       iva: ivaTotal,
       ppm: ppmTotal,
       total: totalFinal,
+      descuento: descuentoFinal,
       metodo_pago: metodo,
+      metodo_pago_2: cobromixto && monto2 > 0 ? metodo2 : null,
+      monto_pago_2: cobromixto && monto2 > 0 ? monto2 : null,
       comision_bancaria: comisionBancaria,
       tipo_documento: tipoDoc,
     }).select().single()
@@ -480,7 +495,37 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
         <div className="bg-white rounded-xl border p-5 space-y-4 sticky top-4">
           <h2 className="font-semibold text-gray-800 text-lg">Resumen de cobro</h2>
 
-          <div className="space-y-2 text-sm">
+          {/* Descuento */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Descuento</Label>
+            <div className="flex gap-2">
+              <div className="flex border rounded-lg overflow-hidden text-xs shrink-0">
+                <button onClick={() => setTipoDescuento('monto')}
+                  className={`px-3 py-1.5 font-semibold transition-colors ${tipoDescuento === 'monto' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>$</button>
+                <button onClick={() => setTipoDescuento('pct')}
+                  className={`px-3 py-1.5 font-semibold transition-colors ${tipoDescuento === 'pct' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>%</button>
+              </div>
+              <Input type="number" min={0} max={tipoDescuento === 'pct' ? 100 : undefined}
+                placeholder={tipoDescuento === 'pct' ? 'Ej: 10' : 'Ej: 5000'}
+                value={descuentoInput} onChange={e => setDescuentoInput(e.target.value)} className="flex-1 h-9" />
+            </div>
+            {descuentoFinal > 0 && (
+              <p className="text-xs text-red-600 font-medium">− {formatCLP(descuentoFinal)} de descuento</p>
+            )}
+          </div>
+
+          {/* Totales */}
+          <div className="space-y-1.5 text-sm bg-gray-50 rounded-lg p-3">
+            {subtotal > 0 && descuentoFinal > 0 && (
+              <div className="flex justify-between text-gray-500 text-xs">
+                <span>Subtotal</span><span>{formatCLP(subtotal)}</span>
+              </div>
+            )}
+            {descuentoFinal > 0 && (
+              <div className="flex justify-between text-red-600 text-xs">
+                <span>Descuento</span><span>− {formatCLP(descuentoFinal)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-600">
               <span>Neto</span><span>{formatCLP(netoTotal)}</span>
             </div>
@@ -492,7 +537,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
             </div>
             {comisionBancaria > 0 && (
               <div className="flex justify-between text-orange-600 text-xs">
-                <span>Comisión bancaria ({comisionPct}%)</span><span>−{formatCLP(comisionBancaria)}</span>
+                <span>Comisión bancaria ({comisionPct}%)</span><span>− {formatCLP(comisionBancaria)}</span>
               </div>
             )}
             <div className="flex justify-between font-bold text-xl border-t pt-2 text-gray-900">
@@ -572,6 +617,44 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Cobro mixto */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={cobromixto} onChange={e => setCobromixto(e.target.checked)} className="w-4 h-4 accent-blue-600" />
+                <span className="text-sm font-medium text-gray-700">💳 Cobro mixto (2 métodos)</span>
+              </label>
+              {cobromixto && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+                  <p className="text-xs text-blue-700 font-medium">Segundo método de pago</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {Object.entries(METODO_LABELS).filter(([k]) => k !== metodo).map(([k, v]) => (
+                      <button key={k} type="button" onClick={() => setMetodo2(k as typeof metodo2)}
+                        className={`px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${metodo2 === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Monto con {METODO_LABELS[metodo2]}</Label>
+                    <Input type="number" min={0} max={totalFinal}
+                      placeholder={`Máx: ${formatCLP(totalFinal)}`}
+                      value={monto2Input} onChange={e => setMonto2Input(e.target.value)}
+                      className="mt-1 h-8 text-sm" />
+                  </div>
+                  {monto2 > 0 && (
+                    <div className="space-y-0.5 text-xs font-medium border-t border-blue-200 pt-2">
+                      <div className="flex justify-between text-gray-700">
+                        <span>{METODO_LABELS[metodo]}</span><span>{formatCLP(monto1)}</span>
+                      </div>
+                      <div className="flex justify-between text-blue-700">
+                        <span>{METODO_LABELS[metodo2]}</span><span>{formatCLP(monto2)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">

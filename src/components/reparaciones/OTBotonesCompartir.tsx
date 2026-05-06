@@ -110,12 +110,6 @@ export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
       </tbody>
     </table>`
 
-  const firmasHtml = `
-    <div style="display:flex;gap:6mm;margin-top:5mm">
-      <div style="flex:1"><div style="height:12mm;border-bottom:1px solid #000"></div><div style="text-align:center;font-size:7pt;padding-top:1mm">Firma y RUT cliente</div></div>
-      <div style="flex:1"><div style="height:12mm;border-bottom:1px solid #000"></div><div style="text-align:center;font-size:7pt;padding-top:1mm">Firma técnico / Sello</div></div>
-    </div>`
-
   const headerHtml = `
     <div style="display:flex;align-items:center;gap:4mm;border-bottom:2px solid #000;padding-bottom:3mm;margin-bottom:3mm">
       ${logoHtml}
@@ -147,107 +141,195 @@ export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
 
   const trackingBox = `<div style="border:1px dashed #999;padding:2mm;text-align:center;font-size:7pt;margin-top:2mm;border-radius:2px">Seguimiento: <strong>${trackingUrl}</strong></div>`
 
+  // ── CSS base compartido ────────────────────────────────────────────────────
+  const CSS_BASE = `
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#111;background:#fff}
+    table{width:100%;border-collapse:collapse}
+    td{padding:1px 2px;vertical-align:top}
+    .box{border:1.5px solid #e5e7eb;border-radius:5px;overflow:hidden;break-inside:avoid}
+    .box-hdr{background:#1e3a5f;color:#fff;padding:2mm 3mm;font-size:7.5pt;font-weight:bold;display:flex;align-items:center;gap:2mm;white-space:nowrap}
+    .box-hdr span{font-size:11pt;line-height:1}
+    .box-body{padding:2.5mm 3mm;font-size:8pt;line-height:1.5}
+    .box-body strong{font-weight:600}
+    .acc-ok{color:#16a34a;font-weight:bold}
+    .sig-row{display:flex;gap:8mm;margin-top:4mm}
+    .sig{flex:1;border-top:1px solid #111;padding-top:1mm;text-align:center;font-size:7pt;color:#6b7280}
+    .track{border:1.5px dashed #9ca3af;border-radius:4px;padding:2mm 4mm;display:flex;align-items:center;gap:3mm;font-size:7.5pt}
+    .track-icon{font-size:13pt;flex-shrink:0}
+    .ot-badge{background:#1e3a5f;color:#fff;padding:2.5mm 4mm;border-radius:5px;text-align:right;min-width:44mm}
+    .ot-badge-label{font-size:6.5pt;letter-spacing:1px;text-transform:uppercase;color:#93c5fd}
+    .ot-badge-num{font-size:11pt;font-weight:bold;font-family:monospace;color:#fbbf24;line-height:1.2}
+    .ot-badge-info{font-size:7.5pt;line-height:1.4}
+    .title-line{text-align:center;font-size:10.5pt;font-weight:bold;letter-spacing:2px;text-transform:uppercase;padding:2mm 0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;margin:3mm 0}
+    .cobro-tbl td:last-child{text-align:right;font-weight:600}
+    .cobro-total{border-top:2px solid #111;font-size:9pt;font-weight:bold}
+    .separator{border:none;border-top:3px dashed #d1d5db;margin:6mm 0}`
+
+  // ── Cabecera profesional (igual en todos los formatos) ─────────────────────
+  function cabeceraHtml() {
+    return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3mm">
+      <div style="display:flex;align-items:center;gap:3mm">
+        ${logoHtml}
+        <div>
+          <div style="font-size:13pt;font-weight:bold;line-height:1.1">${config.nombre_local}</div>
+          ${config.rut_local ? `<div style="font-size:8pt">RUT: ${config.rut_local}</div>` : ''}
+          ${config.direccion ? `<div style="font-size:8pt">${config.direccion}</div>` : ''}
+          ${config.telefono ? `<div style="font-size:8pt">Tel: ${config.telefono}</div>` : ''}
+        </div>
+      </div>
+      <div class="ot-badge">
+        <div class="ot-badge-label">Orden de Trabajo</div>
+        <div class="ot-badge-num">${ot.numero_ot}</div>
+        <div class="ot-badge-info">${fecha}</div>
+        <div class="ot-badge-info">Garantía: ${ot.dias_garantia ?? 30} días</div>
+      </div>
+    </div>`
+  }
+
+  // ── Bloques de contenido ───────────────────────────────────────────────────
+  function boxCliente() {
+    return `<div class="box">
+      <div class="box-hdr"><span>&#128100;</span> INFORMACIÓN DEL CLIENTE</div>
+      <div class="box-body">
+        <div><strong>${cliente?.nombre ?? '—'}</strong></div>
+        <div>${cliente?.telefono ?? ''}</div>
+        ${cliente?.rut ? `<div>RUT: ${cliente.rut}</div>` : ''}
+        ${cliente?.email ? `<div>${cliente.email}</div>` : ''}
+      </div>
+    </div>`
+  }
+
+  function boxEquipo() {
+    const accs = equipo?.accesorios?.length
+      ? equipo.accesorios.map(a => `${a} <span class="acc-ok">&#10003;</span>`).join('&nbsp;&nbsp;')
+      : null
+    return `<div class="box">
+      <div class="box-hdr"><span>&#128241;</span> DETALLES DEL EQUIPO</div>
+      <div class="box-body">
+        <div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong></div>
+        ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(': ')}</div>` : ''}
+        ${equipo?.imei ? `<div style="font-family:monospace;font-size:7.5pt">IMEI: ${equipo.imei}</div>` : ''}
+        ${accs ? `<div>Acc: ${accs}</div>` : ''}
+        ${equipo?.condicion_visual?.length ? `<div>Cond: ${equipo.condicion_visual.join(', ')}</div>` : ''}
+      </div>
+    </div>`
+  }
+
+  function boxServicio() {
+    return `<div class="box">
+      <div class="box-hdr"><span>&#128295;</span> INFORMACIÓN DEL SERVICIO</div>
+      <div class="box-body">
+        ${ot.tipo_reparacion ? `<div><strong>Tipo:</strong> ${TIPO_LABELS[ot.tipo_reparacion] ?? ot.tipo_reparacion}</div>` : ''}
+        ${ot.user_profiles ? `<div><strong>Técnico:</strong> ${ot.user_profiles.nombre_completo}</div>` : ''}
+        <div><strong>Falla:</strong> ${equipo?.falla_reportada ?? '—'}</div>
+        ${ot.diagnostico_tecnico ? `<div><strong>Diagnóstico:</strong> ${ot.diagnostico_tecnico}</div>` : ''}
+      </div>
+    </div>`
+  }
+
+  function boxCobro() {
+    const rows = [
+      ot.presupuesto_estimado ? `<tr><td>Presupuesto est.</td><td>${formatCLP(ot.presupuesto_estimado)}</td></tr>` : '',
+      ot.precio_servicio ? `<tr class="cobro-total"><td>Total</td><td style="color:#16a34a">${formatCLP(ot.precio_servicio)}</td></tr>` : '',
+    ].filter(Boolean).join('')
+    return `<div class="box">
+      <div class="box-hdr"><span>&#36;</span> DETALLES DE COBRO</div>
+      <div class="box-body">
+        <table class="cobro-tbl">
+          <thead><tr style="border-bottom:1px solid #e5e7eb;font-size:7.5pt;color:#6b7280"><td>Concepto</td><td style="text-align:right">Monto</td></tr></thead>
+          <tbody>${rows || '<tr><td colspan="2" style="color:#9ca3af;font-size:7.5pt">Sin precio asignado</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`
+  }
+
+  function trackHtml() {
+    return `<div class="track">
+      <div class="track-icon">&#127760;</div>
+      <div><span style="color:#6b7280">Seguimiento online: </span><strong><a href="${trackingUrl}" style="color:#2563eb;text-decoration:none">${trackingUrl}</a></strong></div>
+    </div>`
+  }
+
+  function firmasHtml() {
+    return `<div class="sig-row">
+      <div class="sig">Firma y RUT cliente</div>
+      <div class="sig">Firma técnico / Sello</div>
+    </div>`
+  }
+
   // ── Generar cuerpo HTML por formato ───────────────────────────────────────
 
   function generarCuerpo(): string {
-    const sectionTitle = (t: string) => `<div style="font-weight:bold;border-bottom:1px solid #666;margin:2mm 0 1mm;padding-bottom:0.5mm;font-size:7pt;text-transform:uppercase;letter-spacing:0.5px">${t}</div>`
-    const unaRecepcion = (compact = false) => `
-      ${headerHtml}
-      ${compact ? '' : `<div style="text-align:center;font-size:9pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:3mm">Comprobante de Recepción</div>`}
-      <div style="display:flex;gap:4mm">
-        <div style="flex:1">
-          ${sectionTitle('Cliente')}${clienteHtml}
-          ${sectionTitle('Servicio')}${servicioHtml}
-        </div>
-        <div style="flex:1">
-          ${sectionTitle('Equipo')}${equipoHtml}
-          ${sectionTitle('Cobro')}${cobroHtml}
-        </div>
-      </div>
-      ${trackingBox}${firmasHtml}`
-
     if (formato === 'a5h') {
-      const sep = copias === 2 ? '<hr style="border:none;border-top:3px dashed #aaa;margin:5mm 0">' : ''
+      const unaHoja = () => `
+        ${cabeceraHtml()}
+        <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:3mm">
+          ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
+        </div>
+        ${trackHtml()}
+        ${firmasHtml()}`
+      const sep = copias === 2 ? `<hr class="separator">` : ''
       const copia2 = copias === 2 ? `
         <div>
-          ${headerHtml}
-          <div style="display:flex;gap:4mm">
-            <div style="flex:1">${sectionTitle('Cliente')}${clienteHtml}${sectionTitle('Servicio')}${servicioHtml}</div>
-            <div style="flex:1">${sectionTitle('Equipo')}${equipoHtml}${sectionTitle('Cobro')}${cobroHtml}</div>
+          ${cabeceraHtml()}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2mm">
+            ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
           </div>
-          ${firmasHtml}
+          ${firmasHtml()}
         </div>` : ''
-      return `${unaRecepcion()}${sep}${copia2}${tcHtml}`
+      return unaHoja() + sep + copia2 + tcHtml
     }
 
     if (formato === 'a5v') {
-      const unaVertical = () => `
-        ${headerHtml}
-        ${sectionTitle('Cliente')}${clienteHtml}
-        ${sectionTitle('Equipo')}${equipoHtml}
-        ${sectionTitle('Servicio')}${servicioHtml}
-        ${sectionTitle('Cobro')}${cobroHtml}
-        ${trackingBox}${firmasHtml}`
-      const sep = copias === 2 ? '<hr style="border:none;border-top:3px dashed #aaa;margin:4mm 0">' : ''
-      const copia2 = copias === 2 ? `
-        ${sep}${headerHtml}
-        <div style="display:flex;gap:4mm">
-          <div style="flex:1">${sectionTitle('Cliente')}${clienteHtml}</div>
-          <div style="flex:1">${sectionTitle('Equipo')}${equipoHtml}${sectionTitle('Cobro')}${cobroHtml}</div>
+      const una = () => `
+        ${cabeceraHtml()}
+        <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">
+          ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
         </div>
-        ${firmasHtml}` : ''
-      return `${unaVertical()}${copia2}${tcHtml}`
+        ${trackHtml()}${firmasHtml()}`
+      const sep = copias === 2 ? `<hr class="separator">` : ''
+      const copia2 = copias === 2 ? `${cabeceraHtml()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">${boxCliente()}${boxEquipo()}</div>${firmasHtml()}` : ''
+      return una() + sep + copia2 + tcHtml
     }
 
     if (formato === 'a4') {
       return `
-        <div style="text-align:center;font-size:9pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:3mm">Comprobante de Recepción</div>
-        <div style="display:flex;gap:4mm">
-          <div style="flex:1">
-            ${sectionTitle('Cliente')}${clienteHtml}
-            ${sectionTitle('Servicio')}${servicioHtml}
-          </div>
-          <div style="flex:1">
-            ${sectionTitle('Equipo')}${equipoHtml}
-            ${sectionTitle('Cobro')}${cobroHtml}
-          </div>
+        ${cabeceraHtml()}
+        <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:3mm">
+          ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
         </div>
-        ${trackingBox}${firmasHtml}
-        <hr style="border:none;border-top:3px dashed #aaa;margin:8mm 0">
-        ${headerHtml}
-        <div style="display:flex;gap:4mm">
-          <div style="flex:1">${sectionTitle('Cliente')}${clienteHtml}</div>
-          <div style="flex:1">${sectionTitle('Equipo')}${equipoHtml}${sectionTitle('Cobro')}${cobroHtml}</div>
+        ${trackHtml()}${firmasHtml()}
+        <hr class="separator">
+        ${cabeceraHtml()}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2mm">
+          ${boxCliente()}${boxEquipo()}
         </div>
-        ${firmasHtml}
+        ${firmasHtml()}
         ${tcHtml}`
     }
 
-    // ticket 80mm
+    // Ticket 80mm térmico
+    const sT = (t: string) => `<div style="font-weight:bold;border-top:1px dashed #000;border-bottom:1px dashed #000;padding:0.5mm 0;margin:2mm 0;font-size:7.5pt;text-transform:uppercase;text-align:center">${t}</div>`
     return `
-      <div style="text-align:center;margin-bottom:3mm">
-        ${logoHtml}
+      <div style="text-align:center;margin-bottom:2mm">${logoHtml}
         <div style="font-size:9pt;font-weight:bold">${config.nombre_local}</div>
         ${config.telefono ? `<div>${config.telefono}</div>` : ''}
       </div>
-      <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:2mm 0;margin:2mm 0;text-align:center">
+      <div style="text-align:center;border-top:1px dashed #000;border-bottom:1px dashed #000;padding:1.5mm 0;margin:2mm 0">
         <div style="font-size:9pt;font-weight:bold;font-family:monospace">${ot.numero_ot}</div>
         <div>Fecha: ${fecha}</div>
       </div>
-      ${sectionTitle('CLIENTE')}
-      <div>${cliente?.nombre ?? '—'}</div>
-      <div>${cliente?.telefono ?? ''}</div>
-      ${cliente?.rut ? `<div>RUT: ${cliente.rut}</div>` : ''}
-      ${sectionTitle('EQUIPO')}
-      <div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong></div>
-      ${equipo?.imei ? `<div style="font-family:monospace;font-size:7pt">IMEI: ${equipo.imei}</div>` : ''}
-      ${sectionTitle('FALLA')}
-      <div>${equipo?.falla_reportada ?? '—'}</div>
-      ${ot.presupuesto_estimado ? `${sectionTitle('PRESUPUESTO')}<div>${formatCLP(ot.presupuesto_estimado)}</div>` : ''}
-      ${ot.precio_servicio ? `${sectionTitle('TOTAL')}<div style="font-size:10pt;font-weight:bold;color:#16a34a">${formatCLP(ot.precio_servicio)}</div>` : ''}
-      <div style="border-top:1px dashed #000;margin:3mm 0;padding-top:2mm;font-size:7pt;text-align:center">
-        Seguimiento: ${ot.codigo_seguimiento}
-      </div>
+      ${sT('CLIENTE')}<div><strong>${cliente?.nombre ?? '—'}</strong><br>${cliente?.telefono ?? ''}${cliente?.rut ? `<br>RUT: ${cliente.rut}` : ''}</div>
+      ${sT('EQUIPO')}<div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong>${equipo?.imei ? `<br><span style="font-family:monospace;font-size:7pt">IMEI: ${equipo.imei}</span>` : ''}</div>
+      ${sT('FALLA')}<div>${equipo?.falla_reportada ?? '—'}</div>
+      ${ot.presupuesto_estimado ? `${sT('PRESUPUESTO')}<div style="font-size:9pt;font-weight:bold">${formatCLP(ot.presupuesto_estimado)}</div>` : ''}
+      ${ot.precio_servicio ? `${sT('TOTAL')}<div style="font-size:10pt;font-weight:bold;color:#16a34a">${formatCLP(ot.precio_servicio)}</div>` : ''}
+      <div style="border-top:1px dashed #000;margin:3mm 0;padding-top:1.5mm;font-size:7pt;text-align:center">Seguimiento: ${ot.codigo_seguimiento}</div>
       <div style="height:15mm;border-bottom:1px solid #000;margin-bottom:1mm"></div>
       <div style="text-align:center;font-size:7pt">Firma cliente</div>
       <div style="height:15mm;border-bottom:1px solid #000;margin:3mm 0 1mm"></div>
@@ -273,11 +355,8 @@ export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
 <meta charset="UTF-8">
 <title>${ot.numero_ot} — ${config.nombre_local}</title>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#000;background:#fff}
+  ${CSS_BASE}
   ${getPageCSS()}
-  table{width:100%;border-collapse:collapse}
-  td{padding:1px 2px;vertical-align:top}
 </style>
 </head>
 <body>${generarCuerpo()}</body>
