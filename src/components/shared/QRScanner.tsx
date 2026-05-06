@@ -9,8 +9,8 @@ interface BarcodeDetectorInstance { detect(src: HTMLVideoElement): Promise<Detec
 type BarcodeDetectorCtor = new(opts: { formats: string[] }) => BarcodeDetectorInstance
 
 const BD_FORMATS = [
-  'qr_code','ean_13','ean_8','upc_a','upc_e',
-  'code_128','code_39','code_93','itf','data_matrix','aztec',
+  'qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e',
+  'code_128', 'code_39', 'code_93', 'itf', 'data_matrix', 'aztec',
 ]
 
 interface Props {
@@ -29,8 +29,13 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
     let stream: MediaStream | null = null
 
     async function startStream() {
+      // Resolución alta para que EAN-13 sea legible incluso en barcodes pequeños
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+        },
       })
       if (!active) { stream.getTracks().forEach(t => t.stop()); return null }
       const video = videoRef.current!
@@ -67,13 +72,36 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
       return true
     }
 
-    // ── Motor 2: ZXing (iOS Safari, Firefox, cualquier otro) ─────────────────
+    // ── Motor 2: ZXing con TRY_HARDER (iOS Safari, Firefox, otros) ───────────
     async function startZXing() {
-      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      const [{ BrowserMultiFormatReader }, { DecodeHintType, BarcodeFormat }] = await Promise.all([
+        import('@zxing/browser'),
+        import('@zxing/library'),
+      ])
+
+      // TRY_HARDER: activa algoritmos adicionales de detección para barcodes
+      // pequeños, inclinados o con contraste bajo (esencial para EAN-13 en iOS)
+      const hints = new Map()
+      hints.set(DecodeHintType.TRY_HARDER, true)
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93,
+        BarcodeFormat.ITF,
+        BarcodeFormat.QR_CODE,
+        BarcodeFormat.DATA_MATRIX,
+        BarcodeFormat.AZTEC,
+      ])
+
       const video = await startStream()
       if (!video) return
       setEstado('listo')
-      const reader = new BrowserMultiFormatReader()
+
+      const reader = new BrowserMultiFormatReader(hints)
       try {
         await reader.decodeFromVideoElement(video, (result, err) => {
           if (!active) return
@@ -82,20 +110,18 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
             stream?.getTracks().forEach(t => t.stop())
             onScan(result.getText())
           }
-          // err es normal cuando no hay código visible en el frame
-          void err
+          void err // NotFoundException es normal cuando no hay código en el frame
         })
       } catch {
-        // ZXing puede lanzar si el stream se detiene antes de decodificar
+        // ZXing lanza si el stream se detiene antes de decodificar — ignorar
       }
     }
 
     async function init() {
       try {
-        // Verificar acceso a cámara
         if (!navigator.mediaDevices?.getUserMedia) {
           setEstado('error')
-          setMensajeError('Cámara no disponible. Abre la app en el navegador del teléfono (no en webview de otra app).')
+          setMensajeError('Cámara no disponible. Abre la app directamente en Safari o Chrome.')
           return
         }
         const nativeOk = await startNative()
@@ -103,8 +129,8 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
       } catch (e) {
         if (!active) return
         const msg = e instanceof Error ? e.message : ''
-        if (msg.includes('Permission') || msg.includes('NotAllowed')) {
-          setMensajeError('Permiso de cámara denegado. Ve a Ajustes > Safari (o Chrome) > Cámara y permite el acceso.')
+        if (msg.includes('Permission') || msg.includes('NotAllowed') || msg.includes('denied')) {
+          setMensajeError('Permiso de cámara denegado. Ve a Ajustes → Safari (o Chrome) → Cámara → Permitir.')
         } else {
           setMensajeError('No se pudo iniciar la cámara. Intenta recargar la página.')
         }
@@ -124,7 +150,7 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
         <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
           <div>
             <p className="font-semibold text-gray-800 text-sm">📷 Escanear código</p>
-            <p className="text-xs text-gray-500">{hint ?? 'QR, EAN-13, Code 128, UPC…'}</p>
+            <p className="text-xs text-gray-500">{hint ?? 'EAN-13, Code 128, QR, UPC…'}</p>
           </div>
           <button
             onClick={onClose}
@@ -138,40 +164,49 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
             <p className="text-sm text-red-600 font-medium">{mensajeError}</p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 text-left space-y-1">
               <p className="font-semibold">En iPhone:</p>
-              <p>• Abre la app en <strong>Safari</strong></p>
-              <p>• Ve a <strong>Ajustes → Safari → Cámara → Permitir</strong></p>
-              <p>• O abre en <strong>Chrome para iOS</strong></p>
+              <p>• Abre en <strong>Safari</strong> o <strong>Chrome para iOS</strong></p>
+              <p>• <strong>Ajustes → Safari → Cámara → Permitir</strong></p>
             </div>
             <Button variant="outline" onClick={onClose} className="mt-2 w-full">Cerrar</Button>
           </div>
         ) : (
           <div className="relative bg-black">
+            {/* Video 16:9 para capturar más área horizontal — ideal para EAN-13 */}
             <video
               ref={videoRef}
               className="w-full"
-              style={{ aspectRatio: '4/3' }}
+              style={{ aspectRatio: '16/9' }}
               muted
               playsInline
               autoPlay
             />
 
-            {/* Overlay guía rectangular para barcodes */}
+            {/* Overlay: ventana amplia para barcodes lineales */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute inset-0 bg-black/50" />
               <div className="absolute inset-0 flex items-center justify-center">
+                {/* Ventana transparente más ancha y más alta que antes */}
                 <div
                   className="relative"
-                  style={{ width: '82%', height: '26%', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}
+                  style={{
+                    width: '90%',
+                    height: '32%',
+                    boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+                  }}
                 >
                   {/* Esquinas */}
-                  <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl" />
-                  <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr" />
-                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl" />
-                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white rounded-br" />
-                  {/* Línea de escaneo */}
+                  <div className="absolute top-0 left-0 w-7 h-7 border-t-[5px] border-l-[5px] border-white rounded-tl" />
+                  <div className="absolute top-0 right-0 w-7 h-7 border-t-[5px] border-r-[5px] border-white rounded-tr" />
+                  <div className="absolute bottom-0 left-0 w-7 h-7 border-b-[5px] border-l-[5px] border-white rounded-bl" />
+                  <div className="absolute bottom-0 right-0 w-7 h-7 border-b-[5px] border-r-[5px] border-white rounded-br" />
+                  {/* Línea de escaneo animada */}
                   {estado === 'listo' && (
-                    <div className="absolute top-1/2 left-2 right-2 h-0.5 bg-red-500 opacity-90 animate-pulse" />
+                    <div className="absolute top-1/2 left-3 right-3 h-[2px] bg-red-500 opacity-90 animate-pulse" />
                   )}
+                  {/* Texto guía dentro del recuadro */}
+                  <p className="absolute -bottom-6 left-0 right-0 text-center text-white text-[10px] opacity-70">
+                    Centra el código de barras aquí
+                  </p>
                 </div>
               </div>
             </div>
@@ -187,9 +222,12 @@ export default function QRScanner({ onScan, onClose, hint }: Props) {
           </div>
         )}
 
-        <div className="px-4 py-3 bg-gray-50 border-t text-center">
-          <p className="text-xs text-gray-500">
-            Centra el código de barras o QR dentro del recuadro
+        <div className="px-4 py-3 bg-gray-50 border-t text-center space-y-0.5">
+          <p className="text-xs text-gray-500 font-medium">
+            Mantén el teléfono <strong>horizontal</strong> frente al código
+          </p>
+          <p className="text-[10px] text-gray-400">
+            EAN-13 · EAN-8 · UPC · Code 128 · QR
           </p>
         </div>
       </div>
