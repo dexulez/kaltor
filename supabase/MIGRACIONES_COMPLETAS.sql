@@ -193,3 +193,21 @@ WHERE schemaname = 'public' AND tablename = 'product_categories'
 ORDER BY policyname;
 
 SELECT 'audit_logs' AS check, COUNT(*) AS registros FROM audit_logs;
+
+
+-- ============================================================
+-- 8. COLUMNA codigo_barras EN products
+--    Para registrar EAN-13, Code 128, UPC, etc. por producto
+-- ============================================================
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS codigo_barras TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_codigo_barras
+  ON products (codigo_barras)
+  WHERE codigo_barras IS NOT NULL AND codigo_barras <> '';
+
+SELECT 'products.codigo_barras' AS check,
+       column_name IS NOT NULL AS ok
+FROM information_schema.columns
+WHERE table_name = 'products' AND column_name = 'codigo_barras';

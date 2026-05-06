@@ -185,6 +185,7 @@ export interface Supplier {
 export interface Product {
   id: string
   sku?: string
+  codigo_barras?: string
   nombre: string
   descripcion?: string
   categoria_id: string

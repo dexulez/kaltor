@@ -83,7 +83,17 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       toast.success(`${producto.nombre} agregado`)
       return
     }
-    // 2. Buscar por SKU / código de barras del producto
+    // 2. Buscar por código de barras EAN-13 / Code128 del producto
+    const porBarcode = productos.find(p =>
+      p.codigo_barras && p.codigo_barras.trim() === value.trim()
+    )
+    if (porBarcode) {
+      if (porBarcode.stock_actual <= 0) { toast.error(`${porBarcode.nombre} sin stock`); return }
+      agregarProducto(porBarcode)
+      toast.success(`${porBarcode.nombre} agregado`)
+      return
+    }
+    // 3. Buscar por SKU interno
     const porSku = productos.find(p =>
       p.sku && p.sku.trim().toLowerCase() === value.trim().toLowerCase()
     )
@@ -93,14 +103,14 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       toast.success(`${porSku.nombre} agregado`)
       return
     }
-    // 3. Buscar por nombre parcial o IMEI
+    // 4. Buscar por IMEI / N° serie
     const porImei = productos.find(p => p.imei === value || p.numero_serie === value)
     if (porImei) {
       agregarProducto(porImei)
       toast.success(`${porImei.nombre} agregado`)
       return
     }
-    toast.error(`Código "${value.slice(0, 20)}…" no encontrado — verifica el SKU en inventario`)
+    toast.error(`Código "${value.slice(0, 20)}…" no encontrado — asigna el código de barras al producto en Inventario`)
   }
 
   const subtotal = carrito.reduce((s, i) => s + i.product.precio_venta * i.cantidad, 0)
