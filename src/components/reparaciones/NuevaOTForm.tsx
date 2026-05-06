@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
 const MARCAS = ['Apple', 'Samsung', 'Xiaomi', 'Huawei', 'Motorola', 'LG', 'Sony', 'OnePlus', 'Oppo', 'Realme', 'Otro']
 const CAPACIDADES = ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
@@ -35,9 +36,21 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
+  const [clientesList, setClientesList] = useState(clientes)
   const [clienteId, setClienteId] = useState(clienteIdInicial ?? '')
   const [accesorios, setAccesorios] = useState<string[]>([])
   const [condicion, setCondicion] = useState<string[]>([])
+  const [popupClienteOpen, setPopupClienteOpen] = useState(false)
+  const [guardandoCliente, setGuardandoCliente] = useState(false)
+
+  const [nuevoCliente, setNuevoCliente] = useState({
+    nombre: '',
+    telefono: '',
+    rut: '',
+    email: '',
+    direccion: '',
+    notas: '',
+  })
 
   const [equipo, setEquipo] = useState({
     marca: '', modelo: '', imei: '', color: '', capacidad: '',
@@ -49,6 +62,49 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
 
   function toggleCheck(list: string[], setList: (v: string[]) => void, value: string) {
     setList(list.includes(value) ? list.filter(v => v !== value) : [...list, value])
+  }
+
+  async function crearClienteDesdePopup() {
+    if (!nuevoCliente.nombre.trim()) {
+      toast.error('Ingresa el nombre del cliente')
+      return
+    }
+    if (!nuevoCliente.telefono.trim()) {
+      toast.error('Ingresa el teléfono del cliente')
+      return
+    }
+
+    setGuardandoCliente(true)
+
+    const payload = {
+      nombre: nuevoCliente.nombre.trim(),
+      telefono: nuevoCliente.telefono.trim(),
+      rut: nuevoCliente.rut.trim() || null,
+      email: nuevoCliente.email.trim() || null,
+      direccion: nuevoCliente.direccion.trim() || null,
+      notas: nuevoCliente.notas.trim() || null,
+    }
+
+    const { data, error } = await supabase.from('customers').insert(payload).select('*').single()
+    if (error) {
+      toast.error('Error al crear cliente: ' + error.message)
+      setGuardandoCliente(false)
+      return
+    }
+
+    const clienteCreado = {
+      id: data.id as string,
+      nombre: data.nombre as string,
+      telefono: (data.telefono as string) ?? '',
+      rut: (data.rut as string | null) ?? null,
+    }
+
+    setClientesList(prev => [...prev, clienteCreado].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    setClienteId(clienteCreado.id)
+    setNuevoCliente({ nombre: '', telefono: '', rut: '', email: '', direccion: '', notas: '' })
+    setPopupClienteOpen(false)
+    toast.success(`Cliente "${clienteCreado.nombre}" creado y seleccionado`)
+    setGuardandoCliente(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -102,7 +158,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     router.refresh()
   }
 
-  const clienteSeleccionado = clientes.find(c => c.id === clienteId)
+  const clienteSeleccionado = clientesList.find(c => c.id === clienteId)
   const tecnicoSeleccionado = tecnicos.find(t => t.id === ot.tecnico_id)
   const clienteValue = clienteSeleccionado ? clienteId : ''
   const tecnicoValue = tecnicoSeleccionado ? ot.tecnico_id : ''
@@ -119,19 +175,85 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
               <SelectValue placeholder={clienteId && !clienteSeleccionado ? 'Cliente no disponible' : 'Selecciona un cliente...'} />
             </SelectTrigger>
             <SelectContent>
-              {clientes.map(c => (
+              {clientesList.map(c => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.nombre} — {c.telefono}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-400 mt-1">
-            ¿Cliente nuevo?{' '}
-            <a href="/clientes/nuevo" className="text-blue-600 hover:underline" target="_blank">
-              Créalo aquí
-            </a>
-          </p>
+          <div className="mt-2">
+            <Dialog open={popupClienteOpen} onOpenChange={setPopupClienteOpen}>
+              <DialogTrigger render={<Button type="button" variant="outline" size="sm" />}>
+                + Crear cliente
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Nuevo cliente</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label>Nombre completo <span className="text-red-500">*</span></Label>
+                    <Input
+                      value={nuevoCliente.nombre}
+                      onChange={e => setNuevoCliente(v => ({ ...v, nombre: e.target.value }))}
+                      placeholder="Juan Pérez González"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Teléfono <span className="text-red-500">*</span></Label>
+                    <Input
+                      value={nuevoCliente.telefono}
+                      onChange={e => setNuevoCliente(v => ({ ...v, telefono: e.target.value }))}
+                      placeholder="+56 9 1234 5678"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>RUT</Label>
+                    <Input
+                      value={nuevoCliente.rut}
+                      onChange={e => setNuevoCliente(v => ({ ...v, rut: e.target.value }))}
+                      placeholder="12.345.678-9"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={nuevoCliente.email}
+                      onChange={e => setNuevoCliente(v => ({ ...v, email: e.target.value }))}
+                      placeholder="correo@ejemplo.com"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label>Dirección</Label>
+                    <Input
+                      value={nuevoCliente.direccion}
+                      onChange={e => setNuevoCliente(v => ({ ...v, direccion: e.target.value }))}
+                      placeholder="Av. Principal 123, Santiago"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label>Notas</Label>
+                    <Textarea
+                      rows={3}
+                      value={nuevoCliente.notas}
+                      onChange={e => setNuevoCliente(v => ({ ...v, notas: e.target.value }))}
+                      placeholder="Observaciones del cliente..."
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button type="button" variant="outline" onClick={() => setPopupClienteOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={crearClienteDesdePopup} disabled={guardandoCliente}>
+                    {guardandoCliente ? 'Guardando...' : 'Guardar cliente'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
 
