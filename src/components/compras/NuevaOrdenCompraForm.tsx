@@ -39,6 +39,7 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
   ])
   const [busquedaProducto, setBusquedaProducto] = useState<Record<string, string>>({})
   const proveedorSeleccionado = proveedores.find(p => p.id === supplierId)
+  const proveedorValue = proveedorSeleccionado ? supplierId : ''
 
   function setItem(id: string, field: keyof ItemOC, value: string | number | null) {
     setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i))
@@ -114,13 +115,9 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Proveedor <span className="text-red-500">*</span></Label>
-            <Select value={supplierId} onValueChange={(value) => setSupplierId(value ?? '')}>
+            <Select value={proveedorValue} onValueChange={(value) => setSupplierId(value ?? '')}>
               <SelectTrigger>
-                <span className="truncate text-sm text-left">
-                  {supplierId
-                    ? (proveedorSeleccionado?.nombre ?? 'Proveedor no disponible')
-                    : 'Selecciona un proveedor...'}
-                </span>
+                <SelectValue placeholder={supplierId && !proveedorSeleccionado ? 'Proveedor no disponible' : 'Selecciona un proveedor...'} />
               </SelectTrigger>
               <SelectContent>
                 {proveedores.map(p => (

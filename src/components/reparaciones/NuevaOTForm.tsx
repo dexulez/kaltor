@@ -104,6 +104,8 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
 
   const clienteSeleccionado = clientes.find(c => c.id === clienteId)
   const tecnicoSeleccionado = tecnicos.find(t => t.id === ot.tecnico_id)
+  const clienteValue = clienteSeleccionado ? clienteId : ''
+  const tecnicoValue = tecnicoSeleccionado ? ot.tecnico_id : ''
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -112,13 +114,9 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         <h2 className="font-semibold text-gray-800">1. Cliente</h2>
         <div className="max-w-md">
           <Label>Cliente <span className="text-red-500">*</span></Label>
-          <Select value={clienteId} onValueChange={(value) => setClienteId(value ?? '')}>
+          <Select value={clienteValue} onValueChange={(value) => setClienteId(value ?? '')}>
             <SelectTrigger className="mt-1.5">
-              <span className="truncate text-sm text-left">
-                {clienteId
-                  ? (clienteSeleccionado ? `${clienteSeleccionado.nombre} — ${clienteSeleccionado.telefono}` : 'Cliente no disponible')
-                  : 'Selecciona un cliente...'}
-              </span>
+              <SelectValue placeholder={clienteId && !clienteSeleccionado ? 'Cliente no disponible' : 'Selecciona un cliente...'} />
             </SelectTrigger>
             <SelectContent>
               {clientes.map(c => (
@@ -229,13 +227,9 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <Label>Técnico asignado</Label>
-            <Select value={ot.tecnico_id} onValueChange={v => setOt(o => ({ ...o, tecnico_id: v ?? '' }))}>
+            <Select value={tecnicoValue} onValueChange={v => setOt(o => ({ ...o, tecnico_id: v ?? '' }))}>
               <SelectTrigger>
-                <span className="truncate text-sm text-left">
-                  {ot.tecnico_id
-                    ? (tecnicoSeleccionado?.nombre_completo ?? 'Técnico no disponible')
-                    : 'Sin asignar'}
-                </span>
+                <SelectValue placeholder={ot.tecnico_id && !tecnicoSeleccionado ? 'Técnico no disponible' : 'Sin asignar'} />
               </SelectTrigger>
               <SelectContent>
                 {tecnicos.map(t => (
