@@ -5,25 +5,11 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { RepairStatus } from '@/types'
 
-const TRANSICIONES: Record<RepairStatus, RepairStatus[]> = {
-  recibido:           ['en_diagnostico', 'cancelado'],
-  en_diagnostico:     ['presupuestado', 'en_reparacion', 'cancelado'],
-  presupuestado:      ['aprobado', 'rechazado'],
-  aprobado:           ['en_reparacion', 'esperando_repuesto'],
-  rechazado:          [],
-  esperando_repuesto: ['en_reparacion', 'cancelado'],
-  en_reparacion:      ['listo'],
-  listo:              ['entregado'],
-  entregado:          ['en_garantia'],
-  en_garantia:        ['en_reparacion', 'entregado'],
-  cancelado:          [],
-}
-
-const ESTADO_LABELS: Record<RepairStatus, string> = {
+export const ESTADO_LABELS: Record<RepairStatus, string> = {
   recibido:           'Recibido',
   en_diagnostico:     'En diagnóstico',
   presupuestado:      'Presupuestado',
@@ -37,19 +23,31 @@ const ESTADO_LABELS: Record<RepairStatus, string> = {
   cancelado:          'Cancelado',
 }
 
+// Todos los estados disponibles excepto el actual
+const TODOS_ESTADOS: RepairStatus[] = [
+  'recibido', 'en_diagnostico', 'presupuestado', 'aprobado',
+  'rechazado', 'esperando_repuesto', 'en_reparacion',
+  'listo', 'entregado', 'en_garantia', 'cancelado',
+]
+
 export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; estadoActual: RepairStatus }) {
   const router = useRouter()
   const supabase = createClient()
   const [nuevoEstado, setNuevoEstado] = useState<RepairStatus | ''>('')
   const [comentario, setComentario] = useState('')
   const [loading, setLoading] = useState(false)
-  const siguientes = TRANSICIONES[estadoActual] ?? []
+
+  const opciones = TODOS_ESTADOS.filter(e => e !== estadoActual)
 
   async function handleCambio() {
     if (!nuevoEstado) return
     setLoading(true)
 
-    const { error } = await supabase.from('repair_orders').update({ estado: nuevoEstado }).eq('id', otId)
+    const { error } = await supabase
+      .from('repair_orders')
+      .update({ estado: nuevoEstado })
+      .eq('id', otId)
+
     if (error) {
       toast.error('Error al cambiar estado')
       setLoading(false)
@@ -70,20 +68,21 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
     setLoading(false)
   }
 
-  if (!siguientes.length) return null
-
   return (
     <div className="flex flex-col gap-2 min-w-[240px]">
-      <Select value={nuevoEstado} onValueChange={(v) => setNuevoEstado(v as RepairStatus)}>
+      <Select value={nuevoEstado} onValueChange={v => setNuevoEstado(v as RepairStatus)}>
         <SelectTrigger>
-          <SelectValue placeholder="Cambiar estado..." />
+          <span className="truncate text-sm text-left text-gray-700">
+            {nuevoEstado ? ESTADO_LABELS[nuevoEstado] : 'Cambiar estado...'}
+          </span>
         </SelectTrigger>
         <SelectContent>
-          {siguientes.map(s => (
+          {opciones.map(s => (
             <SelectItem key={s} value={s}>{ESTADO_LABELS[s]}</SelectItem>
           ))}
         </SelectContent>
       </Select>
+
       {nuevoEstado && (
         <>
           <Textarea
@@ -92,7 +91,11 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
             onChange={e => setComentario(e.target.value)}
             rows={2}
           />
-          <Button onClick={handleCambio} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
+          <Button
+            onClick={handleCambio}
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
             {loading ? 'Guardando...' : 'Confirmar cambio'}
           </Button>
         </>

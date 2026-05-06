@@ -124,7 +124,9 @@ export default function ProveedorForm({ proveedor }: { proveedor?: Supplier }) {
           <div className="space-y-1.5">
             <Label>Condición de pago</Label>
             <Select value={form.condicion_pago} onValueChange={v => set('condicion_pago', v ?? 'contado')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <span className="text-sm">{{ contado: 'Contado', credito: 'Crédito', cuotas: 'Cuotas' }[form.condicion_pago as 'contado'|'credito'|'cuotas'] ?? 'Contado'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="contado">Contado</SelectItem>
                 <SelectItem value="credito">Crédito</SelectItem>

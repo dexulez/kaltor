@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { formatCLP } from '@/lib/calculations'
 import { Supplier, Product } from '@/types'
@@ -117,7 +117,11 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
             <Label>Proveedor <span className="text-red-500">*</span></Label>
             <Select value={proveedorValue} onValueChange={(value) => setSupplierId(value ?? '')}>
               <SelectTrigger>
-                <SelectValue placeholder={supplierId && !proveedorSeleccionado ? 'Proveedor no disponible' : 'Selecciona un proveedor...'} />
+                <span className="truncate text-sm text-left">
+                  {proveedorSeleccionado
+                    ? proveedorSeleccionado.nombre
+                    : supplierId ? 'Proveedor no disponible' : 'Selecciona un proveedor...'}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 {proveedores.map(p => (
@@ -129,7 +133,9 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
           <div className="space-y-1.5">
             <Label>Método de pago</Label>
             <Select value={metodoPago} onValueChange={v => setMetodoPago(v as typeof metodoPago)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <span className="text-sm">{{ efectivo: 'Efectivo', transferencia: 'Transferencia', debito: 'Débito', credito: 'Crédito' }[metodoPago]}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="efectivo">Efectivo</SelectItem>
                 <SelectItem value="transferencia">Transferencia</SelectItem>

@@ -208,7 +208,9 @@ export default function CobrarOTForm({ ot, config }: Props) {
             <div className="space-y-1.5">
               <Label>Documento</Label>
               <Select value={tipoDoc} onValueChange={(v) => setTipoDoc(v as typeof tipoDoc)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <span className="text-sm">{tipoDoc === 'boleta' ? 'Boleta' : 'Factura'}</span>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="boleta">Boleta</SelectItem>
                   <SelectItem value="factura">Factura</SelectItem>

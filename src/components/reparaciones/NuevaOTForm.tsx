@@ -173,7 +173,11 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
           <Label>Cliente <span className="text-red-500">*</span></Label>
           <Select value={clienteValue} onValueChange={(value) => setClienteId(value ?? '')}>
             <SelectTrigger className="mt-1.5">
-              <SelectValue placeholder={clienteId && !clienteSeleccionado ? 'Cliente no disponible' : 'Selecciona un cliente...'} />
+              <span className="truncate text-sm text-left">
+                {clienteSeleccionado
+                  ? `${clienteSeleccionado.nombre} — ${clienteSeleccionado.telefono}`
+                  : clienteId ? 'Cliente no disponible' : 'Selecciona un cliente...'}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {clientesList.map(c => (
@@ -353,7 +357,11 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             <Label>Técnico asignado</Label>
             <Select value={tecnicoValue} onValueChange={v => setOt(o => ({ ...o, tecnico_id: v ?? '' }))}>
               <SelectTrigger>
-                <SelectValue placeholder={ot.tecnico_id && !tecnicoSeleccionado ? 'Técnico no disponible' : 'Sin asignar'} />
+                <span className="truncate text-sm text-left">
+                  {tecnicoSeleccionado
+                    ? tecnicoSeleccionado.nombre_completo
+                    : ot.tecnico_id ? 'Técnico no disponible' : 'Sin asignar'}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 {tecnicos.map(t => (
