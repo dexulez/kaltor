@@ -546,6 +546,7 @@ ALTER TABLE equipment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE repair_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE repair_status_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE repair_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
@@ -612,6 +613,12 @@ CREATE POLICY "history_insert" ON repair_status_history FOR INSERT TO authentica
 
 -- repair_items: todos autenticados
 CREATE POLICY "repair_items_all" ON repair_items FOR ALL TO authenticated USING (true);
+
+-- product_categories: todos leen, admin/vendedor/supervisor gestionan
+CREATE POLICY "product_categories_read" ON product_categories FOR SELECT TO authenticated USING (true);
+CREATE POLICY "product_categories_write" ON product_categories FOR ALL TO authenticated
+  USING (get_user_role() IN ('administrador', 'vendedor', 'supervisor_ventas'))
+  WITH CHECK (get_user_role() IN ('administrador', 'vendedor', 'supervisor_ventas'));
 
 -- products: todos leen, admin y técnico (con restricción) modifican
 CREATE POLICY "products_read" ON products FOR SELECT TO authenticated USING (true);

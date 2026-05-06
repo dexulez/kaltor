@@ -117,6 +117,18 @@ INSERT INTO product_categories (nombre, tipo, vendible) VALUES
   ('Herramientas taller',               'insumo',      false)
 ON CONFLICT (nombre) DO NOTHING;
 
+ALTER TABLE product_categories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "product_categories_read" ON product_categories;
+CREATE POLICY "product_categories_read" ON product_categories
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "product_categories_write" ON product_categories;
+CREATE POLICY "product_categories_write" ON product_categories
+  FOR ALL TO authenticated
+  USING (get_user_role() IN ('administrador', 'vendedor', 'supervisor_ventas'))
+  WITH CHECK (get_user_role() IN ('administrador', 'vendedor', 'supervisor_ventas'));
+
 
 -- ============================================================
 -- 7. POLÍTICAS RLS PARA supervisor_ventas
@@ -174,5 +186,10 @@ WHERE table_name = 'system_config' AND column_name = 'costo_insumos_promedio';
 SELECT 'roles' AS check, nombre FROM roles ORDER BY nombre;
 
 SELECT 'product_categories' AS check, nombre FROM product_categories ORDER BY nombre;
+
+SELECT 'product_categories_policies' AS check, policyname
+FROM pg_policies
+WHERE schemaname = 'public' AND tablename = 'product_categories'
+ORDER BY policyname;
 
 SELECT 'audit_logs' AS check, COUNT(*) AS registros FROM audit_logs;
