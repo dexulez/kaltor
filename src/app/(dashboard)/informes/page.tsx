@@ -244,7 +244,7 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
   const hastaIso = `${hasta}T23:59:59.999Z`
 
   const [{ data: productos }, { data: movimientos }] = await Promise.all([
-    supabase.from('products').select('*').eq('activo', true),
+    supabase.from('products').select('*, product_categories(nombre)').eq('activo', true),
     supabase.from('stock_movements').select('*').gte('created_at', desdeIso).lte('created_at', hastaIso),
   ])
 
@@ -258,7 +258,8 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
 
   const porCat: Record<string, number> = {}
   prods.forEach(p => {
-    const c = p.categoria ?? 'Sin categoría'
+    const rel = p.product_categories as { nombre?: string } | { nombre?: string }[] | null | undefined
+    const c = (Array.isArray(rel) ? rel[0]?.nombre : rel?.nombre) ?? 'Sin categoría'
     porCat[c] = (porCat[c] ?? 0) + (p.stock_actual ?? 0) * (p.precio_costo ?? 0)
   })
   const pieCat = Object.entries(porCat).map(([name, value]) => ({ name, value }))
