@@ -53,8 +53,14 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
 
   const categoriaSeleccionada = catList.find(c => c.id === form.categoria_id)
   const proveedorSeleccionado = proveedores.find(p => p.id === form.proveedor_id)
-  const categoriaValue = categoriaSeleccionada ? form.categoria_id : ''
-  const proveedorValue = proveedorSeleccionado ? form.proveedor_id : ''
+
+  const categoriaLabel = !form.categoria_id
+    ? 'Seleccionar...'
+    : (categoriaSeleccionada?.nombre ?? 'Categoría no disponible')
+
+  const proveedorLabel = !form.proveedor_id
+    ? 'Sin proveedor'
+    : (proveedorSeleccionado?.nombre ?? 'Proveedor no disponible')
 
   function set(key: string, val: string | boolean) {
     setForm(f => ({ ...f, [key]: val }))
@@ -127,9 +133,9 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
           <div className="space-y-1.5">
             <Label>Categoría <span className="text-red-500">*</span></Label>
             <div className="flex gap-2">
-              <Select value={categoriaValue} onValueChange={v => set('categoria_id', v ?? '')}>
+              <Select value={form.categoria_id} onValueChange={v => set('categoria_id', v ?? '')}>
                 <SelectTrigger className="flex-1">
-                  <SelectValue placeholder={form.categoria_id && !categoriaSeleccionada ? 'Categoría no disponible' : 'Seleccionar...'} />
+                  <span className="truncate text-sm text-left">{categoriaLabel}</span>
                 </SelectTrigger>
                 <SelectContent>
                   {catList.length === 0
@@ -166,9 +172,9 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
           </div>
           <div className="space-y-1.5">
             <Label>Proveedor</Label>
-            <Select value={proveedorValue} onValueChange={v => set('proveedor_id', v ?? '')}>
+            <Select value={form.proveedor_id} onValueChange={v => set('proveedor_id', v ?? '')}>
               <SelectTrigger>
-                <SelectValue placeholder={form.proveedor_id && !proveedorSeleccionado ? 'Proveedor no disponible' : 'Sin proveedor'} />
+                <span className="truncate text-sm text-left">{proveedorLabel}</span>
               </SelectTrigger>
               <SelectContent>
                 {proveedores.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
