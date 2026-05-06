@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { formatCLP, calcularIva, calcularPpm } from '@/lib/calculations'
+import { formatCLP, calcularIva, calcularPpm, formatRut } from '@/lib/calculations'
 import { Customer, Equipment, RepairItem, RepairOrder, SystemConfig } from '@/types'
 
 const METODO_LABELS = {
@@ -220,7 +220,7 @@ export default function CobrarOTForm({ ot, config }: Props) {
               <div className="space-y-2 p-3 bg-blue-50 rounded-lg">
                 <div className="space-y-1">
                   <Label className="text-xs">RUT receptor</Label>
-                  <Input value={rutReceptor} onChange={e => setRutReceptor(e.target.value)} placeholder="76.123.456-7" className="h-8 text-sm" />
+                  <Input value={rutReceptor} onChange={e => setRutReceptor(formatRut(e.target.value))} placeholder="76123456-7" inputMode="numeric" className="h-8 text-sm font-mono" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Razón social</Label>

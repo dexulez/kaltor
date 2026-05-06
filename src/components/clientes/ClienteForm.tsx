@@ -9,35 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Customer } from '@/types'
+import { formatRut, validarRut } from '@/lib/calculations'
 
 interface Props {
   cliente?: Customer
-}
-
-function validarRut(rut: string): boolean {
-  if (!rut) return true
-  const clean = rut.replace(/\./g, '').replace(/-/g, '').toUpperCase()
-  if (clean.length < 2) return false
-  const body = clean.slice(0, -1)
-  const dv = clean.slice(-1)
-  let sum = 0
-  let mul = 2
-  for (let i = body.length - 1; i >= 0; i--) {
-    sum += parseInt(body[i]) * mul
-    mul = mul === 7 ? 2 : mul + 1
-  }
-  const expected = 11 - (sum % 11)
-  const dvExpected = expected === 11 ? '0' : expected === 10 ? 'K' : String(expected)
-  return dv === dvExpected
-}
-
-function formatRut(value: string): string {
-  const clean = value.replace(/[^0-9kK]/g, '').toUpperCase()
-  if (clean.length <= 1) return clean
-  const body = clean.slice(0, -1)
-  const dv = clean.slice(-1)
-  const formatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  return `${formatted}-${dv}`
 }
 
 export default function ClienteForm({ cliente }: Props) {
@@ -135,10 +110,16 @@ export default function ClienteForm({ cliente }: Props) {
             id="rut"
             value={form.rut}
             onChange={handleRutChange}
-            placeholder="12.345.678-9"
-            className={rutError ? 'border-red-400' : ''}
+            placeholder="26595544-4"
+            inputMode="numeric"
+            className={rutError ? 'border-red-400' : rutError === '' && form.rut ? 'border-green-400' : ''}
           />
-          {rutError && <p className="text-xs text-red-500">{rutError}</p>}
+          {rutError
+            ? <p className="text-xs text-red-500">⚠ {rutError}</p>
+            : form.rut
+              ? <p className="text-xs text-green-600">✓ RUT válido</p>
+              : <p className="text-xs text-gray-400">Escribe los dígitos, el guión se agrega solo</p>
+          }
         </div>
 
         <div className="sm:col-span-2 space-y-1.5">

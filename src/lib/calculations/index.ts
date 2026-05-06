@@ -39,3 +39,30 @@ export function calcularComisionTecnico(
 export function formatCLP(amount: number): string {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(amount)
 }
+
+// ── RUT chileno ───────────────────────────────────────────────────────────────
+// Formato: 26595544-4 (sin puntos, con guión antes del DV)
+
+export function formatRut(value: string): string {
+  const clean = value.replace(/[^0-9kK]/g, '').toUpperCase().slice(0, 9)
+  if (clean.length <= 1) return clean
+  const body = clean.slice(0, -1)
+  const dv   = clean.slice(-1)
+  return `${body}-${dv}`
+}
+
+export function validarRut(rut: string): boolean {
+  if (!rut) return true
+  const clean = rut.replace(/[^0-9kK]/gi, '').toUpperCase()
+  if (clean.length < 2) return false
+  const body = clean.slice(0, -1)
+  const dv   = clean.slice(-1)
+  let sum = 0, mul = 2
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i]) * mul
+    mul = mul === 7 ? 2 : mul + 1
+  }
+  const exp = 11 - (sum % 11)
+  const dvExp = exp === 11 ? '0' : exp === 10 ? 'K' : String(exp)
+  return dv === dvExp
+}

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { formatCLP, calcularIva, calcularPpm } from '@/lib/calculations'
+import { formatCLP, calcularIva, calcularPpm, formatRut } from '@/lib/calculations'
 import { Customer, Product } from '@/types'
 import QRScanner from '@/components/shared/QRScanner'
 import { parseProductoQR } from '@/components/shared/ProductoQRCode'
@@ -371,7 +371,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
                     </div>
                     <div className="space-y-1.5">
                       <Label>RUT</Label>
-                      <Input value={nuevoCliente.rut} onChange={e => setNuevoCliente(v => ({ ...v, rut: e.target.value }))} placeholder="12.345.678-9" />
+                      <Input value={nuevoCliente.rut} onChange={e => setNuevoCliente(v => ({ ...v, rut: formatRut(e.target.value) }))} placeholder="26595544-4" inputMode="numeric" />
                     </div>
                     <div className="sm:col-span-2 space-y-1.5">
                       <Label>Email</Label>

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { formatRut } from '@/lib/calculations'
 
 const MARCAS = ['Apple', 'Samsung', 'Xiaomi', 'Huawei', 'Motorola', 'LG', 'Sony', 'OnePlus', 'Oppo', 'Realme', 'Otro']
 const CAPACIDADES = ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
@@ -212,8 +213,9 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                     <Label>RUT</Label>
                     <Input
                       value={nuevoCliente.rut}
-                      onChange={e => setNuevoCliente(v => ({ ...v, rut: e.target.value }))}
-                      placeholder="12.345.678-9"
+                      onChange={e => setNuevoCliente(v => ({ ...v, rut: formatRut(e.target.value) }))}
+                      placeholder="26595544-4"
+                      inputMode="numeric"
                     />
                   </div>
                   <div className="sm:col-span-2 space-y-1.5">
