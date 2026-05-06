@@ -29,7 +29,7 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
   const [loadingCat, setLoadingCat] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [loadingBarcode, setLoadingBarcode] = useState(false)
-  const [barcodeInfo, setBarcodeInfo] = useState<string | null>(null)
+  const [barcodeInfo, setBarcodeInfo] = useState<{ texto: string; esIA: boolean } | null>(null)
 
   const [form, setForm] = useState({
     nombre: producto?.nombre ?? '',
@@ -84,6 +84,7 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
         return
       }
       const data = await res.json()
+      const esIA = data.fuente === 'Claude AI'
       // Llenar campos vacíos con lo encontrado
       const campos: string[] = []
       if (data.nombre && !form.nombre.trim()) {
@@ -94,13 +95,15 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
         set('descripcion', data.descripcion)
         campos.push('Descripción')
       }
-      setBarcodeInfo(
-        `✓ Encontrado en ${data.fuente}${data.marca ? ` · ${data.marca}` : ''}${data.modelo ? ` ${data.modelo}` : ''}`
-      )
+      const detalles = [data.marca, data.modelo].filter(Boolean).join(' ')
+      setBarcodeInfo({
+        texto: `Encontrado en ${data.fuente}${detalles ? ` · ${detalles}` : ''}`,
+        esIA,
+      })
       if (campos.length > 0) {
-        toast.success(`Campos completados: ${campos.join(', ')}`)
+        toast.success(`${esIA ? '🤖 IA: ' : ''}Campos completados: ${campos.join(', ')}`)
       } else {
-        toast.info(`Producto encontrado en ${data.fuente} — los campos ya tenían datos`)
+        toast.info(`${esIA ? '🤖 ' : ''}Producto encontrado en ${data.fuente} — los campos ya tenían datos`)
       }
     } catch {
       toast.error('Error al consultar. Verifica tu conexión.')
@@ -227,9 +230,21 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
                 </Button>
               </div>
               {barcodeInfo && (
-                <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
-                  {barcodeInfo}
-                </p>
+                <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-1.5 border ${
+                  barcodeInfo.esIA
+                    ? 'bg-purple-50 border-purple-200 text-purple-800'
+                    : 'bg-green-50 border-green-200 text-green-700'
+                }`}>
+                  {barcodeInfo.esIA && (
+                    <span className="shrink-0 inline-flex items-center gap-0.5 bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      🤖 IA
+                    </span>
+                  )}
+                  <span>✓ {barcodeInfo.texto}</span>
+                  {barcodeInfo.esIA && (
+                    <span className="text-purple-500 ml-auto shrink-0">Verifica los datos</span>
+                  )}
+                </div>
               )}
               {!barcodeInfo && form.codigo_barras && (
                 <p className="text-xs text-gray-400">
