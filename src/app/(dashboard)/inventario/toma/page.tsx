@@ -8,7 +8,7 @@ type ProductoToma = {
   sku: string | null
   stock_actual: number
   stock_minimo: number
-  product_categories: { nombre: string } | null
+  product_categories: { nombre: string }[] | null
 }
 
 export default async function TomaInventarioPage() {
@@ -26,7 +26,7 @@ export default async function TomaInventarioPage() {
     sku: producto.sku,
     stock_actual: producto.stock_actual ?? 0,
     stock_minimo: producto.stock_minimo ?? 0,
-    categoria_nombre: producto.product_categories?.nombre ?? 'Sin categoría',
+    categoria_nombre: producto.product_categories?.[0]?.nombre ?? 'Sin categoría',
   }))
 
   return (
