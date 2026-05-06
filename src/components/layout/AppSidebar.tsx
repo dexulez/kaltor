@@ -45,7 +45,7 @@ export default function AppSidebar({ user }: { user: UserProfile | null }) {
 
   return (
     <aside className={cn(
-      'flex flex-col bg-blue-900 text-white transition-all duration-300 shrink-0',
+      'hidden md:flex flex-col bg-blue-900 text-white transition-all duration-300 shrink-0',
       collapsed ? 'w-16' : 'w-64'
     )}>
       {/* Logo */}

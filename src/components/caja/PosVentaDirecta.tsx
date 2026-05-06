@@ -73,13 +73,34 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
 
   function handleQRScan(value: string) {
     setShowScanner(false)
+    // 1. Intentar QR interno (TR:P:{uuid})
     const productId = parseProductoQR(value)
-    if (!productId) { toast.error('Código QR no reconocido'); return }
-    const producto = productos.find(p => p.id === productId)
-    if (!producto) { toast.error('Producto no encontrado en inventario'); return }
-    if (producto.stock_actual <= 0) { toast.error(`${producto.nombre} sin stock disponible`); return }
-    agregarProducto(producto)
-    toast.success(`${producto.nombre} agregado al carrito`)
+    if (productId) {
+      const producto = productos.find(p => p.id === productId)
+      if (!producto) { toast.error('Producto no encontrado'); return }
+      if (producto.stock_actual <= 0) { toast.error(`${producto.nombre} sin stock`); return }
+      agregarProducto(producto)
+      toast.success(`${producto.nombre} agregado`)
+      return
+    }
+    // 2. Buscar por SKU / código de barras del producto
+    const porSku = productos.find(p =>
+      p.sku && p.sku.trim().toLowerCase() === value.trim().toLowerCase()
+    )
+    if (porSku) {
+      if (porSku.stock_actual <= 0) { toast.error(`${porSku.nombre} sin stock`); return }
+      agregarProducto(porSku)
+      toast.success(`${porSku.nombre} agregado`)
+      return
+    }
+    // 3. Buscar por nombre parcial o IMEI
+    const porImei = productos.find(p => p.imei === value || p.numero_serie === value)
+    if (porImei) {
+      agregarProducto(porImei)
+      toast.success(`${porImei.nombre} agregado`)
+      return
+    }
+    toast.error(`Código "${value.slice(0, 20)}…" no encontrado — verifica el SKU en inventario`)
   }
 
   const subtotal = carrito.reduce((s, i) => s + i.product.precio_venta * i.cantidad, 0)
@@ -206,7 +227,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
               onClick={() => setShowScanner(true)}
               className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors"
             >
-              📷 Escanear QR
+              📷 Escanear código
             </button>
           </div>
           <Input
