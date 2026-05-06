@@ -38,6 +38,7 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
     { id: crypto.randomUUID(), product_id: null, nombre: '', cantidad_solicitada: 1, precio_unitario: 0 },
   ])
   const [busquedaProducto, setBusquedaProducto] = useState<Record<string, string>>({})
+  const proveedorSeleccionado = proveedores.find(p => p.id === supplierId)
 
   function setItem(id: string, field: keyof ItemOC, value: string | number | null) {
     setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i))
@@ -114,7 +115,13 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
           <div className="space-y-1.5">
             <Label>Proveedor <span className="text-red-500">*</span></Label>
             <Select value={supplierId} onValueChange={(value) => setSupplierId(value ?? '')}>
-              <SelectTrigger><SelectValue placeholder="Selecciona un proveedor..." /></SelectTrigger>
+              <SelectTrigger>
+                <span className="truncate text-sm text-left">
+                  {supplierId
+                    ? (proveedorSeleccionado?.nombre ?? 'Proveedor no disponible')
+                    : 'Selecciona un proveedor...'}
+                </span>
+              </SelectTrigger>
               <SelectContent>
                 {proveedores.map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>

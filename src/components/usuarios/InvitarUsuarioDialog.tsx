@@ -69,7 +69,7 @@ export default function InvitarUsuarioDialog({ roles }: { roles: Role[] }) {
                   {rolId
                     ? (ROL_LABEL[roles.find(r => r.id === rolId)?.nombre ?? '']
                       ?? roles.find(r => r.id === rolId)?.nombre
-                      ?? rolId)
+                      ?? 'Rol no disponible')
                     : 'Seleccionar rol...'}
                 </span>
               </SelectTrigger>

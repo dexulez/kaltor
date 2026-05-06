@@ -51,6 +51,9 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
     ? Math.round(((precioVentaNeto - costoReal) / costoReal) * 100)
     : 0
 
+  const categoriaSeleccionada = catList.find(c => c.id === form.categoria_id)
+  const proveedorSeleccionado = proveedores.find(p => p.id === form.proveedor_id)
+
   function set(key: string, val: string | boolean) {
     setForm(f => ({ ...f, [key]: val }))
   }
@@ -124,7 +127,11 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
             <div className="flex gap-2">
               <Select value={form.categoria_id} onValueChange={v => set('categoria_id', v ?? '')}>
                 <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Seleccionar..." />
+                  <span className="truncate text-sm text-left">
+                    {form.categoria_id
+                      ? (categoriaSeleccionada?.nombre ?? 'Categoría no disponible')
+                      : 'Seleccionar...'}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   {catList.length === 0
@@ -162,7 +169,13 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
           <div className="space-y-1.5">
             <Label>Proveedor</Label>
             <Select value={form.proveedor_id} onValueChange={v => set('proveedor_id', v ?? '')}>
-              <SelectTrigger><SelectValue placeholder="Sin proveedor" /></SelectTrigger>
+              <SelectTrigger>
+                <span className="truncate text-sm text-left">
+                  {form.proveedor_id
+                    ? (proveedorSeleccionado?.nombre ?? 'Proveedor no disponible')
+                    : 'Sin proveedor'}
+                </span>
+              </SelectTrigger>
               <SelectContent>
                 {proveedores.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
               </SelectContent>

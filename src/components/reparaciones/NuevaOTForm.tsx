@@ -102,6 +102,9 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     router.refresh()
   }
 
+  const clienteSeleccionado = clientes.find(c => c.id === clienteId)
+  const tecnicoSeleccionado = tecnicos.find(t => t.id === ot.tecnico_id)
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Cliente */}
@@ -111,7 +114,11 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
           <Label>Cliente <span className="text-red-500">*</span></Label>
           <Select value={clienteId} onValueChange={(value) => setClienteId(value ?? '')}>
             <SelectTrigger className="mt-1.5">
-              <SelectValue placeholder="Selecciona un cliente..." />
+              <span className="truncate text-sm text-left">
+                {clienteId
+                  ? (clienteSeleccionado ? `${clienteSeleccionado.nombre} — ${clienteSeleccionado.telefono}` : 'Cliente no disponible')
+                  : 'Selecciona un cliente...'}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {clientes.map(c => (
@@ -223,7 +230,13 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
           <div className="space-y-1.5">
             <Label>Técnico asignado</Label>
             <Select value={ot.tecnico_id} onValueChange={v => setOt(o => ({ ...o, tecnico_id: v ?? '' }))}>
-              <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+              <SelectTrigger>
+                <span className="truncate text-sm text-left">
+                  {ot.tecnico_id
+                    ? (tecnicoSeleccionado?.nombre_completo ?? 'Técnico no disponible')
+                    : 'Sin asignar'}
+                </span>
+              </SelectTrigger>
               <SelectContent>
                 {tecnicos.map(t => (
                   <SelectItem key={t.id} value={t.id}>{t.nombre_completo}</SelectItem>
