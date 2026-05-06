@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
+import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
 import { Customer, Equipment, RepairOrder, RepairStatusHistory, UserProfile } from '@/types'
 
 const ESTADO_INFO: Record<string, { label: string; color: string }> = {
@@ -33,7 +35,13 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: ot }, { data: historial }] = await Promise.all([
+  // Obtener host para construir la URL de seguimiento
+  const headersList = await headers()
+  const host = headersList.get('host') ?? 'techrepair-pro.vercel.app'
+  const protocol = host.includes('localhost') ? 'http' : 'https'
+  const baseUrl = `${protocol}://${host}`
+
+  const [{ data: ot }, { data: historial }, { data: config }] = await Promise.all([
     supabase.from('repair_orders')
       .select('*, customers(*), equipment(*), user_profiles(nombre_completo)')
       .eq('id', id)
@@ -42,6 +50,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
       .select('*, user_profiles(nombre_completo)')
       .eq('repair_order_id', id)
       .order('created_at', { ascending: false }),
+    supabase.from('system_config').select('*').single(),
   ])
 
   if (!ot) notFound()
@@ -53,8 +62,20 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
   const equipo = otDetalle.equipment
   const cliente = otDetalle.customers
 
+  const configShare = {
+    nombre_local: config?.nombre_local ?? 'TechRepair Pro',
+    rut_local: config?.rut_local ?? null,
+    direccion: config?.direccion ?? null,
+    telefono: config?.telefono ?? null,
+    whatsapp: config?.whatsapp ?? null,
+    email: config?.email ?? null,
+    logo_url: (config as Record<string, unknown> | null)?.logo_url as string | null ?? null,
+    terminos_condiciones: (config as Record<string, unknown> | null)?.terminos_condiciones as string | null ?? null,
+  }
+
   return (
     <div className="p-6 space-y-5">
+      {/* Header con acciones */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <Link href="/reparaciones" className="text-sm text-blue-600 hover:underline">← Volver</Link>
@@ -66,7 +87,9 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
             Creada el {new Date(otDetalle.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
         </div>
+
         <div className="flex flex-col gap-2 items-end">
+          {/* Botones de cobro */}
           {otDetalle.estado === 'listo' && (
             <Link href={`/caja/venta-directa?ot=${otDetalle.id}`}>
               <Button className="bg-green-600 hover:bg-green-700 gap-1.5">
@@ -78,6 +101,24 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
+      {/* Botones compartir / imprimir */}
+      <div className="bg-white rounded-xl border p-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p className="text-sm font-medium text-gray-700">Compartir con el cliente</p>
+            <p className="text-xs text-gray-400">
+              Link de seguimiento: <span className="font-mono">/seguimiento/{otDetalle.codigo_seguimiento}</span>
+            </p>
+          </div>
+          <OTBotonesCompartir
+            ot={otDetalle as Parameters<typeof OTBotonesCompartir>[0]['ot']}
+            config={configShare}
+            baseUrl={baseUrl}
+          />
+        </div>
+      </div>
+
+      {/* Datos principales */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Cliente */}
         <div className="bg-white rounded-xl border p-5">
@@ -117,27 +158,27 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
               <span className="text-gray-500">Tipo</span>
               <span className="font-medium capitalize">{otDetalle.tipo_reparacion ?? '—'}</span>
             </div>
-            {otDetalle.presupuesto_estimado && (
+            {otDetalle.presupuesto_estimado ? (
               <div className="flex justify-between">
                 <span className="text-gray-500">Presupuesto</span>
                 <span className="font-medium">${otDetalle.presupuesto_estimado.toLocaleString('es-CL')}</span>
               </div>
-            )}
-            {otDetalle.precio_servicio && (
+            ) : null}
+            {otDetalle.precio_servicio ? (
               <div className="flex justify-between">
                 <span className="text-gray-500">Precio final</span>
                 <span className="font-bold text-green-700">${otDetalle.precio_servicio.toLocaleString('es-CL')}</span>
               </div>
-            )}
+            ) : null}
           </div>
           <div className="mt-3 pt-3 border-t">
-            <p className="text-xs text-gray-400 mb-1">QR de seguimiento:</p>
+            <p className="text-xs text-gray-400 mb-1">Link de seguimiento:</p>
             <a
               href={`/seguimiento/${otDetalle.codigo_seguimiento}`}
               target="_blank"
               className="text-xs text-blue-600 hover:underline break-all"
             >
-              /seguimiento/{otDetalle.codigo_seguimiento}
+              {baseUrl}/seguimiento/{otDetalle.codigo_seguimiento}
             </a>
           </div>
         </div>
@@ -149,6 +190,12 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         <p className="text-gray-800">{equipo?.falla_reportada}</p>
         {equipo?.observaciones && (
           <p className="text-gray-600 text-sm mt-2">Obs: {equipo.observaciones}</p>
+        )}
+        {otDetalle.diagnostico_tecnico && (
+          <div className="mt-2 pt-2 border-t border-amber-200">
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Diagnóstico técnico</p>
+            <p className="text-gray-700 text-sm">{otDetalle.diagnostico_tecnico}</p>
+          </div>
         )}
       </div>
 

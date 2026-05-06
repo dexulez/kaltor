@@ -1,147 +1,225 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { Customer, Equipment, RepairOrder, RepairStatusHistory, SystemConfig } from '@/types'
 
 const ESTADO_INFO: Record<string, { label: string; color: string; bg: string; icono: string }> = {
-  recibido:           { label: 'Recibido en taller',     color: 'text-gray-700',   bg: 'bg-gray-100',    icono: '📥' },
-  en_diagnostico:     { label: 'En diagnóstico',         color: 'text-yellow-700', bg: 'bg-yellow-100',  icono: '🔍' },
-  presupuestado:      { label: 'Presupuesto enviado',     color: 'text-blue-700',   bg: 'bg-blue-100',    icono: '📋' },
-  aprobado:           { label: 'Presupuesto aprobado',    color: 'text-indigo-700', bg: 'bg-indigo-100',  icono: '✅' },
-  rechazado:          { label: 'Presupuesto rechazado',   color: 'text-red-700',    bg: 'bg-red-100',     icono: '❌' },
-  esperando_repuesto: { label: 'Esperando repuesto',      color: 'text-orange-700', bg: 'bg-orange-100',  icono: '📦' },
-  en_reparacion:      { label: 'En reparación',           color: 'text-purple-700', bg: 'bg-purple-100',  icono: '🔧' },
-  listo:              { label: '¡Listo para retirar!',    color: 'text-green-700',  bg: 'bg-green-100',   icono: '🎉' },
-  entregado:          { label: 'Entregado al cliente',    color: 'text-emerald-700',bg: 'bg-emerald-100', icono: '✅' },
-  en_garantia:        { label: 'En garantía',             color: 'text-teal-700',   bg: 'bg-teal-100',    icono: '🛡️' },
-  cancelado:          { label: 'Cancelado',               color: 'text-gray-500',   bg: 'bg-gray-100',    icono: '🚫' },
+  recibido:           { label: 'Recibido en taller',     color: 'text-gray-700',    bg: 'bg-gray-100',    icono: '📥' },
+  en_diagnostico:     { label: 'En diagnóstico',         color: 'text-yellow-700',  bg: 'bg-yellow-100',  icono: '🔍' },
+  presupuestado:      { label: 'Presupuesto enviado',     color: 'text-blue-700',    bg: 'bg-blue-100',    icono: '📋' },
+  aprobado:           { label: 'Presupuesto aprobado',    color: 'text-indigo-700',  bg: 'bg-indigo-100',  icono: '✅' },
+  rechazado:          { label: 'Presupuesto rechazado',   color: 'text-red-700',     bg: 'bg-red-100',     icono: '❌' },
+  esperando_repuesto: { label: 'Esperando repuesto',      color: 'text-orange-700',  bg: 'bg-orange-100',  icono: '📦' },
+  en_reparacion:      { label: 'En reparación',           color: 'text-purple-700',  bg: 'bg-purple-100',  icono: '🔧' },
+  listo:              { label: '¡Listo para retirar!',    color: 'text-green-700',   bg: 'bg-green-100',   icono: '🎉' },
+  entregado:          { label: 'Entregado al cliente',    color: 'text-emerald-700', bg: 'bg-emerald-100', icono: '✅' },
+  en_garantia:        { label: 'En garantía',             color: 'text-teal-700',    bg: 'bg-teal-100',    icono: '🛡️' },
+  cancelado:          { label: 'Cancelado',               color: 'text-gray-500',    bg: 'bg-gray-100',    icono: '🚫' },
 }
-
-type SeguimientoOTRaw = RepairOrder & {
-  customers: Pick<Customer, 'nombre' | 'telefono'>[] | null
-  equipment: Pick<Equipment, 'marca' | 'modelo' | 'color' | 'capacidad'>[] | null
-}
-
-type SeguimientoHistorial = Pick<RepairStatusHistory, 'estado_nuevo' | 'comentario' | 'created_at'>
-
-type SeguimientoConfig = Pick<SystemConfig, 'nombre_local' | 'telefono' | 'whatsapp'>
 
 export default async function SeguimientoPage({ params }: { params: Promise<{ codigo: string }> }) {
   const { codigo } = await params
-  const supabase = await createClient()
+  const supabase = createClient()
 
-  const { data: ot } = await supabase
+  const { data: ot } = await (await supabase)
     .from('repair_orders')
-    .select('*, customers(nombre, telefono), equipment(marca, modelo, color, capacidad)')
+    .select(`
+      id, numero_ot, estado, created_at, precio_servicio, presupuesto_estimado,
+      diagnostico_tecnico, dias_garantia, codigo_seguimiento,
+      customers(nombre, telefono),
+      equipment(marca, modelo, color, capacidad, falla_reportada, observaciones)
+    `)
     .eq('codigo_seguimiento', codigo)
     .single()
 
   if (!ot) notFound()
 
   const [{ data: historial }, { data: config }] = await Promise.all([
-    supabase.from('repair_status_history')
+    (await supabase).from('repair_status_history')
       .select('estado_nuevo, comentario, created_at')
       .eq('repair_order_id', ot.id)
       .order('created_at', { ascending: true }),
-    supabase.from('system_config').select('nombre_local, telefono, whatsapp').single(),
+    (await supabase).from('system_config')
+      .select('nombre_local, rut_local, direccion, telefono, whatsapp, email, logo_url')
+      .single(),
   ])
 
-  const seguimientoOt = ot as SeguimientoOTRaw
-  const historialList = (historial ?? []) as SeguimientoHistorial[]
-  const configData = config as SeguimientoConfig | null
+  type OTData = typeof ot & {
+    customers: { nombre: string; telefono: string } | null
+    equipment: {
+      marca: string; modelo: string; color?: string; capacidad?: string
+      falla_reportada: string; observaciones?: string
+    } | null
+  }
 
-  const estadoActual = ESTADO_INFO[seguimientoOt.estado] ?? { label: seguimientoOt.estado, color: 'text-gray-700', bg: 'bg-gray-100', icono: '📋' }
-  const equipo = seguimientoOt.equipment?.[0] ?? null
-  const esListo = seguimientoOt.estado === 'listo'
+  const otData = ot as unknown as OTData
+  const historialList = historial ?? []
+  const equipo = otData.equipment
+  const cliente = otData.customers
+
+  const estadoActual = ESTADO_INFO[otData.estado] ?? {
+    label: otData.estado, color: 'text-gray-700', bg: 'bg-gray-100', icono: '📋',
+  }
+  const esListo = otData.estado === 'listo'
+  const esEntregado = otData.estado === 'entregado'
+
+  const fecha = new Date(otData.created_at).toLocaleDateString('es-CL', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+
       {/* Header */}
-      <div className="bg-white border-b px-4 py-4 flex items-center justify-between max-w-lg mx-auto">
-        <div>
-          <p className="font-bold text-gray-900">{configData?.nombre_local ?? 'TechRepair Pro'}</p>
-          <p className="text-xs text-gray-400">Seguimiento de reparación</p>
+      <div className="bg-white border-b shadow-sm">
+        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {(config as { logo_url?: string } | null)?.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={(config as { logo_url: string }).logo_url} alt="Logo" className="h-10 max-w-24 object-contain" />
+            )}
+            <div>
+              <p className="font-bold text-gray-900 text-sm">{config?.nombre_local ?? 'TechRepair Pro'}</p>
+              <p className="text-xs text-gray-400">Seguimiento de reparación</p>
+            </div>
+          </div>
+          {config?.whatsapp && (
+            <a
+              href={`https://wa.me/${config.whatsapp.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs px-3 py-2 rounded-full font-medium transition-colors"
+            >
+              📲 Contactar
+            </a>
+          )}
         </div>
-        {configData?.whatsapp && (
-          <a
-            href={`https://wa.me/${configData.whatsapp}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 bg-green-500 text-white text-xs px-3 py-2 rounded-full font-medium"
-          >
-            <span>WhatsApp</span>
-          </a>
-        )}
       </div>
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+
         {/* Estado principal */}
-        <div className={`rounded-2xl p-6 text-center ${estadoActual.bg}`}>
-          <p className="text-4xl mb-2">{estadoActual.icono}</p>
+        <div className={`rounded-2xl p-6 text-center shadow-sm ${estadoActual.bg}`}>
+          <p className="text-5xl mb-3">{estadoActual.icono}</p>
           <p className={`text-xl font-bold ${estadoActual.color}`}>{estadoActual.label}</p>
-          <p className="text-sm text-gray-500 mt-1">OT {seguimientoOt.numero_ot}</p>
-          {esListo && configData?.telefono && (
-            <p className="mt-3 text-sm font-medium text-green-700">
-              Llámanos al {configData.telefono} para coordinar la entrega
+          <p className="text-sm text-gray-600 mt-1 font-mono font-semibold">{otData.numero_ot}</p>
+
+          {esListo && (
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-semibold text-green-700">
+                ¡Tu equipo está listo! Puedes venir a retirarlo.
+              </p>
+              <div className="flex flex-col gap-2 mt-3">
+                {config?.telefono && (
+                  <a href={`tel:${config.telefono}`}
+                    className="inline-flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl">
+                    📞 Llamar al taller
+                  </a>
+                )}
+                {config?.whatsapp && (
+                  <a href={`https://wa.me/${config.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, vengo a retirar mi equipo OT ${otData.numero_ot}`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 bg-green-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl">
+                    📲 WhatsApp para coordinar retiro
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {esEntregado && (
+            <p className="mt-3 text-sm text-emerald-700 font-medium">
+              Gracias por confiar en nosotros. ¡Hasta la próxima!
             </p>
           )}
         </div>
 
+        {/* Info del cliente */}
+        {cliente && (
+          <div className="bg-white rounded-xl border shadow-sm p-4">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Cliente</h2>
+            <p className="font-semibold text-gray-900">{cliente.nombre}</p>
+            <p className="text-gray-600 text-sm">{cliente.telefono}</p>
+          </div>
+        )}
+
         {/* Info del equipo */}
-        <div className="bg-white rounded-xl border p-5 space-y-3">
-          <h2 className="font-semibold text-gray-800">Tu equipo</h2>
+        <div className="bg-white rounded-xl border shadow-sm p-5 space-y-3">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Tu equipo</h2>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-xs text-gray-400">Marca y modelo</p>
-              <p className="font-medium text-gray-800">{equipo?.marca} {equipo?.modelo}</p>
+              <p className="font-semibold text-gray-800">{equipo?.marca} {equipo?.modelo}</p>
             </div>
-            {equipo?.color && (
+            {(equipo?.color || equipo?.capacidad) && (
               <div>
-                <p className="text-xs text-gray-400">Color</p>
-                <p className="font-medium text-gray-800">{equipo.color}{equipo?.capacidad ? ` · ${equipo.capacidad}` : ''}</p>
+                <p className="text-xs text-gray-400">Características</p>
+                <p className="font-medium text-gray-700">{[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</p>
               </div>
             )}
             <div>
               <p className="text-xs text-gray-400">Ingresado el</p>
-              <p className="font-medium text-gray-800">
-                {new Date(seguimientoOt.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}
-              </p>
+              <p className="font-medium text-gray-700">{fecha}</p>
             </div>
-            {seguimientoOt.precio_servicio && (
+            {otData.precio_servicio ? (
               <div>
-                <p className="text-xs text-gray-400">Precio acordado</p>
+                <p className="text-xs text-gray-400">Precio del servicio</p>
                 <p className="font-bold text-green-700">
-                  {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(seguimientoOt.precio_servicio)}
+                  {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(otData.precio_servicio)}
                 </p>
               </div>
-            )}
+            ) : otData.presupuesto_estimado ? (
+              <div>
+                <p className="text-xs text-gray-400">Presupuesto estimado</p>
+                <p className="font-medium text-gray-700">
+                  {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(otData.presupuesto_estimado)}
+                </p>
+              </div>
+            ) : null}
           </div>
+
+          {equipo?.falla_reportada && (
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-0.5">Falla reportada</p>
+              <p className="text-sm text-gray-700">{equipo.falla_reportada}</p>
+            </div>
+          )}
+
+          {otData.diagnostico_tecnico && (
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-0.5">Diagnóstico técnico</p>
+              <p className="text-sm text-gray-700">{otData.diagnostico_tecnico}</p>
+            </div>
+          )}
         </div>
 
         {/* Timeline */}
         {historialList.length > 0 && (
-          <div className="bg-white rounded-xl border p-5 space-y-1">
-            <h2 className="font-semibold text-gray-800 mb-4">Historial</h2>
+          <div className="bg-white rounded-xl border shadow-sm p-5">
+            <h2 className="font-semibold text-gray-800 mb-4 text-sm">Historial de actualizaciones</h2>
             <div className="relative">
-              <div className="absolute left-3.5 top-0 bottom-0 w-px bg-gray-200" />
+              <div className="absolute left-3.5 top-2 bottom-2 w-px bg-gray-200" />
               <div className="space-y-4">
                 {historialList.map((h, i) => {
-                  const info = ESTADO_INFO[h.estado_nuevo]
+                  const info = ESTADO_INFO[h.estado_nuevo as string]
                   const esActual = i === historialList.length - 1
                   return (
                     <div key={i} className="relative flex items-start gap-3 pl-10">
-                      <div className={`absolute left-0 w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0
+                      <div className={`absolute left-0 w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 shadow-sm
                         ${esActual ? 'bg-blue-600 text-white' : 'bg-white border-2 border-gray-200 text-gray-400'}`}>
                         {esActual ? '●' : '○'}
                       </div>
                       <div className="flex-1 min-w-0 pb-1">
-                        <p className={`text-sm font-medium ${esActual ? 'text-gray-900' : 'text-gray-600'}`}>
-                          {info?.label ?? h.estado_nuevo}
+                        <p className={`text-sm font-semibold ${esActual ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {info?.icono} {info?.label ?? h.estado_nuevo}
                         </p>
-                        {h.comentario && (
-                          <p className="text-xs text-gray-500 mt-0.5">{h.comentario}</p>
+                        {(h.comentario as string) && (
+                          <p className="text-xs text-gray-600 mt-0.5 bg-gray-50 rounded px-2 py-1 mt-1">
+                            {h.comentario as string}
+                          </p>
                         )}
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {new Date(h.created_at).toLocaleString('es-CL', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(h.created_at as string).toLocaleString('es-CL', {
+                            day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+                          })}
                         </p>
                       </div>
                     </div>
@@ -152,9 +230,17 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
           </div>
         )}
 
-        <p className="text-center text-xs text-gray-400 pb-4">
-          Código de seguimiento: <span className="font-mono">{codigo}</span>
-        </p>
+        {/* Footer */}
+        <div className="bg-white rounded-xl border shadow-sm p-4 text-center space-y-1">
+          <p className="font-semibold text-gray-800 text-sm">{config?.nombre_local}</p>
+          {config?.direccion && <p className="text-xs text-gray-500">{config.direccion}</p>}
+          <div className="flex items-center justify-center gap-3 text-xs text-gray-500 flex-wrap">
+            {config?.telefono && <span>📞 {config.telefono}</span>}
+            {config?.email && <span>✉️ {config.email}</span>}
+          </div>
+          <p className="text-xs text-gray-300 pt-1 font-mono">{codigo}</p>
+        </div>
+
       </div>
     </div>
   )
