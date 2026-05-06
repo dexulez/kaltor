@@ -52,6 +52,9 @@ export default async function InventarioPage({
           <p className="text-gray-500 text-sm mt-0.5">{productos?.length ?? 0} producto(s)</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Link href="/inventario/toma">
+            <Button variant="outline" className="gap-1.5">📋 Toma inventario</Button>
+          </Link>
           <Link href="/inventario/categorias">
             <Button variant="outline" className="gap-1.5">🗂️ Categorías</Button>
           </Link>
