@@ -5,9 +5,10 @@ import PosVentaDirecta from '@/components/caja/PosVentaDirecta'
 export default async function VentaDirectaPage() {
   const supabase = await createClient()
 
-  const [{ data: productos }, { data: config }] = await Promise.all([
+  const [{ data: productos }, { data: config }, { data: clientes }] = await Promise.all([
     supabase.from('products').select('*, product_categories(*)').eq('activo', true).gt('stock_actual', 0).order('nombre'),
     supabase.from('system_config').select('*').single(),
+    supabase.from('customers').select('id, nombre, telefono, rut').order('nombre'),
   ])
 
   return (
@@ -18,6 +19,7 @@ export default async function VentaDirectaPage() {
       </div>
       <PosVentaDirecta
         productos={productos ?? []}
+        clientes={clientes ?? []}
         IVA={config?.iva ?? 19}
         PPM={config?.ppm ?? 3}
         comisionDebito={config?.comision_debito ?? 0}

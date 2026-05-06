@@ -7,9 +7,11 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { formatCLP, calcularIva, calcularPpm } from '@/lib/calculations'
-import { Product } from '@/types'
+import { Customer, Product } from '@/types'
 import QRScanner from '@/components/shared/QRScanner'
 import { parseProductoQR } from '@/components/shared/ProductoQRCode'
 
@@ -17,6 +19,7 @@ interface ItemCarrito { product: Product; cantidad: number }
 
 interface Props {
   productos: Product[]
+  clientes: Pick<Customer, 'id' | 'nombre' | 'telefono' | 'rut'>[]
   IVA: number
   PPM: number
   comisionDebito: number
@@ -25,9 +28,21 @@ interface Props {
 
 const METODO_LABELS = { efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia', debito: '💳 Débito', credito: '💳 Crédito' }
 
-export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, comisionCredito }: Props) {
+export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisionDebito, comisionCredito }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const [clientesList, setClientesList] = useState(clientes)
+  const [clienteId, setClienteId] = useState('')
+  const [popupClienteOpen, setPopupClienteOpen] = useState(false)
+  const [guardandoCliente, setGuardandoCliente] = useState(false)
+  const [nuevoCliente, setNuevoCliente] = useState({
+    nombre: '',
+    telefono: '',
+    rut: '',
+    email: '',
+    direccion: '',
+    notas: '',
+  })
   const [carrito, setCarrito] = useState<ItemCarrito[]>([])
   const [metodo, setMetodo] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
   const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura'>('boleta')
@@ -68,6 +83,51 @@ export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, c
   }
 
   const subtotal = carrito.reduce((s, i) => s + i.product.precio_venta * i.cantidad, 0)
+  const clienteSeleccionado = clientesList.find(c => c.id === clienteId)
+  const clienteValue = clienteSeleccionado ? clienteId : ''
+
+  async function crearClienteDesdePopup() {
+    if (!nuevoCliente.nombre.trim()) {
+      toast.error('Ingresa el nombre del cliente')
+      return
+    }
+    if (!nuevoCliente.telefono.trim()) {
+      toast.error('Ingresa el teléfono del cliente')
+      return
+    }
+
+    setGuardandoCliente(true)
+    const payload = {
+      nombre: nuevoCliente.nombre.trim(),
+      telefono: nuevoCliente.telefono.trim(),
+      rut: nuevoCliente.rut.trim() || null,
+      email: nuevoCliente.email.trim() || null,
+      direccion: nuevoCliente.direccion.trim() || null,
+      notas: nuevoCliente.notas.trim() || null,
+    }
+
+    const { data, error } = await supabase.from('customers').insert(payload).select('*').single()
+    if (error) {
+      toast.error('Error al crear cliente: ' + error.message)
+      setGuardandoCliente(false)
+      return
+    }
+
+    const creado = {
+      id: data.id as string,
+      nombre: data.nombre as string,
+      telefono: (data.telefono as string) ?? '',
+      rut: (data.rut as string | null) ?? null,
+    }
+
+    setClientesList(prev => [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    setClienteId(creado.id)
+    setNuevoCliente({ nombre: '', telefono: '', rut: '', email: '', direccion: '', notas: '' })
+    setPopupClienteOpen(false)
+    setGuardandoCliente(false)
+    toast.success(`Cliente "${creado.nombre}" creado y seleccionado`)
+  }
+
   const precioNeto = (i: ItemCarrito) => i.product.precio_incluye_iva
     ? Math.round(i.product.precio_venta / 1.19)
     : i.product.precio_venta
@@ -85,6 +145,7 @@ export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, c
 
     const { data: venta, error: ve } = await supabase.from('sales').insert({
       tipo: 'directa',
+      customer_id: clienteId || null,
       subtotal: netoTotal,
       iva: ivaTotal,
       ppm: ppmTotal,
@@ -244,6 +305,66 @@ export default function PosVentaDirecta({ productos, IVA, PPM, comisionDebito, c
           </div>
 
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Cliente</Label>
+              <Select value={clienteValue} onValueChange={(value) => setClienteId(value ?? '')}>
+                <SelectTrigger>
+                  <span className="flex-1 text-left text-sm truncate">
+                    {clienteId
+                      ? (clienteSeleccionado ? `${clienteSeleccionado.nombre} — ${clienteSeleccionado.telefono}` : 'Cliente no disponible')
+                      : 'Sin cliente'}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  {clientesList.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.nombre} — {c.telefono}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Dialog open={popupClienteOpen} onOpenChange={setPopupClienteOpen}>
+                <DialogTrigger render={<Button type="button" variant="outline" size="sm" />}>
+                  + Crear cliente
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Nuevo cliente</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label>Nombre completo <span className="text-red-500">*</span></Label>
+                      <Input value={nuevoCliente.nombre} onChange={e => setNuevoCliente(v => ({ ...v, nombre: e.target.value }))} placeholder="Juan Pérez González" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Teléfono <span className="text-red-500">*</span></Label>
+                      <Input value={nuevoCliente.telefono} onChange={e => setNuevoCliente(v => ({ ...v, telefono: e.target.value }))} placeholder="+56 9 1234 5678" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>RUT</Label>
+                      <Input value={nuevoCliente.rut} onChange={e => setNuevoCliente(v => ({ ...v, rut: e.target.value }))} placeholder="12.345.678-9" />
+                    </div>
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label>Email</Label>
+                      <Input type="email" value={nuevoCliente.email} onChange={e => setNuevoCliente(v => ({ ...v, email: e.target.value }))} placeholder="correo@ejemplo.com" />
+                    </div>
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label>Dirección</Label>
+                      <Input value={nuevoCliente.direccion} onChange={e => setNuevoCliente(v => ({ ...v, direccion: e.target.value }))} placeholder="Av. Principal 123, Santiago" />
+                    </div>
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label>Notas</Label>
+                      <Textarea rows={3} value={nuevoCliente.notas} onChange={e => setNuevoCliente(v => ({ ...v, notas: e.target.value }))} placeholder="Observaciones del cliente..." />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setPopupClienteOpen(false)}>Cancelar</Button>
+                    <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={crearClienteDesdePopup} disabled={guardandoCliente}>
+                      {guardandoCliente ? 'Guardando...' : 'Guardar cliente'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
             <div className="space-y-1.5">
               <Label>Método de pago</Label>
               <div className="grid grid-cols-2 gap-2">
