@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -17,6 +17,22 @@ import { parseProductoQR } from '@/components/shared/ProductoQRCode'
 
 interface ItemCarrito { product: Product; cantidad: number }
 
+interface ItemServicioOT {
+  id: string
+  numero_ot: string
+  cliente_nombre: string
+  equipo: string
+  precio: number
+}
+
+interface OTListaItem {
+  id: string
+  numero_ot: string
+  precio_servicio: number | null
+  customers: { nombre: string } | null
+  equipment: { marca: string; modelo: string } | null
+}
+
 interface Props {
   productos: Product[]
   clientes: Pick<Customer, 'id' | 'nombre' | 'telefono' | 'rut'>[]
@@ -24,14 +40,19 @@ interface Props {
   PPM: number
   comisionDebito: number
   comisionCredito: number
+  otPreload?: ItemServicioOT | null
 }
 
 const METODO_LABELS = { efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia', debito: '💳 Débito', credito: '💳 Crédito' }
 
-export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisionDebito, comisionCredito }: Props) {
+export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisionDebito, comisionCredito, otPreload }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [clientesList, setClientesList] = useState(clientes)
+  const [serviciosOT, setServiciosOT] = useState<ItemServicioOT[]>([])
+  const [showImportOT, setShowImportOT] = useState(false)
+  const [otsDisponibles, setOtsDisponibles] = useState<OTListaItem[]>([])
+  const [loadingOTs, setLoadingOTs] = useState(false)
   const [clienteId, setClienteId] = useState('')
   const [popupClienteOpen, setPopupClienteOpen] = useState(false)
   const [guardandoCliente, setGuardandoCliente] = useState(false)
@@ -70,6 +91,42 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   }
 
   function quitarItem(id: string) { setCarrito(c => c.filter(i => i.product.id !== id)) }
+
+  // Precargar OT desde URL param
+  useEffect(() => {
+    if (otPreload) {
+      setServiciosOT([otPreload])
+      toast.success(`OT ${otPreload.numero_ot} cargada para cobro`)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function abrirImportOT() {
+    setShowImportOT(true)
+    setLoadingOTs(true)
+    const { data } = await supabase
+      .from('repair_orders')
+      .select('id, numero_ot, precio_servicio, customers(nombre), equipment(marca, modelo)')
+      .eq('estado', 'listo')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setOtsDisponibles((data ?? []) as unknown as OTListaItem[])
+    setLoadingOTs(false)
+  }
+
+  function agregarOT(ot: OTListaItem) {
+    if (serviciosOT.find(s => s.id === ot.id)) { toast.error('Esta OT ya está en el cobro'); return }
+    setServiciosOT(prev => [...prev, {
+      id: ot.id,
+      numero_ot: ot.numero_ot,
+      cliente_nombre: ot.customers?.nombre ?? '—',
+      equipo: `${ot.equipment?.marca ?? ''} ${ot.equipment?.modelo ?? ''}`.trim(),
+      precio: ot.precio_servicio ?? 0,
+    }])
+    toast.success(`OT ${ot.numero_ot} agregada`)
+  }
+
+  function quitarOT(id: string) { setServiciosOT(s => s.filter(ot => ot.id !== id)) }
 
   function handleQRScan(value: string) {
     setShowScanner(false)
@@ -113,7 +170,9 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     toast.error(`Código "${value.slice(0, 20)}…" no encontrado — asigna el código de barras al producto en Inventario`)
   }
 
-  const subtotal = carrito.reduce((s, i) => s + i.product.precio_venta * i.cantidad, 0)
+  const subtotalProductos = carrito.reduce((s, i) => s + i.product.precio_venta * i.cantidad, 0)
+  const subtotalOTs = serviciosOT.reduce((s, ot) => s + ot.precio, 0)
+  const subtotal = subtotalProductos + subtotalOTs
   const clienteSeleccionado = clientesList.find(c => c.id === clienteId)
   const clienteValue = clienteSeleccionado ? clienteId : ''
 
@@ -163,7 +222,9 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     ? Math.round(i.product.precio_venta / 1.19)
     : i.product.precio_venta
 
-  const netoTotal = carrito.reduce((s, i) => s + precioNeto(i) * i.cantidad, 0)
+  const netoProductos = carrito.reduce((s, i) => s + precioNeto(i) * i.cantidad, 0)
+  const netoOTs = serviciosOT.reduce((s, ot) => s + Math.round(ot.precio / (1 + IVA / 100)), 0)
+  const netoTotal = netoProductos + netoOTs
   const ivaTotal = calcularIva(netoTotal, IVA)
   const ppmTotal = calcularPpm(netoTotal, PPM)
   const comisionPct = metodo === 'debito' ? comisionDebito : metodo === 'credito' ? comisionCredito : 0
@@ -171,11 +232,12 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const totalFinal = subtotal
 
   async function handleVenta() {
-    if (!carrito.length) { toast.error('Agrega al menos un producto'); return }
+    if (!carrito.length && !serviciosOT.length) { toast.error('Agrega al menos un producto u OT'); return }
     setLoading(true)
 
+    const tipoVenta = serviciosOT.length > 0 && carrito.length === 0 ? 'reparacion' : 'directa'
     const { data: venta, error: ve } = await supabase.from('sales').insert({
-      tipo: 'directa',
+      tipo: tipoVenta,
       customer_id: clienteId || null,
       subtotal: netoTotal,
       iva: ivaTotal,
@@ -215,8 +277,38 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       })
     }
 
+    // Items de servicios OT
+    if (serviciosOT.length > 0) {
+      const otItems = serviciosOT.map(ot => ({
+        sale_id: venta.id,
+        product_id: null,
+        nombre: `Servicio técnico ${ot.numero_ot} — ${ot.equipo}`,
+        cantidad: 1,
+        precio_unitario: ot.precio,
+        precio_costo: 0,
+        subtotal: ot.precio,
+      }))
+      await supabase.from('sale_items').insert(otItems)
+
+      // Marcar cada OT como entregada
+      for (const ot of serviciosOT) {
+        await supabase.from('repair_orders').update({
+          estado: 'entregado',
+          metodo_pago: metodo,
+          fecha_entrega: new Date().toISOString(),
+        }).eq('id', ot.id)
+        await supabase.from('repair_status_history').insert({
+          repair_order_id: ot.id,
+          estado_anterior: 'listo',
+          estado_nuevo: 'entregado',
+          comentario: `Cobrado en venta ${venta.numero_venta}`,
+        })
+      }
+    }
+
     toast.success(`Venta ${venta.numero_venta} registrada — ${formatCLP(totalFinal)}`)
     setCarrito([])
+    setServiciosOT([])
     router.refresh()
     setLoading(false)
   }
@@ -226,19 +318,67 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     {showScanner && (
       <QRScanner onScan={handleQRScan} onClose={() => setShowScanner(false)} />
     )}
+
+    {/* ── Diálogo importar OT ─────────────────────────────────────────── */}
+    {showImportOT && (
+      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowImportOT(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b">
+            <div>
+              <p className="font-semibold text-gray-800">Importar OT para cobro</p>
+              <p className="text-xs text-gray-500">OTs con estado "Listo"</p>
+            </div>
+            <button onClick={() => setShowImportOT(false)} className="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-lg">✕</button>
+          </div>
+          <div className="overflow-y-auto flex-1">
+            {loadingOTs ? (
+              <div className="py-10 text-center text-gray-400 text-sm">Cargando órdenes...</div>
+            ) : otsDisponibles.length === 0 ? (
+              <div className="py-10 text-center text-gray-400 text-sm">No hay OTs listas para cobrar</div>
+            ) : (
+              <div className="divide-y">
+                {otsDisponibles.map(ot => (
+                  <button key={ot.id} onClick={() => { agregarOT(ot); setShowImportOT(false) }}
+                    className="w-full text-left px-5 py-3 hover:bg-blue-50 transition-colors flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-mono font-semibold text-sm text-gray-900">{ot.numero_ot}</p>
+                      <p className="text-xs text-gray-500">{ot.customers?.nombre ?? '—'} · {ot.equipment?.marca} {ot.equipment?.modelo}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-blue-700 text-sm">{formatCLP(ot.precio_servicio ?? 0)}</p>
+                      <p className="text-xs text-green-600">Listo ✓</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Buscador de productos */}
       <div className="lg:col-span-3 space-y-3">
         <div className="bg-white rounded-xl border p-4 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Label className="text-base font-semibold">Buscar producto</Label>
-            <button
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={abrirImportOT}
+                className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-800 border border-orange-300 rounded-lg px-3 py-1.5 hover:bg-orange-50 transition-colors"
+              >
+                🔧 Importar OT
+              </button>
+              <button
               type="button"
               onClick={() => setShowScanner(true)}
               className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors"
             >
-              📷 Escanear código
-            </button>
+                📷 Escanear código
+              </button>
+            </div>
           </div>
           <Input
             placeholder="Nombre del producto..."
@@ -267,6 +407,31 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
             </div>
           )}
         </div>
+
+        {/* Servicios OT */}
+        {serviciosOT.length > 0 && (
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <div className="bg-orange-50 px-4 py-3 border-b flex items-center justify-between">
+              <p className="font-semibold text-orange-800 text-sm">🔧 Servicios de reparación ({serviciosOT.length})</p>
+            </div>
+            <table className="w-full text-sm">
+              <tbody className="divide-y">
+                {serviciosOT.map(ot => (
+                  <tr key={ot.id}>
+                    <td className="px-4 py-3">
+                      <p className="font-mono font-semibold text-gray-900">{ot.numero_ot}</p>
+                      <p className="text-xs text-gray-500">{ot.cliente_nombre} · {ot.equipo}</p>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-orange-700">{formatCLP(ot.precio)}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => quitarOT(ot.id)} className="text-red-400 hover:text-red-600 text-lg">×</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Carrito */}
         <div className="bg-white rounded-xl border overflow-hidden">
@@ -423,7 +588,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
             </div>
           </div>
 
-          <Button onClick={handleVenta} disabled={loading || !carrito.length}
+          <Button onClick={handleVenta} disabled={loading || (!carrito.length && !serviciosOT.length)}
             className="w-full bg-green-600 hover:bg-green-700 text-base py-6">
             {loading ? 'Procesando...' : `✓ Cobrar ${formatCLP(totalFinal)}`}
           </Button>

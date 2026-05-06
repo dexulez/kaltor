@@ -66,7 +66,16 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
             Creada el {new Date(otDetalle.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <CambiarEstadoOT otId={otDetalle.id} estadoActual={otDetalle.estado} />
+        <div className="flex flex-col gap-2 items-end">
+          {otDetalle.estado === 'listo' && (
+            <Link href={`/caja/venta-directa?ot=${otDetalle.id}`}>
+              <Button className="bg-green-600 hover:bg-green-700 gap-1.5">
+                💰 Cobrar en caja →
+              </Button>
+            </Link>
+          )}
+          <CambiarEstadoOT otId={otDetalle.id} estadoActual={otDetalle.estado} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

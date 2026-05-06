@@ -110,9 +110,18 @@ export default async function ReparacionesPage({
                       {new Date(ot.created_at).toLocaleDateString('es-CL')}
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/reparaciones/${ot.id}`}>
-                        <Button variant="ghost" size="sm">Ver</Button>
-                      </Link>
+                      <div className="flex gap-1.5 items-center">
+                        {ot.estado === 'listo' && (
+                          <Link href={`/caja/venta-directa?ot=${ot.id}`}>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs px-2">
+                              💰 Cobrar
+                            </Button>
+                          </Link>
+                        )}
+                        <Link href={`/reparaciones/${ot.id}`}>
+                          <Button variant="ghost" size="sm">Ver</Button>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 )

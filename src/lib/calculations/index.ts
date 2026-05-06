@@ -44,7 +44,8 @@ export function formatCLP(amount: number): string {
 // Formato: 26595544-4 (sin puntos, con guión antes del DV)
 
 export function formatRut(value: string): string {
-  const clean = value.replace(/[^0-9kK]/g, '').toUpperCase().slice(0, 9)
+  // Sin límite de dígitos, solo dash antes del último carácter (DV)
+  const clean = value.replace(/[^0-9kK]/g, '').toUpperCase()
   if (clean.length <= 1) return clean
   const body = clean.slice(0, -1)
   const dv   = clean.slice(-1)
