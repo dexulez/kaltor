@@ -211,3 +211,24 @@ SELECT 'products.codigo_barras' AS check,
        column_name IS NOT NULL AS ok
 FROM information_schema.columns
 WHERE table_name = 'products' AND column_name = 'codigo_barras';
+
+
+-- ============================================================
+-- 9. COMPROBANTE: descuento y cobro mixto en sales + T&C en config
+-- ============================================================
+
+-- Descuento en ventas
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS descuento         INTEGER DEFAULT 0;
+
+-- Cobro mixto (segundo método de pago)
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS metodo_pago_2    TEXT;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS monto_pago_2     INTEGER DEFAULT 0;
+
+-- Términos y condiciones en configuración del negocio
+ALTER TABLE system_config
+  ADD COLUMN IF NOT EXISTS terminos_condiciones TEXT;
+
+-- Verificación
+SELECT 'sales.descuento'            AS check, column_name IS NOT NULL AS ok FROM information_schema.columns WHERE table_name='sales' AND column_name='descuento';
+SELECT 'sales.metodo_pago_2'        AS check, column_name IS NOT NULL AS ok FROM information_schema.columns WHERE table_name='sales' AND column_name='metodo_pago_2';
+SELECT 'system_config.terminos'     AS check, column_name IS NOT NULL AS ok FROM information_schema.columns WHERE table_name='system_config' AND column_name='terminos_condiciones';

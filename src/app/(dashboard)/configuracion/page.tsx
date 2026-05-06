@@ -1,4 +1,4 @@
-﻿import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import ConfiguracionForm from '@/components/shared/ConfiguracionForm'
 
 export default async function ConfiguracionPage() {
@@ -8,11 +8,12 @@ export default async function ConfiguracionPage() {
   const config = data ?? {
     id: '',
     nombre_local: 'TechRepair Pro',
-    rut_local: '',
-    direccion: '',
-    telefono: '',
-    email: '',
-    whatsapp: '',
+    rut_local: null,
+    direccion: null,
+    telefono: null,
+    email: null,
+    whatsapp: null,
+    logo_url: null,
     iva: 19,
     ppm: 3,
     comision_debito: 0,
@@ -21,6 +22,8 @@ export default async function ConfiguracionPage() {
     dias_garantia_default: 30,
     moneda: 'CLP',
     mostrar_precio_en_presupuesto: true,
+    terminos_condiciones: null,
+    costo_insumos_promedio: 0,
   }
 
   return (
@@ -29,7 +32,6 @@ export default async function ConfiguracionPage() {
         <span className="text-3xl">⚙️</span>
         <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
       </div>
-
       <ConfiguracionForm config={config} />
     </div>
   )
