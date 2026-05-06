@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import QRCode from 'qrcode'
 import { formatCLP } from '@/lib/calculations'
 
 const TIPO_LABELS: Record<string, string> = {
@@ -66,8 +67,15 @@ export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
   const [formato, setFormato] = useState<PrintFormat>('a5h')
   const [incluirTC, setIncluirTC] = useState(true)
   const [copias, setCopias] = useState<1 | 2>(2)
+  const [qrDataUrl, setQrDataUrl] = useState<string>('')
 
   const trackingUrl = `${baseUrl}/seguimiento/${ot.codigo_seguimiento}`
+
+  useEffect(() => {
+    QRCode.toDataURL(trackingUrl, { width: 160, margin: 1, color: { dark: '#1e3a5f', light: '#ffffff' } })
+      .then(setQrDataUrl)
+      .catch(() => {})
+  }, [trackingUrl])
   const cliente = ot.customers
   const equipo = ot.equipment
   const fecha = new Date(ot.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -246,9 +254,15 @@ export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
   }
 
   function trackHtml() {
+    const qrImg = qrDataUrl
+      ? `<img src="${qrDataUrl}" style="width:22mm;height:22mm;display:block;flex-shrink:0" alt="QR seguimiento">`
+      : `<div style="width:22mm;height:22mm;flex-shrink:0;border:1px dashed #9ca3af;display:flex;align-items:center;justify-content:center;font-size:7pt;color:#9ca3af">QR</div>`
     return `<div class="track">
-      <div class="track-icon">&#127760;</div>
-      <div><span style="color:#6b7280">Seguimiento online: </span><strong><a href="${trackingUrl}" style="color:#2563eb;text-decoration:none">${trackingUrl}</a></strong></div>
+      ${qrImg}
+      <div>
+        <div style="font-size:7pt;color:#6b7280;margin-bottom:1mm">Escanea para ver el estado de tu reparación</div>
+        <div style="font-size:7.5pt"><strong><a href="${trackingUrl}" style="color:#2563eb;text-decoration:none">${trackingUrl}</a></strong></div>
+      </div>
     </div>`
   }
 
