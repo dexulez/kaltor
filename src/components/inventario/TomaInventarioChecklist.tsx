@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import * as XLSX from 'xlsx'
 
 interface ProductoToma {
   id: string
@@ -16,17 +17,24 @@ interface Props {
   productos: ProductoToma[]
 }
 
-function escapeCsv(value: string | number | null | undefined) {
-  const text = value == null ? '' : String(value)
-  if (text.includes(',') || text.includes('"') || text.includes('\n')) {
-    return `"${text.replaceAll('"', '""')}"`
-  }
-  return text
-}
+function downloadXlsx(filename: string, rows: (string | number | null)[][], sheetName: string) {
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.aoa_to_sheet(rows)
+  ws['!cols'] = [
+    { wch: 36 },
+    { wch: 16 },
+    { wch: 24 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 12 },
+    { wch: 28 },
+  ]
 
-function downloadCsv(filename: string, rows: (string | number | null | undefined)[][]) {
-  const csvContent = rows.map((row) => row.map(escapeCsv).join(',')).join('\n')
-  const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' })
+  XLSX.utils.book_append_sheet(wb, ws, sheetName)
+  const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+  const blob = new Blob([buf], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
@@ -87,7 +95,7 @@ export default function TomaInventarioChecklist({ productos }: Props) {
     ]
 
     const fecha = new Date().toISOString().slice(0, 10)
-    downloadCsv(`checklist-inventario-${fecha}.csv`, rows)
+    downloadXlsx(`checklist-inventario-${fecha}.xlsx`, rows, 'Checklist')
   }
 
   function descargarComparacion() {
@@ -118,7 +126,7 @@ export default function TomaInventarioChecklist({ productos }: Props) {
     ]
 
     const fecha = new Date().toISOString().slice(0, 10)
-    downloadCsv(`comparacion-inventario-${fecha}.csv`, rows)
+    downloadXlsx(`comparacion-inventario-${fecha}.xlsx`, rows, 'Comparacion')
   }
 
   return (
@@ -132,10 +140,10 @@ export default function TomaInventarioChecklist({ productos }: Props) {
         />
         <div className="flex gap-2 flex-wrap">
           <Button type="button" variant="outline" onClick={descargarChecklistBase}>
-            ⬇️ Checklist base
+            ⬇️ Checklist base (Excel)
           </Button>
           <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={descargarComparacion}>
-            ⬇️ Comparación actual
+            ⬇️ Comparación actual (Excel)
           </Button>
         </div>
       </div>
