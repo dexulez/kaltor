@@ -28,6 +28,8 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
   const [nuevaCatNombre, setNuevaCatNombre] = useState('')
   const [loadingCat, setLoadingCat] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
+  const [loadingBarcode, setLoadingBarcode] = useState(false)
+  const [barcodeInfo, setBarcodeInfo] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     nombre: producto?.nombre ?? '',
@@ -61,10 +63,49 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
 
   function handleBarcodeScan(value: string) {
     setShowScanner(false)
-    // Filtrar solo si parece un barcode real (numérico EAN o alfanumérico Code128)
     const clean = value.trim()
     set('codigo_barras', clean)
     toast.success(`Código capturado: ${clean}`)
+    // Buscar automáticamente al escanear
+    buscarEnInternet(clean)
+  }
+
+  async function buscarEnInternet(codigo?: string) {
+    const cod = (codigo ?? form.codigo_barras).trim()
+    if (!cod) { toast.error('Ingresa o escanea un código primero'); return }
+    setLoadingBarcode(true)
+    setBarcodeInfo(null)
+    try {
+      const res = await fetch(`/api/barcode?codigo=${encodeURIComponent(cod)}`)
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.error ?? 'Producto no encontrado en bases de datos públicas')
+        setLoadingBarcode(false)
+        return
+      }
+      const data = await res.json()
+      // Llenar campos vacíos con lo encontrado
+      const campos: string[] = []
+      if (data.nombre && !form.nombre.trim()) {
+        set('nombre', data.nombre)
+        campos.push('Nombre')
+      }
+      if (data.descripcion && !form.descripcion.trim()) {
+        set('descripcion', data.descripcion)
+        campos.push('Descripción')
+      }
+      setBarcodeInfo(
+        `✓ Encontrado en ${data.fuente}${data.marca ? ` · ${data.marca}` : ''}${data.modelo ? ` ${data.modelo}` : ''}`
+      )
+      if (campos.length > 0) {
+        toast.success(`Campos completados: ${campos.join(', ')}`)
+      } else {
+        toast.info(`Producto encontrado en ${data.fuente} — los campos ya tenían datos`)
+      }
+    } catch {
+      toast.error('Error al consultar. Verifica tu conexión.')
+    }
+    setLoadingBarcode(false)
   }
 
   async function crearCategoria() {
@@ -157,7 +198,7 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
               <div className="flex gap-2">
                 <Input
                   value={form.codigo_barras}
-                  onChange={e => set('codigo_barras', e.target.value)}
+                  onChange={e => { set('codigo_barras', e.target.value); setBarcodeInfo(null) }}
                   placeholder="Ej: 7891234567890"
                   className="flex-1 font-mono"
                   maxLength={30}
@@ -166,14 +207,33 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
                   type="button"
                   variant="outline"
                   onClick={() => setShowScanner(true)}
-                  className="shrink-0 gap-1.5 border-blue-300 text-blue-600 hover:bg-blue-50"
+                  className="shrink-0 border-blue-300 text-blue-600 hover:bg-blue-50"
                 >
-                  📷 Escanear
+                  📷
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => buscarEnInternet()}
+                  disabled={!form.codigo_barras.trim() || loadingBarcode}
+                  className="shrink-0 border-green-300 text-green-700 hover:bg-green-50 gap-1"
+                >
+                  {loadingBarcode ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                      Buscando…
+                    </span>
+                  ) : '🔍 Buscar'}
                 </Button>
               </div>
-              {form.codigo_barras && (
-                <p className="text-xs text-green-600 flex items-center gap-1">
-                  ✓ Código registrado — se usará para identificar el producto en ventas
+              {barcodeInfo && (
+                <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
+                  {barcodeInfo}
+                </p>
+              )}
+              {!barcodeInfo && form.codigo_barras && (
+                <p className="text-xs text-gray-400">
+                  Código listo · presiona <strong>🔍 Buscar</strong> para completar datos desde internet
                 </p>
               )}
             </div>
