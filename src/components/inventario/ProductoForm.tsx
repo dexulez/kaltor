@@ -22,6 +22,10 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
+  const [catList, setCatList] = useState<ProductCategory[]>(categorias)
+  const [showNuevaCat, setShowNuevaCat] = useState(false)
+  const [nuevaCatNombre, setNuevaCatNombre] = useState('')
+  const [loadingCat, setLoadingCat] = useState(false)
 
   const [form, setForm] = useState({
     nombre: producto?.nombre ?? '',
@@ -40,15 +44,36 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
   })
 
   const costoReal = (Number(form.precio_costo) || 0) + (Number(form.costo_envio) || 0)
+  const precioVentaNeto = form.precio_incluye_iva
+    ? Math.round((Number(form.precio_venta) || 0) / 1.19)
+    : (Number(form.precio_venta) || 0)
   const margen = costoReal > 0
-    ? Math.round(((Number(form.precio_venta) - costoReal) / costoReal) * 100)
+    ? Math.round(((precioVentaNeto - costoReal) / costoReal) * 100)
     : 0
 
   function set(key: string, val: string | boolean) {
     setForm(f => ({ ...f, [key]: val }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function crearCategoria() {
+    if (!nuevaCatNombre.trim()) return
+    setLoadingCat(true)
+    const { data, error } = await supabase
+      .from('product_categories')
+      .insert({ nombre: nuevaCatNombre.trim(), tipo: 'accesorio', vendible: true })
+      .select()
+      .single()
+    if (error) { toast.error('Error al crear categoría: ' + error.message); setLoadingCat(false); return }
+    const nueva = data as ProductCategory
+    setCatList(prev => [...prev, nueva].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    set('categoria_id', nueva.id)
+    setNuevaCatNombre('')
+    setShowNuevaCat(false)
+    toast.success(`Categoría "${nueva.nombre}" creada`)
+    setLoadingCat(false)
+  }
+
+  async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
     if (!form.categoria_id) { toast.error('Selecciona una categoría'); return }
     setLoading(true)
@@ -96,12 +121,43 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
           </div>
           <div className="space-y-1.5">
             <Label>Categoría <span className="text-red-500">*</span></Label>
-            <Select value={form.categoria_id} onValueChange={v => set('categoria_id', v ?? '')}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {categorias.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={form.categoria_id} onValueChange={v => set('categoria_id', v ?? '')}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Seleccionar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {catList.length === 0
+                    ? <div className="px-3 py-4 text-xs text-gray-400 text-center">Sin categorías — crea una con el botón +</div>
+                    : catList.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)
+                  }
+                </SelectContent>
+              </Select>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowNuevaCat(v => !v)}
+                className="shrink-0 px-3">
+                + Nueva
+              </Button>
+            </div>
+            {showNuevaCat && (
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={nuevaCatNombre}
+                  onChange={e => setNuevaCatNombre(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), crearCategoria())}
+                  placeholder="Nombre de la categoría"
+                  className="flex-1 h-8 text-sm"
+                  autoFocus
+                />
+                <Button type="button" size="sm" onClick={crearCategoria} disabled={loadingCat || !nuevaCatNombre.trim()}
+                  className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white text-xs shrink-0">
+                  {loadingCat ? '...' : 'Crear'}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowNuevaCat(false)}
+                  className="h-8 px-3 text-xs shrink-0">
+                  ✕
+                </Button>
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Proveedor</Label>
@@ -189,12 +245,16 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
           <div>
             <p className="text-gray-500 text-xs uppercase tracking-wide">Precio venta</p>
             <p className="font-bold text-gray-800 text-lg">{formatCLP(Number(form.precio_venta) || 0)}</p>
+            {form.precio_incluye_iva && (
+              <p className="text-gray-400 text-xs">neto: {formatCLP(precioVentaNeto)}</p>
+            )}
           </div>
           <div>
             <p className="text-gray-500 text-xs uppercase tracking-wide">Margen</p>
             <p className={`font-bold text-lg ${margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {margen}%
             </p>
+            <p className="text-gray-400 text-xs">sobre precio neto</p>
           </div>
         </div>
       </div>
