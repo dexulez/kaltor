@@ -33,6 +33,8 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
   const [loading, setLoading] = useState(false)
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [tempPwd, setTempPwd] = useState<string | null>(null)
+  const [generandoPwd, setGenerandoPwd] = useState(false)
 
   async function cambiarRol(nuevoRolId: string | null) {
     setRolId(nuevoRolId ?? '')
@@ -47,6 +49,19 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
     if (error) toast.error(error.message)
     else { toast.success(activo ? 'Usuario desactivado' : 'Usuario activado'); router.refresh() }
     setLoading(false)
+  }
+
+  async function generarPasswordTemporal() {
+    setGenerandoPwd(true)
+    const res = await fetch('/api/admin/resetear-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error ?? 'Error'); setGenerandoPwd(false); return }
+    setTempPwd(data.password)
+    setGenerandoPwd(false)
   }
 
   async function eliminarUsuario() {
@@ -97,6 +112,18 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
           <Button
             variant="ghost"
             size="sm"
+            onClick={generarPasswordTemporal}
+            disabled={generandoPwd}
+            className="text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+            title="Generar contraseña temporal"
+          >
+            🔑
+          </Button>
+        )}
+        {!esPropio && (
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowConfirmDelete(true)}
             className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
             title="Eliminar usuario"
@@ -105,6 +132,25 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
           </Button>
         )}
       </div>
+
+      {/* Modal contraseña temporal */}
+      {tempPwd && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setTempPwd(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-800 text-lg mb-1">🔑 Contraseña temporal</h3>
+            <p className="text-sm text-gray-500 mb-4">Comparte esta contraseña con <strong>{nombreUsuario}</strong> por WhatsApp o teléfono. El usuario podrá cambiarla desde su perfil.</p>
+            <div className="bg-amber-50 border border-amber-300 rounded-xl px-5 py-4 text-center mb-4">
+              <p className="text-2xl font-bold font-mono tracking-widest text-amber-800">{tempPwd}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1" onClick={() => { navigator.clipboard.writeText(tempPwd).catch(() => {}); toast.success('Copiada'); }}>
+                📋 Copiar
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setTempPwd(null)}>Cerrar</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Dialog open={showConfirmDelete} onOpenChange={setShowConfirmDelete}>
         <DialogContent className="max-w-sm">

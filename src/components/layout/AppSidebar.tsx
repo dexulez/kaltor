@@ -119,14 +119,21 @@ export default function AppSidebar({ user, logoUrl, nombreLocal }: {
           )}
         </div>
         {!collapsed && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full mt-2 text-blue-300 hover:text-white hover:bg-blue-800 text-xs"
-            onClick={handleLogout}
-          >
-            Cerrar sesión
-          </Button>
+          <div className="flex gap-1 mt-2">
+            <Link href="/perfil" className="flex-1">
+              <Button variant="ghost" size="sm" className="w-full text-blue-300 hover:text-white hover:bg-blue-800 text-xs">
+                👤 Perfil
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 text-blue-300 hover:text-white hover:bg-blue-800 text-xs"
+              onClick={handleLogout}
+            >
+              Salir
+            </Button>
+          </div>
         )}
       </div>
     </aside>
