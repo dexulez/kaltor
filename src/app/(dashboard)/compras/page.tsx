@@ -103,7 +103,10 @@ export default async function ComprasPage() {
 
         {/* ÓRDENES DE COMPRA */}
         <TabsContent value="ordenes" className="mt-4 space-y-3">
-          <div className="flex justify-end">
+          <div className="flex gap-2 justify-end">
+            <Link href="/compras/orden/nueva-masiva">
+              <Button variant="outline" className="gap-1.5">📊 Carga masiva desde Excel</Button>
+            </Link>
             <Link href="/compras/orden/nueva">
               <Button className="bg-blue-600 hover:bg-blue-700">+ Nueva orden de compra</Button>
             </Link>
