@@ -13,6 +13,10 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash })
 
     if (!error) {
+      // Invitaciones: el usuario aún no tiene contraseña, llevar a crearla
+      if (type === 'invite') {
+        return NextResponse.redirect(new URL('/crear-password', request.url))
+      }
       return NextResponse.redirect(new URL(next, request.url))
     }
   }
