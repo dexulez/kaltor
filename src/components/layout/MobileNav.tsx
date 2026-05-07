@@ -1,11 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { MODULOS, tieneAccesoModulo } from '@/lib/modulos'
 import { UserProfile } from '@/types'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+
+const ROL_LABEL: Record<string, string> = {
+  administrador:     'Administrador',
+  tecnico:           'Técnico',
+  vendedor:          'Vendedor',
+  supervisor_ventas: 'Supervisor Ventas',
+}
 
 const SHORT_LABEL: Record<string, string> = {
   dashboard:    'Inicio',
@@ -24,8 +33,17 @@ const BARRA_KEYS = ['dashboard', 'reparaciones', 'caja', 'inventario']
 
 export default function MobileNav({ user }: { user: UserProfile | null }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
   const roleName = user?.roles?.nombre ?? ''
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    toast.success('Sesión cerrada')
+    router.push('/login')
+    router.refresh()
+  }
 
   const visibles = MODULOS.filter(m =>
     tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)
@@ -97,8 +115,8 @@ export default function MobileNav({ user }: { user: UserProfile | null }) {
               })}
             </div>
 
-            {/* Separador y accesos rápidos dentro de Compras */}
-            <div className="px-4 pb-4">
+            {/* Accesos rápidos */}
+            <div className="px-4 pb-2">
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1">Accesos rápidos</p>
               <div className="grid grid-cols-2 gap-2">
                 <Link
@@ -133,6 +151,28 @@ export default function MobileNav({ user }: { user: UserProfile | null }) {
                   <span className="text-base">🛒</span>
                   Venta directa
                 </Link>
+              </div>
+            </div>
+
+            {/* Info usuario + Cerrar sesión */}
+            <div className="px-4 pb-5 pt-2 border-t mx-4 mt-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
+                    {user?.nombre_completo?.[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800 leading-tight">{user?.nombre_completo ?? 'Usuario'}</p>
+                    <p className="text-xs text-gray-400">{ROL_LABEL[roleName] ?? roleName}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs font-semibold hover:bg-red-100 active:bg-red-200 transition-colors"
+                >
+                  <span>🚪</span>
+                  Cerrar sesión
+                </button>
               </div>
             </div>
           </div>
