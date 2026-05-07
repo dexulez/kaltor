@@ -126,6 +126,7 @@ export default async function UsuariosPage() {
                       <div className="flex items-center gap-2">
                         <UsuarioAcciones
                           userId={u.id}
+                          nombreUsuario={u.nombre_completo || u.email || 'este usuario'}
                           rolActualId={u.rol_id ?? null}
                           activo={u.activo}
                           roles={roles ?? []}
