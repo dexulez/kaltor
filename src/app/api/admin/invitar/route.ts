@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   )
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${siteUrl}/auth/confirm?next=/dashboard`,
+    redirectTo: `${siteUrl}/auth/confirm?next=/crear-password`,
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
