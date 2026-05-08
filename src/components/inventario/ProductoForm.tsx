@@ -95,6 +95,7 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
         set('descripcion', data.descripcion)
         campos.push('Descripción')
       }
+      // proveedor_id nunca se modifica desde el lookup de código de barras
       const detalles = [data.marca, data.modelo].filter(Boolean).join(' ')
       setBarcodeInfo({
         texto: `Encontrado en ${data.fuente}${detalles ? ` · ${detalles}` : ''}`,
@@ -360,8 +361,17 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="space-y-1.5">
               <Label>Precio de costo (CLP)</Label>
-              <Input type="number" min={0} value={form.precio_costo}
-                onChange={e => set('precio_costo', e.target.value)} />
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={form.precio_costo}
+                onChange={e => {
+                  // Solo dígitos y un punto decimal
+                  const v = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                  set('precio_costo', v)
+                }}
+                placeholder="0.00"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Costo de envío (CLP)</Label>
