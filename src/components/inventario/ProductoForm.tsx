@@ -409,7 +409,7 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 pb-20 md:pb-0">
           <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
             {loading ? 'Guardando...' : producto ? 'Actualizar producto' : 'Crear producto'}
           </Button>
