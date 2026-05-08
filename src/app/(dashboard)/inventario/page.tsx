@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import { Product, ProductCategory, Supplier } from '@/types'
 import ProductoQRButton from '@/components/inventario/ProductoQRButton'
+import BuscadorInventario from '@/components/inventario/BuscadorInventario'
+import { Suspense } from 'react'
 
 const TIPO_LABELS: Record<string, string> = {
   repuesto: 'Repuesto', accesorio: 'Accesorio',
@@ -31,7 +33,7 @@ export default async function InventarioPage({
     .eq('activo', true)
     .order('nombre')
 
-  if (q) query = query.ilike('nombre', `%${q}%`)
+  if (q) query = query.or(`nombre.ilike.%${q}%,sku.ilike.%${q}%,codigo_barras.ilike.%${q}%`)
   if (categoria) query = query.eq('categoria_id', categoria)
   if (alerta === '1') query = query.filter('stock_actual', 'lte', 'stock_minimo')
 
@@ -81,11 +83,9 @@ export default async function InventarioPage({
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-2 items-center">
-        <input
-          placeholder="Buscar producto..."
-          defaultValue={q}
-          className="border rounded-lg px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+        <Suspense fallback={<input placeholder="Buscar..." className="border rounded-lg px-3 py-2 text-sm w-64" />}>
+          <BuscadorInventario defaultValue={q} />
+        </Suspense>
         <Link href="/inventario">
           <span className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border ${!categoria ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}>
             Todos
