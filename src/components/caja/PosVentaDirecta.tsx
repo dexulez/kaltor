@@ -78,8 +78,13 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const [metodo2, setMetodo2] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
   const [monto2Input, setMonto2Input] = useState('')
 
+  const q = busqueda.toLowerCase().trim()
   const productosFiltrados = productos.filter(p =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && p.stock_actual > 0
+    p.stock_actual > 0 && (
+      p.nombre.toLowerCase().includes(q) ||
+      (p.sku && p.sku.toLowerCase().includes(q)) ||
+      (p.codigo_barras && p.codigo_barras.includes(busqueda.trim()))
+    )
   )
 
   function agregarProducto(p: Product) {
