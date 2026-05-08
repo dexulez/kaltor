@@ -98,6 +98,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
   const iva = Math.round(totalBruto - totalBruto / 1.19)
   const neto = totalBruto - iva
   const ppm = Math.round(neto * 0.03)
+  const utilidadNeta = neto - ppm
   const ticket = activas.length ? Math.round(totalBruto / activas.length) : 0
 
   const porDia: Record<string, number> = {}
@@ -128,12 +129,39 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <KpiCard label="Total Bruto" value={formatCLP(totalBruto)} colorIdx={0} />
-        <KpiCard label="Neto (sin IVA)" value={formatCLP(neto)} colorIdx={1} />
-        <KpiCard label="IVA a reservar" value={formatCLP(iva)} colorIdx={3} />
-        <KpiCard label="PPM estimado" value={formatCLP(ppm)} sub="3% s/neto" colorIdx={4} />
-        <KpiCard label="Ticket promedio" value={formatCLP(ticket)} sub={`${activas.length} ventas`} colorIdx={2} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <KpiCard label="Total Bruto" value={formatCLP(totalBruto)} sub={`${activas.length} ventas`} colorIdx={0} />
+        <KpiCard label="Neto (sin IVA 19%)" value={formatCLP(neto)} colorIdx={1} />
+        <KpiCard label="Ticket promedio" value={formatCLP(ticket)} colorIdx={2} />
+      </div>
+      {/* Desglose impuestos → Utilidad Neta */}
+      <div className="bg-white rounded-xl border p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Desglose impuestos y utilidad neta</p>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+          <div className="bg-blue-50 rounded-lg p-3 text-center">
+            <p className="text-xs text-gray-500 mb-1">Ingreso Neto</p>
+            <p className="text-lg font-bold text-blue-700">{formatCLP(neto)}</p>
+          </div>
+          <div className="flex items-center justify-center text-gray-400 font-bold text-xl">−</div>
+          <div className="bg-red-50 rounded-lg p-3 text-center">
+            <p className="text-xs text-gray-500 mb-1">IVA 19% (reservar)</p>
+            <p className="text-lg font-bold text-red-500">{formatCLP(iva)}</p>
+            <p className="text-xs text-gray-400">ya descontado del neto</p>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-3 text-center">
+            <p className="text-xs text-gray-500 mb-1">PPM 3% s/neto</p>
+            <p className="text-lg font-bold text-orange-500">{formatCLP(ppm)}</p>
+            <p className="text-xs text-gray-400">pago provisional SII</p>
+          </div>
+          <div className="bg-green-50 border-2 border-green-400 rounded-lg p-3 text-center">
+            <p className="text-xs text-gray-600 font-semibold mb-1">= UTILIDAD NETA EST.</p>
+            <p className="text-2xl font-bold text-green-700">{formatCLP(utilidadNeta)}</p>
+            <p className="text-xs text-gray-400">neto − PPM</p>
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">
+          * El IVA ya está excluido del Ingreso Neto. La Utilidad Neta es <strong>estimada</strong> — no descuenta costos operacionales ni el impuesto a la renta (25–27% anual).
+        </p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
@@ -255,6 +283,10 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
   const valorizacionVenta = prods.reduce((s, p) => s + (p.stock_actual ?? 0) * (p.precio_venta ?? 0), 0)
   const margen = valorizacionCosto > 0 ? Math.round((valorizacionVenta - valorizacionCosto) * 100 / valorizacionCosto) : 0
   const criticos = prods.filter(p => (p.stock_actual ?? 0) <= (p.stock_minimo ?? 5))
+  // Utilidad neta potencial: ventas netas (sin IVA) menos PPM 3% menos costo
+  const ventasNetas = Math.round(valorizacionVenta / 1.19)
+  const ppmInv = Math.round(ventasNetas * 0.03)
+  const utilidadNetaInv = ventasNetas - ppmInv - valorizacionCosto
 
   const porCat: Record<string, number> = {}
   prods.forEach(p => {
@@ -273,10 +305,11 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <KpiCard label="Valorización costo" value={formatCLP(valorizacionCosto)} colorIdx={0} />
         <KpiCard label="Valorización venta" value={formatCLP(valorizacionVenta)} colorIdx={1} />
         <KpiCard label="Margen potencial" value={`${margen}%`} colorIdx={2} />
+        <KpiCard label="Util. neta potencial" value={formatCLP(utilidadNetaInv)} sub="ventas neto − PPM − costo" colorIdx={1} />
         <KpiCard label="Productos críticos" value={`${criticos.length}`} sub="stock ≤ mínimo" colorIdx={4} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
