@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
 import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
+import RepuestosOT from '@/components/reparaciones/RepuestosOT'
 import { Customer, Equipment, RepairOrder, RepairStatusHistory, UserProfile } from '@/types'
 
 const ESTADO_INFO: Record<string, { label: string; color: string }> = {
@@ -29,6 +30,12 @@ type OTDetalle = RepairOrder & {
 
 type HistorialItem = RepairStatusHistory & {
   user_profiles: Pick<UserProfile, 'nombre_completo'> | null
+  foto_url?: string | null
+}
+
+interface RepuestoItem {
+  id: string; nombre: string; cantidad: number
+  precio_costo: number; costo_envio: number; product_id: string | null
 }
 
 export default async function OTDetallePage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,7 +48,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
   const protocol = host.includes('localhost') ? 'http' : 'https'
   const baseUrl = `${protocol}://${host}`
 
-  const [{ data: ot }, { data: historial }, { data: config }] = await Promise.all([
+  const [{ data: ot }, { data: historial }, { data: config }, { data: repuestos }] = await Promise.all([
     supabase.from('repair_orders')
       .select('*, customers(*), equipment(*), user_profiles(nombre_completo)')
       .eq('id', id)
@@ -51,6 +58,10 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
       .eq('repair_order_id', id)
       .order('created_at', { ascending: false }),
     supabase.from('system_config').select('*').single(),
+    supabase.from('repair_items')
+      .select('id, nombre, cantidad, precio_costo, costo_envio, product_id')
+      .eq('repair_order_id', id)
+      .order('created_at'),
   ])
 
   if (!ot) notFound()
@@ -170,6 +181,14 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
                 <span className="font-bold text-green-700">${otDetalle.precio_servicio.toLocaleString('es-CL')}</span>
               </div>
             ) : null}
+            {(otDetalle as RepairOrder & { resultado?: string }).resultado && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Resultado</span>
+                <span className={`font-medium text-xs px-2 py-0.5 rounded-full ${(otDetalle as RepairOrder & { resultado?: string }).resultado === 'exitosa' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                  {(otDetalle as RepairOrder & { resultado?: string }).resultado === 'exitosa' ? '✅ Reparado' : '🔧 Sin reparación'}
+                </span>
+              </div>
+            )}
           </div>
           <div className="mt-3 pt-3 border-t">
             <p className="text-xs text-gray-400 mb-1">Link de seguimiento:</p>
@@ -199,6 +218,12 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
+      {/* Repuestos */}
+      <RepuestosOT
+        otId={otDetalle.id}
+        repuestosIniciales={(repuestos ?? []) as RepuestoItem[]}
+      />
+
       {/* Historial */}
       <div>
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Historial de estados</h2>
@@ -216,6 +241,12 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
                     {new Date(h.created_at).toLocaleString('es-CL')}
                     {h.user_profiles?.nombre_completo && ` · ${h.user_profiles.nombre_completo}`}
                   </p>
+                  {h.foto_url && (
+                    <a href={h.foto_url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={h.foto_url} alt="Foto estado" className="h-24 rounded-lg border object-cover hover:opacity-90 transition-opacity" />
+                    </a>
+                  )}
                 </div>
               </div>
             )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -23,7 +23,6 @@ export const ESTADO_LABELS: Record<RepairStatus, string> = {
   cancelado:          'Cancelado',
 }
 
-// Todos los estados disponibles excepto el actual
 const TODOS_ESTADOS: RepairStatus[] = [
   'recibido', 'en_diagnostico', 'presupuestado', 'aprobado',
   'rechazado', 'esperando_repuesto', 'en_reparacion',
@@ -33,19 +32,57 @@ const TODOS_ESTADOS: RepairStatus[] = [
 export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; estadoActual: RepairStatus }) {
   const router = useRouter()
   const supabase = createClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+
   const [nuevoEstado, setNuevoEstado] = useState<RepairStatus | ''>('')
   const [comentario, setComentario] = useState('')
+  const [resultado, setResultado] = useState<'exitosa' | 'no_exitosa' | ''>('')
+  const [foto, setFoto] = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const opciones = TODOS_ESTADOS.filter(e => e !== estadoActual)
 
+  function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setFoto(f)
+    setFotoPreview(URL.createObjectURL(f))
+  }
+
+  function quitarFoto() {
+    setFoto(null)
+    setFotoPreview(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  async function subirFoto(): Promise<string | null> {
+    if (!foto) return null
+    const ext = foto.name.split('.').pop() ?? 'jpg'
+    const path = `${otId}/${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('ot-fotos').upload(path, foto, { upsert: true })
+    if (error) { toast.error('Error al subir foto'); return null }
+    const { data } = supabase.storage.from('ot-fotos').getPublicUrl(path)
+    return data.publicUrl
+  }
+
   async function handleCambio() {
     if (!nuevoEstado) return
+    if (nuevoEstado === 'listo' && !resultado) {
+      toast.error('Indica si la reparación fue exitosa o sin reparación')
+      return
+    }
     setLoading(true)
+
+    const fotoUrl = await subirFoto()
+
+    // Actualizar estado + resultado si aplica
+    const updatePayload: Record<string, unknown> = { estado: nuevoEstado }
+    if (nuevoEstado === 'listo' && resultado) updatePayload.resultado = resultado
 
     const { error } = await supabase
       .from('repair_orders')
-      .update({ estado: nuevoEstado })
+      .update(updatePayload)
       .eq('id', otId)
 
     if (error) {
@@ -59,18 +96,21 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
       estado_anterior: estadoActual,
       estado_nuevo: nuevoEstado,
       comentario: comentario || null,
+      foto_url: fotoUrl,
     })
 
-    toast.success(`Estado cambiado a: ${ESTADO_LABELS[nuevoEstado]}`)
+    toast.success(`Estado: ${ESTADO_LABELS[nuevoEstado]}`)
     setNuevoEstado('')
     setComentario('')
+    setResultado('')
+    quitarFoto()
     router.refresh()
     setLoading(false)
   }
 
   return (
     <div className="flex flex-col gap-2 min-w-[240px]">
-      <Select value={nuevoEstado} onValueChange={v => setNuevoEstado(v as RepairStatus)}>
+      <Select value={nuevoEstado} onValueChange={v => { setNuevoEstado(v as RepairStatus); setResultado('') }}>
         <SelectTrigger>
           <span className="truncate text-sm text-left text-gray-700">
             {nuevoEstado ? ESTADO_LABELS[nuevoEstado] : 'Cambiar estado...'}
@@ -85,17 +125,55 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
 
       {nuevoEstado && (
         <>
+          {/* Sub-opción para "Listo" */}
+          {nuevoEstado === 'listo' && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setResultado('exitosa')}
+                className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${resultado === 'exitosa' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'}`}
+              >
+                ✅ Reparado
+              </button>
+              <button
+                type="button"
+                onClick={() => setResultado('no_exitosa')}
+                className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${resultado === 'no_exitosa' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'}`}
+              >
+                🔧 Sin reparación
+              </button>
+            </div>
+          )}
+
           <Textarea
             placeholder="Comentario (opcional)..."
             value={comentario}
             onChange={e => setComentario(e.target.value)}
             rows={2}
           />
-          <Button
-            onClick={handleCambio}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
+
+          {/* Foto adjunta */}
+          <div>
+            {fotoPreview ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={fotoPreview} alt="Foto" className="w-full h-32 object-cover rounded-lg border" />
+                <button
+                  type="button"
+                  onClick={quitarFoto}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold hover:bg-red-600"
+                >✕</button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm text-gray-500">
+                <span>📷</span>
+                <span>Adjuntar foto (opcional)</span>
+                <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFoto} />
+              </label>
+            )}
+          </div>
+
+          <Button onClick={handleCambio} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
             {loading ? 'Guardando...' : 'Confirmar cambio'}
           </Button>
         </>

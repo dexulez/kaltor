@@ -232,3 +232,18 @@ ALTER TABLE system_config
 SELECT 'sales.descuento'            AS check, column_name IS NOT NULL AS ok FROM information_schema.columns WHERE table_name='sales' AND column_name='descuento';
 SELECT 'sales.metodo_pago_2'        AS check, column_name IS NOT NULL AS ok FROM information_schema.columns WHERE table_name='sales' AND column_name='metodo_pago_2';
 SELECT 'system_config.terminos'     AS check, column_name IS NOT NULL AS ok FROM information_schema.columns WHERE table_name='system_config' AND column_name='terminos_condiciones';
+
+-- ============================================================
+-- 10. FOTOS EN HISTORIAL OT + RESULTADO DE REPARACIÓN
+-- ============================================================
+
+-- Foto adjunta al cambiar estado
+ALTER TABLE repair_status_history
+  ADD COLUMN IF NOT EXISTS foto_url TEXT;
+
+-- Verificación
+SELECT 'repair_status_history.foto_url' AS check,
+  column_name IS NOT NULL AS ok
+FROM information_schema.columns
+WHERE table_name = 'repair_status_history'
+  AND column_name = 'foto_url';
