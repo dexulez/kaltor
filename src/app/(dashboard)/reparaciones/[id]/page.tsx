@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
 import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
 import RepuestosOT from '@/components/reparaciones/RepuestosOT'
+import AplicarServicioButton from '@/components/servicios/AplicarServicioButton'
 import { Customer, Equipment, RepairOrder, RepairStatusHistory, UserProfile } from '@/types'
 
 const ESTADO_INFO: Record<string, { label: string; color: string }> = {
@@ -108,6 +109,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
               </Button>
             </Link>
           )}
+          <AplicarServicioButton otId={otDetalle.id} />
           <CambiarEstadoOT otId={otDetalle.id} estadoActual={otDetalle.estado} />
         </div>
       </div>

@@ -60,6 +60,9 @@ export default async function InventarioPage({
           <Link href="/inventario/categorias">
             <Button variant="outline" className="gap-1.5">🗂️ Categorías</Button>
           </Link>
+          <Link href="/inventario/precios">
+            <Button variant="outline" className="gap-1.5">💰 Precios</Button>
+          </Link>
           <Link href="/inventario/carga-masiva">
             <Button variant="outline" className="gap-1.5">⬆️ Carga masiva</Button>
           </Link>

@@ -311,3 +311,43 @@ CREATE POLICY "delete manuales" ON storage.objects
 SELECT 'equipment_manuals' AS tabla,
   count(*) AS filas
 FROM equipment_manuals;
+
+-- ============================================================
+-- 12. MÓDULO DE SERVICIOS (PLANTILLAS DE REPARACIÓN)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS repair_services (
+  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre              TEXT        NOT NULL,
+  descripcion         TEXT,
+  tipo_reparacion     TEXT        NOT NULL DEFAULT 'otro',
+  precio_base         INTEGER     NOT NULL DEFAULT 0,
+  tiempo_estimado_min INTEGER     DEFAULT 60,
+  activo              BOOLEAN     NOT NULL DEFAULT true,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS repair_service_items (
+  id          UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  service_id  UUID    NOT NULL REFERENCES repair_services(id) ON DELETE CASCADE,
+  product_id  UUID    REFERENCES products(id) ON DELETE SET NULL,
+  nombre      TEXT    NOT NULL,
+  cantidad    INTEGER NOT NULL DEFAULT 1,
+  precio_costo INTEGER NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE repair_services      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE repair_service_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ver servicios"      ON repair_services      FOR SELECT TO authenticated USING (true);
+CREATE POLICY "gestionar servicios" ON repair_services     FOR ALL    TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "ver service items"  ON repair_service_items FOR SELECT TO authenticated USING (true);
+CREATE POLICY "gestionar service items" ON repair_service_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Índice
+CREATE INDEX IF NOT EXISTS idx_repair_services_tipo ON repair_services (tipo_reparacion);
+
+-- Verificación
+SELECT 'repair_services' AS tabla, count(*) FROM repair_services;
