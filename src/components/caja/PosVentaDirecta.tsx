@@ -66,7 +66,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   })
   const [carrito, setCarrito] = useState<ItemCarrito[]>([])
   const [metodo, setMetodo] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
-  const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura'>('boleta')
+  const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura' | 'presupuesto'>('boleta')
   const [busqueda, setBusqueda] = useState('')
   const [showScanner, setShowScanner] = useState(false)
   const [loading, setLoading] = useState(false)
