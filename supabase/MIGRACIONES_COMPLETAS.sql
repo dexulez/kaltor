@@ -351,3 +351,31 @@ CREATE INDEX IF NOT EXISTS idx_repair_services_tipo ON repair_services (tipo_rep
 
 -- Verificación
 SELECT 'repair_services' AS tabla, count(*) FROM repair_services;
+
+-- ============================================================
+-- 13. LIQUIDACIONES DE PROVEEDORES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS supplier_settlements (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  supplier_id UUID        NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  fecha       DATE        NOT NULL DEFAULT CURRENT_DATE,
+  periodo_desde DATE,
+  periodo_hasta DATE,
+  monto       INTEGER     NOT NULL,          -- monto pagado
+  metodo_pago TEXT        DEFAULT 'transferencia',
+  nota        TEXT,
+  created_by  UUID        REFERENCES user_profiles(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_settlements_supplier ON supplier_settlements (supplier_id);
+CREATE INDEX IF NOT EXISTS idx_settlements_fecha    ON supplier_settlements (fecha);
+
+ALTER TABLE supplier_settlements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "gestionar liquidaciones"
+  ON supplier_settlements FOR ALL TO authenticated
+  USING (true) WITH CHECK (true);
+
+-- Verificación
+SELECT 'supplier_settlements' AS tabla, count(*) FROM supplier_settlements;

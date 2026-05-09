@@ -84,7 +84,10 @@ export default async function ComprasPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex gap-2 justify-end flex-wrap">
+                          <Link href={`/compras/proveedor/${p.id}/liquidacion`}>
+                            <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">💸 Liquidar</Button>
+                          </Link>
                           <Link href={`/compras/proveedor/${p.id}/editar`}>
                             <Button variant="outline" size="sm">Editar</Button>
                           </Link>
