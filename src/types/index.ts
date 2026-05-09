@@ -19,7 +19,7 @@ export type UserRole = 'administrador' | 'tecnico' | 'vendedor' | 'supervisor_ve
 
 export type PaymentMethod = 'efectivo' | 'transferencia' | 'debito' | 'credito'
 
-export type DocumentType = 'boleta' | 'factura'
+export type DocumentType = 'boleta' | 'factura' | 'presupuesto'
 
 export type ProductCategoryType = 'repuesto' | 'accesorio' | 'equipo_usado' | 'insumo'
 

@@ -241,11 +241,13 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     ? Math.round(i.product.precio_venta / 1.19)
     : i.product.precio_venta
 
-  const netoTotal = Math.round(totalFinalConDesc / (1 + IVA / 100))
-  const ivaTotal = totalFinalConDesc - netoTotal
-  const ppmTotal = calcularPpm(netoTotal, PPM)
-  const comisionPct = metodo === 'debito' ? comisionDebito : metodo === 'credito' ? comisionCredito : 0
-  const comisionBancaria = Math.round(totalFinalConDesc * comisionPct / 100)
+  const esPresupuesto = tipoDoc === 'presupuesto'
+  // Presupuesto: sin IVA, sin PPM, sin comisión bancaria
+  const netoTotal = esPresupuesto ? totalFinalConDesc : Math.round(totalFinalConDesc / (1 + IVA / 100))
+  const ivaTotal = esPresupuesto ? 0 : totalFinalConDesc - netoTotal
+  const ppmTotal = esPresupuesto ? 0 : calcularPpm(netoTotal, PPM)
+  const comisionPct = (!esPresupuesto && metodo === 'debito') ? comisionDebito : (!esPresupuesto && metodo === 'credito') ? comisionCredito : 0
+  const comisionBancaria = esPresupuesto ? 0 : Math.round(totalFinalConDesc * comisionPct / 100)
   const totalFinal = totalFinalConDesc
 
   async function handleVenta() {
@@ -520,7 +522,13 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
           </div>
 
           {/* Totales */}
-          <div className="space-y-1.5 text-sm bg-gray-50 rounded-lg p-3">
+          <div className={`space-y-1.5 text-sm rounded-lg p-3 ${esPresupuesto ? 'bg-purple-50 border border-purple-200' : 'bg-gray-50'}`}>
+            {esPresupuesto && (
+              <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-purple-200">
+                <span className="text-sm">📋</span>
+                <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Presupuesto — sin impuestos</span>
+              </div>
+            )}
             {subtotal > 0 && descuentoFinal > 0 && (
               <div className="flex justify-between text-gray-500 text-xs">
                 <span>Subtotal</span><span>{formatCLP(subtotal)}</span>
@@ -531,21 +539,25 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
                 <span>Descuento</span><span>− {formatCLP(descuentoFinal)}</span>
               </div>
             )}
-            <div className="flex justify-between text-gray-600">
-              <span>Neto</span><span>{formatCLP(netoTotal)}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>IVA ({IVA}%)</span><span>{formatCLP(ivaTotal)}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>PPM ({PPM}%)</span><span>{formatCLP(ppmTotal)}</span>
-            </div>
-            {comisionBancaria > 0 && (
-              <div className="flex justify-between text-orange-600 text-xs">
-                <span>Comisión bancaria ({comisionPct}%)</span><span>− {formatCLP(comisionBancaria)}</span>
-              </div>
+            {!esPresupuesto && (
+              <>
+                <div className="flex justify-between text-gray-600">
+                  <span>Neto</span><span>{formatCLP(netoTotal)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>IVA ({IVA}%)</span><span>{formatCLP(ivaTotal)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>PPM ({PPM}%)</span><span>{formatCLP(ppmTotal)}</span>
+                </div>
+                {comisionBancaria > 0 && (
+                  <div className="flex justify-between text-orange-600 text-xs">
+                    <span>Comisión bancaria ({comisionPct}%)</span><span>− {formatCLP(comisionBancaria)}</span>
+                  </div>
+                )}
+              </>
             )}
-            <div className="flex justify-between font-bold text-xl border-t pt-2 text-gray-900">
+            <div className={`flex justify-between font-bold text-xl border-t pt-2 ${esPresupuesto ? 'text-purple-800 border-purple-200' : 'text-gray-900'}`}>
               <span>TOTAL</span><span>{formatCLP(totalFinal)}</span>
             </div>
           </div>
@@ -666,19 +678,27 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
               <Label>Documento</Label>
               <Select value={tipoDoc} onValueChange={(v) => setTipoDoc(v as typeof tipoDoc)}>
                 <SelectTrigger>
-                  <span className="flex-1 text-left text-sm">{tipoDoc === 'boleta' ? 'Boleta' : 'Factura'}</span>
+                  <span className="flex-1 text-left text-sm">
+                    {tipoDoc === 'boleta' ? '🧾 Boleta' : tipoDoc === 'factura' ? '📄 Factura' : '📋 Presupuesto'}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="boleta">Boleta</SelectItem>
-                  <SelectItem value="factura">Factura</SelectItem>
+                  <SelectItem value="boleta">🧾 Boleta</SelectItem>
+                  <SelectItem value="factura">📄 Factura</SelectItem>
+                  <SelectItem value="presupuesto">📋 Presupuesto (sin impuestos)</SelectItem>
                 </SelectContent>
               </Select>
+              {esPresupuesto && (
+                <p className="text-xs text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg">
+                  Solo descuenta stock. No registra IVA ni PPM. Útil para control interno o retiro de mercancía.
+                </p>
+              )}
             </div>
           </div>
 
           <Button onClick={handleVenta} disabled={loading || (!carrito.length && !serviciosOT.length)}
-            className="w-full bg-green-600 hover:bg-green-700 text-base py-6">
-            {loading ? 'Procesando...' : `✓ Cobrar ${formatCLP(totalFinal)}`}
+            className={`w-full text-base py-6 ${esPresupuesto ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'}`}>
+            {loading ? 'Procesando...' : esPresupuesto ? `📋 Registrar presupuesto ${formatCLP(totalFinal)}` : `✓ Cobrar ${formatCLP(totalFinal)}`}
           </Button>
         </div>
       </div>
