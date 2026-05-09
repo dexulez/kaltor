@@ -62,11 +62,25 @@ export default function RecibirMercanciaForm({ oc }: Props) {
       await supabase.from('purchase_order_items').update({ cantidad_recibida: nuevaCantidad }).eq('id', item.id)
 
       if (item.product_id) {
-        const { data: producto } = await supabase.from('products').select('stock_actual').eq('id', item.product_id).single()
+        const { data: producto } = await supabase.from('products').select('stock_actual, precio_costo, costo_envio').eq('id', item.product_id).single()
         if (producto) {
           const stockAnterior = producto.stock_actual
           const stockNuevo = stockAnterior + cantidadNuevamenteRecibida
-          await supabase.from('products').update({ stock_actual: stockNuevo, activo: true }).eq('id', item.product_id)
+
+          // Calcular costo promedio ponderado con el nuevo lote
+          const costoAnterior = (producto.precio_costo ?? 0)
+          const costoNuevo = item.precio_unitario ?? 0
+          const costoEnvioNuevo = item.costo_envio ?? 0
+          const costoPromedio = stockAnterior > 0
+            ? Math.round((costoAnterior * stockAnterior + costoNuevo * cantidadNuevamenteRecibida) / stockNuevo)
+            : costoNuevo
+
+          await supabase.from('products').update({
+            stock_actual: stockNuevo,
+            activo: true,
+            precio_costo: costoPromedio,
+            ...(costoEnvioNuevo > 0 ? { costo_envio: costoEnvioNuevo } : {}),
+          }).eq('id', item.product_id)
           await supabase.from('stock_movements').insert({
             product_id: item.product_id,
             tipo: 'entrada',

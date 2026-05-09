@@ -272,13 +272,15 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
 
-  const [{ data: productos }, { data: movimientos }] = await Promise.all([
+  const [{ data: productos }, { data: movimientos }, { data: comprasRec }] = await Promise.all([
     supabase.from('products').select('*, product_categories(nombre)').eq('activo', true),
     supabase.from('stock_movements').select('*').gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('purchase_orders').select('total').in('estado', ['recibida_completa', 'recibida_parcial']),
   ])
 
   const prods = productos ?? []
   const movs = movimientos ?? []
+  const totalComprasRecibidas = (comprasRec ?? []).reduce((s, oc) => s + (oc.total ?? 0), 0)
 
   const valorizacionCosto = prods.reduce((s, p) => s + (p.stock_actual ?? 0) * (p.precio_costo ?? 0), 0)
   const valorizacionVenta = prods.reduce((s, p) => s + (p.stock_actual ?? 0) * (p.precio_venta ?? 0), 0)
@@ -306,12 +308,25 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <KpiCard label="Valorización costo" value={formatCLP(valorizacionCosto)} colorIdx={0} />
-        <KpiCard label="Valorización venta" value={formatCLP(valorizacionVenta)} colorIdx={1} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <KpiCard label="Valorización costo" value={formatCLP(valorizacionCosto)} sub="stock actual × costo unitario" colorIdx={0} />
+        <KpiCard label="Valorización venta" value={formatCLP(valorizacionVenta)} sub="stock actual × precio venta" colorIdx={1} />
         <KpiCard label="Margen potencial" value={`${margen}%`} colorIdx={2} />
+        <KpiCard label="Total OCs recibidas" value={formatCLP(totalComprasRecibidas)} sub="compras registradas en el sistema" colorIdx={5} />
         <KpiCard label="Util. neta potencial" value={formatCLP(utilidadNetaInv)} sub="ventas neto − PPM − costo" colorIdx={1} />
         <KpiCard label="Productos críticos" value={`${criticos.length}`} sub="stock ≤ mínimo" colorIdx={4} />
+      </div>
+
+      {/* Explicación de la diferencia entre valorización y compras */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
+        <p className="font-semibold mb-1">ℹ️ ¿Por qué difieren Valorización costo y Total OCs?</p>
+        <p className="text-xs text-amber-700 leading-relaxed">
+          <strong>Valorización costo</strong> = valor del stock actual (todas las unidades × su costo unitario en inventario).
+          Incluye productos cargados masivamente antes de usar el módulo de Compras. &nbsp;
+          <strong>Total OCs recibidas</strong> = suma de órdenes de compra registradas en el sistema.
+          Son distintos: si cargaste inventario inicial sin OC, solo aparece en la valorización.
+          A partir de ahora cada OC recibida <strong>actualiza automáticamente el costo promedio</strong> del producto.
+        </p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
