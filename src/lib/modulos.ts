@@ -12,7 +12,37 @@ export const MODULOS = [
 
 export type ModuloKey = typeof MODULOS[number]['key']
 
-// Acceso por defecto según nombre de rol (se usa cuando permisos_modulos es null)
+// ── Sub-permisos por módulo ────────────────────────────────────────────────────
+export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: string; desc: string }[]>> = {
+  clientes: [
+    { key: 'clientes.crear', label: 'Crear y editar clientes', desc: 'Registrar nuevos clientes y modificar sus datos' },
+  ],
+  reparaciones: [
+    { key: 'reparaciones.ver_todas',  label: 'Ver todas las OTs',       desc: 'Sin esto, el técnico solo ve sus OTs asignadas y las disponibles' },
+    { key: 'reparaciones.adjudicar',  label: 'Adjudicarse OTs',         desc: 'Tomar OTs sin técnico asignado' },
+    { key: 'reparaciones.crear',      label: 'Crear nuevas OTs',        desc: 'Registrar órdenes de trabajo nuevas' },
+    { key: 'reparaciones.cobrar',     label: 'Cobrar OTs desde taller', desc: 'Acceder al botón "Cobrar en caja" en cada OT' },
+  ],
+  inventario: [
+    { key: 'inventario.editar',       label: 'Crear/editar productos',   desc: 'Agregar y modificar productos del inventario' },
+    { key: 'inventario.ajustar_stock',label: 'Ajustar stock',            desc: 'Toma de inventario y ajustes manuales de cantidad' },
+  ],
+  caja: [
+    { key: 'caja.ver_historial', label: 'Ver historial completo', desc: 'Ver todas las ventas del período, no solo las propias' },
+    { key: 'caja.anular',        label: 'Anular ventas',           desc: 'Marcar ventas como anuladas' },
+  ],
+  compras: [
+    { key: 'compras.crear',   label: 'Crear órdenes de compra', desc: 'Registrar nuevas OCs a proveedores' },
+    { key: 'compras.recibir', label: 'Recibir mercancía',        desc: 'Confirmar recepción y actualizar stock' },
+  ],
+  informes: [
+    { key: 'informes.solo_propios',      label: 'Solo mis datos',             desc: 'El usuario solo ve su rendimiento personal, no el global' },
+    { key: 'informes.ver_ventas',        label: 'Ver pestaña Ventas',         desc: '' },
+    { key: 'informes.ver_rentabilidad',  label: 'Ver pestaña Rentabilidad',   desc: '' },
+  ],
+}
+
+// ── Acceso a módulo por defecto según rol ────────────────────────────────────
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
   administrador:     ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'usuarios', 'informes', 'configuracion'],
   tecnico:           ['dashboard', 'reparaciones', 'inventario', 'informes'],
@@ -20,11 +50,46 @@ export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
   supervisor_ventas: ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'informes'],
 }
 
-export function getDefaultPermisos(rolNombre: string): Record<ModuloKey, boolean> {
-  const defaults = MODULOS_ROL_DEFAULT[rolNombre] ?? []
-  return Object.fromEntries(
-    MODULOS.map(m => [m.key, defaults.includes(m.key)])
-  ) as Record<ModuloKey, boolean>
+// ── Sub-permisos por defecto según rol ───────────────────────────────────────
+const SUB_DEFAULT: Record<string, Record<string, boolean>> = {
+  administrador: {
+    'clientes.crear': true,
+    'reparaciones.ver_todas': true, 'reparaciones.adjudicar': false, 'reparaciones.crear': true, 'reparaciones.cobrar': true,
+    'inventario.editar': true, 'inventario.ajustar_stock': true,
+    'caja.ver_historial': true, 'caja.anular': true,
+    'compras.crear': true, 'compras.recibir': true,
+    'informes.solo_propios': false, 'informes.ver_ventas': true, 'informes.ver_rentabilidad': true,
+  },
+  tecnico: {
+    'clientes.crear': false,
+    'reparaciones.ver_todas': false, 'reparaciones.adjudicar': true, 'reparaciones.crear': false, 'reparaciones.cobrar': false,
+    'inventario.editar': false, 'inventario.ajustar_stock': false,
+    'caja.ver_historial': false, 'caja.anular': false,
+    'compras.crear': false, 'compras.recibir': false,
+    'informes.solo_propios': true, 'informes.ver_ventas': false, 'informes.ver_rentabilidad': true,
+  },
+  vendedor: {
+    'clientes.crear': true,
+    'reparaciones.ver_todas': true, 'reparaciones.adjudicar': false, 'reparaciones.crear': true, 'reparaciones.cobrar': true,
+    'inventario.editar': false, 'inventario.ajustar_stock': false,
+    'caja.ver_historial': true, 'caja.anular': false,
+    'compras.crear': false, 'compras.recibir': false,
+    'informes.solo_propios': false, 'informes.ver_ventas': true, 'informes.ver_rentabilidad': false,
+  },
+  supervisor_ventas: {
+    'clientes.crear': true,
+    'reparaciones.ver_todas': true, 'reparaciones.adjudicar': false, 'reparaciones.crear': true, 'reparaciones.cobrar': true,
+    'inventario.editar': false, 'inventario.ajustar_stock': true,
+    'caja.ver_historial': true, 'caja.anular': true,
+    'compras.crear': true, 'compras.recibir': true,
+    'informes.solo_propios': false, 'informes.ver_ventas': true, 'informes.ver_rentabilidad': true,
+  },
+}
+
+export function getDefaultPermisos(rolNombre: string): Record<string, boolean> {
+  const modDefaults = MODULOS_ROL_DEFAULT[rolNombre] ?? []
+  const modPerms = Object.fromEntries(MODULOS.map(m => [m.key, modDefaults.includes(m.key)]))
+  return { ...modPerms, ...(SUB_DEFAULT[rolNombre] ?? {}) }
 }
 
 export function tieneAccesoModulo(
@@ -32,10 +97,18 @@ export function tieneAccesoModulo(
   rolNombre: string,
   permisosModulos: Record<string, boolean> | null | undefined
 ): boolean {
-  // Admin siempre tiene acceso a todo
   if (rolNombre === 'administrador') return true
-  // Si hay permisos explícitos por usuario, usarlos
   if (permisosModulos != null) return !!permisosModulos[modulo]
-  // Fallback a defaults del rol
   return MODULOS_ROL_DEFAULT[rolNombre]?.includes(modulo) ?? false
+}
+
+// Verificar sub-permiso específico
+export function tieneSubPermiso(
+  key: string,
+  rolNombre: string,
+  permisosModulos: Record<string, boolean> | null | undefined
+): boolean {
+  if (rolNombre === 'administrador') return true
+  if (permisosModulos != null && key in permisosModulos) return !!permisosModulos[key]
+  return !!(SUB_DEFAULT[rolNombre]?.[key] ?? false)
 }

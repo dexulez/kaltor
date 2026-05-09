@@ -9,6 +9,7 @@ import {
   GraficoArea,
 } from '@/components/informes/Charts'
 import InformesExportActions from '@/components/informes/InformesExportActions'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -405,25 +406,29 @@ function calcularOT(
   return { precioNeto, ivaImporte, costoRep, comBanco, baseCalculo, pctComision, comisionTecnico, costoInsumos, gananciaNegocio }
 }
 
-async function TabRentabilidad({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; hasta: string; soloUserId?: string }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
 
+  let otsQuery = supabase.from('repair_orders')
+    .select(`
+      id, numero_ot, created_at, tipo_reparacion, precio_servicio,
+      metodo_pago, iva_aplicado, tecnico_id,
+      equipment(marca, modelo),
+      tecnico:user_profiles(
+        nombre_completo, comision_base, comision_pantalla, comision_bateria,
+        comision_placa, comision_software, comision_camara, comision_conector, comision_otro
+      )
+    `)
+    .eq('estado', 'entregado')
+    .gte('created_at', desdeIso)
+    .lte('created_at', hastaIso)
+
+  if (soloUserId) otsQuery = otsQuery.eq('tecnico_id', soloUserId)
+
   const [{ data: otsRaw }, { data: itemsRaw }, { data: confRaw }] = await Promise.all([
-    supabase.from('repair_orders')
-      .select(`
-        id, numero_ot, created_at, tipo_reparacion, precio_servicio,
-        metodo_pago, iva_aplicado, tecnico_id,
-        equipment(marca, modelo),
-        tecnico:user_profiles(
-          nombre_completo, comision_base, comision_pantalla, comision_bateria,
-          comision_placa, comision_software, comision_camara, comision_conector, comision_otro
-        )
-      `)
-      .eq('estado', 'entregado')
-      .gte('created_at', desdeIso)
-      .lte('created_at', hastaIso),
+    otsQuery,
     supabase.from('repair_items')
       .select('repair_order_id, cantidad, precio_costo, costo_envio'),
     supabase.from('system_config').select('iva, comision_debito, comision_credito, comision_transferencia, costo_insumos_promedio').single(),
@@ -537,6 +542,14 @@ async function TabRentabilidad({ desde, hasta }: { desde: string; hasta: string 
 
   return (
     <div className="space-y-5">
+
+      {/* Banner personal si es vista filtrada */}
+      {soloUserId && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800 flex items-center gap-2">
+          <span className="text-lg">👤</span>
+          <span>Mostrando <strong>solo tus OTs entregadas</strong> en el período seleccionado.</span>
+        </div>
+      )}
 
       {/* KPIs globales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -741,9 +754,29 @@ export default async function InformesPage({
   searchParams: Promise<{ tab?: string; desde?: string; hasta?: string }>
 }) {
   const params = await searchParams
-  const tab = params.tab ?? 'ventas'
   const desde = params.desde ?? hace30Dias()
   const hasta = params.hasta ?? formatDate(new Date())
+
+  // Permisos del usuario actual
+  const supabaseAuth = await createClient()
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  const { data: profileAuth } = await supabaseAuth
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesAuth = profileAuth?.roles as { nombre?: string } | { nombre?: string }[] | null | undefined
+  const rolAuth = (Array.isArray(rolesAuth) ? rolesAuth[0]?.nombre : rolesAuth?.nombre) ?? ''
+  const permisosAuth = profileAuth?.permisos_modulos as Record<string, boolean> | null
+
+  const soloPropios    = tieneSubPermiso('informes.solo_propios',     rolAuth, permisosAuth)
+  const verVentas      = rolAuth === 'administrador' || tieneSubPermiso('informes.ver_ventas',       rolAuth, permisosAuth)
+  const verRentab      = rolAuth === 'administrador' || tieneSubPermiso('informes.ver_rentabilidad', rolAuth, permisosAuth)
+  const soloUserId     = soloPropios ? user!.id : undefined
+
+  // Tab por defecto según permisos
+  const defaultTab = verVentas ? 'ventas' : verRentab ? 'rentabilidad' : 'inventario'
+  const tab = params.tab ?? defaultTab
 
   return (
     <div className="p-6 space-y-5">
@@ -766,11 +799,14 @@ export default async function InformesPage({
       </div>
 
       <Suspense fallback={<div className="text-center py-16 text-gray-400 text-sm">Cargando datos...</div>}>
-        {tab === 'ventas'       && <TabVentas       desde={desde} hasta={hasta} />}
+        {tab === 'ventas'       && verVentas  && <TabVentas       desde={desde} hasta={hasta} />}
         {tab === 'taller'       && <TabTaller        desde={desde} hasta={hasta} />}
         {tab === 'inventario'   && <TabInventario    desde={desde} hasta={hasta} />}
-        {tab === 'rentabilidad' && <TabRentabilidad  desde={desde} hasta={hasta} />}
-        {tab === 'auditoria'    && <TabAuditoria     desde={desde} hasta={hasta} />}
+        {tab === 'rentabilidad' && verRentab  && <TabRentabilidad  desde={desde} hasta={hasta} soloUserId={soloUserId} />}
+        {tab === 'auditoria'    && rolAuth === 'administrador' && <TabAuditoria desde={desde} hasta={hasta} />}
+        {/* Mensajes de acceso restringido */}
+        {tab === 'ventas'       && !verVentas  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Ventas.</div>}
+        {tab === 'rentabilidad' && !verRentab  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Rentabilidad.</div>}
       </Suspense>
     </div>
   )
