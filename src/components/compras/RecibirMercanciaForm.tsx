@@ -70,7 +70,7 @@ export default function RecibirMercanciaForm({ oc }: Props) {
           // Calcular costo promedio ponderado con el nuevo lote
           const costoAnterior = (producto.precio_costo ?? 0)
           const costoNuevo = item.precio_unitario ?? 0
-          const costoEnvioNuevo = item.costo_envio ?? 0
+          const costoEnvioNuevo = item.costo_envio_prorrateado ?? 0
           const costoPromedio = stockAnterior > 0
             ? Math.round((costoAnterior * stockAnterior + costoNuevo * cantidadNuevamenteRecibida) / stockNuevo)
             : costoNuevo
