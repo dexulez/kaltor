@@ -112,6 +112,18 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
+      {/* Link a manuales del equipo */}
+      {equipo && (
+        <Link
+          href={`/manuales?marca=${encodeURIComponent(equipo.marca)}&q=${encodeURIComponent(equipo.modelo)}`}
+          className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm text-indigo-700 hover:bg-indigo-100 transition-colors w-fit"
+        >
+          <span className="text-lg">🧠</span>
+          <span>Ver manuales y fallas para <strong>{equipo.marca} {equipo.modelo}</strong></span>
+          <span className="text-xs text-indigo-400 ml-1">→</span>
+        </Link>
+      )}
+
       {/* Botones compartir / imprimir */}
       <div className="bg-white rounded-xl border p-4">
         <div className="flex items-center justify-between flex-wrap gap-3">

@@ -247,3 +247,67 @@ SELECT 'repair_status_history.foto_url' AS check,
 FROM information_schema.columns
 WHERE table_name = 'repair_status_history'
   AND column_name = 'foto_url';
+
+-- ============================================================
+-- 11. BASE DE CONOCIMIENTO TÉCNICO (MANUALES)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS equipment_manuals (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  marca         TEXT        NOT NULL,
+  modelo        TEXT,                           -- NULL = aplica a toda la marca
+  tipo          TEXT        NOT NULL DEFAULT 'falla_comun',
+                                                -- falla_comun | plano | test_point | frp | herramienta | otro
+  titulo        TEXT        NOT NULL,
+  contenido     TEXT,                           -- Markdown libre
+  archivos      TEXT[]      NOT NULL DEFAULT '{}', -- URLs Supabase Storage
+  tags          TEXT[]      NOT NULL DEFAULT '{}',
+  created_by    UUID        REFERENCES user_profiles(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Índices para búsqueda rápida
+CREATE INDEX IF NOT EXISTS idx_manuals_marca   ON equipment_manuals (marca);
+CREATE INDEX IF NOT EXISTS idx_manuals_modelo  ON equipment_manuals (modelo);
+CREATE INDEX IF NOT EXISTS idx_manuals_tipo    ON equipment_manuals (tipo);
+
+-- RLS
+ALTER TABLE equipment_manuals ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "autenticados pueden ver manuales"
+  ON equipment_manuals FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "autenticados pueden crear manuales"
+  ON equipment_manuals FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "creador o admin puede editar"
+  ON equipment_manuals FOR UPDATE TO authenticated
+  USING (created_by = auth.uid());
+
+CREATE POLICY "creador o admin puede borrar"
+  ON equipment_manuals FOR DELETE TO authenticated
+  USING (created_by = auth.uid());
+
+-- Storage bucket manuales (ejecutar también en Storage UI o con este SQL)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'manuales', 'manuales', true, 52428800,  -- 50MB por archivo
+  ARRAY['image/jpeg','image/png','image/webp','image/gif','application/pdf']
+)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "upload manuales" ON storage.objects
+  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'manuales');
+
+CREATE POLICY "view manuales" ON storage.objects
+  FOR SELECT TO public USING (bucket_id = 'manuales');
+
+CREATE POLICY "delete manuales" ON storage.objects
+  FOR DELETE TO authenticated USING (bucket_id = 'manuales');
+
+-- Verificación
+SELECT 'equipment_manuals' AS tabla,
+  count(*) AS filas
+FROM equipment_manuals;

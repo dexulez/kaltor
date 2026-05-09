@@ -7,6 +7,7 @@ export const MODULOS = [
   { key: 'compras',       label: 'Compras',         icon: '🏭', href: '/compras' },
   { key: 'usuarios',      label: 'Usuarios',        icon: '👥', href: '/usuarios' },
   { key: 'informes',      label: 'Informes',        icon: '📈', href: '/informes' },
+  { key: 'manuales',      label: 'Manuales',        icon: '🧠', href: '/manuales' },
   { key: 'configuracion', label: 'Configuración',   icon: '⚙️', href: '/configuracion' },
 ] as const
 
@@ -44,10 +45,10 @@ export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: strin
 
 // ── Acceso a módulo por defecto según rol ────────────────────────────────────
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
-  administrador:     ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'usuarios', 'informes', 'configuracion'],
-  tecnico:           ['dashboard', 'reparaciones', 'inventario', 'informes'],
+  administrador:     ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'usuarios', 'informes', 'manuales', 'configuracion'],
+  tecnico:           ['dashboard', 'reparaciones', 'inventario', 'manuales', 'informes'],
   vendedor:          ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'informes'],
-  supervisor_ventas: ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'informes'],
+  supervisor_ventas: ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'manuales', 'informes'],
 }
 
 // ── Sub-permisos por defecto según rol ───────────────────────────────────────
