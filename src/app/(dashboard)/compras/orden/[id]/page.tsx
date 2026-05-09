@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { formatCLP } from '@/lib/calculations'
 import RecibirMercanciaForm from '@/components/compras/RecibirMercanciaForm'
 import CerrarCompraForm from '@/components/compras/CerrarCompraForm'
+import { Button } from '@/components/ui/button'
 import { PurchaseOrder, PurchaseOrderItem, Supplier } from '@/types'
 
 const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
@@ -39,12 +40,17 @@ export default async function DetalleOrdenCompraPage({ params }: { params: Promi
 
   return (
     <div className="p-6 space-y-5 max-w-4xl">
-      <div>
-        <Link href="/compras" className="text-sm text-blue-600 hover:underline">← Volver a Compras</Link>
-        <div className="flex items-center gap-3 mt-1">
-          <h1 className="text-2xl font-bold text-gray-900 font-mono">{orden.numero_oc}</h1>
-          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${estado.color}`}>{estado.label}</span>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <Link href="/compras" className="text-sm text-blue-600 hover:underline">← Volver a Compras</Link>
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-2xl font-bold text-gray-900 font-mono">{orden.numero_oc}</h1>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${estado.color}`}>{estado.label}</span>
+          </div>
         </div>
+        <Link href={`/compras/orden/${id}/editar`}>
+          <Button variant="outline" className="gap-1.5">✏️ Editar / Corregir</Button>
+        </Link>
       </div>
 
       {/* Info general */}
