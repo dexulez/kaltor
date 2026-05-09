@@ -25,6 +25,7 @@ const SHORT_LABEL: Record<string, string> = {
   compras:      'Compras',
   usuarios:     'Usuarios',
   informes:     'Informes',
+  manuales:     'Manuales',
   configuracion:'Config',
 }
 
