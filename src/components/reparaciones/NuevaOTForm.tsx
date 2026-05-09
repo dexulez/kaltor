@@ -11,8 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { formatRut } from '@/lib/calculations'
-
-const MARCAS = ['Apple', 'Samsung', 'Xiaomi', 'Huawei', 'Motorola', 'LG', 'Sony', 'OnePlus', 'Oppo', 'Realme', 'Otro']
+import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
 const CAPACIDADES = ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
 const COLORES = ['Negro', 'Blanco', 'Azul', 'Rojo', 'Verde', 'Dorado', 'Plateado', 'Morado', 'Rosa', 'Otro']
 const ACCESORIOS_OPTS = ['Cargador', 'Cable', 'Funda', 'Caja original', 'Audífonos', 'Vidrio templado']
@@ -269,17 +268,18 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <Label>Marca</Label>
-            <Select value={equipo.marca} onValueChange={v => setEquipo(eq => ({ ...eq, marca: v ?? '' }))}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {MARCAS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MarcaSelector
+              value={equipo.marca}
+              onChange={v => setEquipo(eq => ({ ...eq, marca: v, modelo: '' }))}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Modelo</Label>
-            <Input placeholder="iPhone 14 Pro, Galaxy S23..." value={equipo.modelo}
-              onChange={e => setEquipo(eq => ({ ...eq, modelo: e.target.value }))} />
+            <ModeloSelector
+              marca={equipo.marca}
+              value={equipo.modelo}
+              onChange={v => setEquipo(eq => ({ ...eq, modelo: v }))}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>IMEI</Label>
