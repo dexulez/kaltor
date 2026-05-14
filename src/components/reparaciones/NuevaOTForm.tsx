@@ -12,11 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatRut } from '@/lib/calculations'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
+import CrearServicioInline from '@/components/servicios/CrearServicioInline'
 import Link from 'next/link'
 const CAPACIDADES = ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
 const COLORES = ['Negro', 'Blanco', 'Azul', 'Rojo', 'Verde', 'Dorado', 'Plateado', 'Morado', 'Rosa', 'Otro']
-const ACCESORIOS_OPTS = ['Cargador', 'Cable', 'Funda', 'Caja original', 'Audífonos', 'Vidrio templado']
-const CONDICION_OPTS = ['Sin daños visibles', 'Rayones leves', 'Rayones profundos', 'Golpes', 'Pantalla rota', 'Marco doblado', 'Humedad', 'Quemaduras']
+
 const TIPOS_REP = [
   { value: 'pantalla', label: 'Pantalla' },
   { value: 'bateria', label: 'Batería' },
@@ -188,9 +188,6 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     tecnico_id: '', tipo_reparacion: '', presupuesto_estimado: '', fecha_estimada_entrega: '',
   })
 
-  function toggleCheck(list: string[], setList: (v: string[]) => void, value: string) {
-    setList(list.includes(value) ? list.filter(v => v !== value) : [...list, value])
-  }
 
   async function crearClienteDesdePopup() {
     if (!nuevoCliente.nombre.trim()) {
@@ -704,15 +701,19 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         </div>
 
         {/* Servicios sugeridos */}
-        {servicios.length > 0 && (
-          <div className="space-y-2">
+        <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold text-gray-700">
-                Servicios disponibles
+                🔩 Servicios disponibles
                 {equipo.falla_reportada.trim().length >= 3 && ' — sugeridos por la falla'}
               </Label>
-              <Link href="/servicios/nuevo" target="_blank"
-                className="text-xs text-blue-600 hover:underline">+ Crear servicio</Link>
+              <CrearServicioInline
+                nombreSugerido={equipo.falla_reportada.trim()}
+                onCreated={s => {
+                  setServicios(prev => [...prev, { ...s, descripcion: null }])
+                  setOt(o => ({ ...o, tipo_reparacion: s.tipo_reparacion, presupuesto_estimado: String(s.precio_base) }))
+                }}
+              />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(equipo.falla_reportada.trim().length >= 3
@@ -753,8 +754,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                 Sin servicios que coincidan — <Link href="/servicios/nuevo" target="_blank" className="text-blue-600 hover:underline">crea uno</Link>
               </p>
             )}
-          </div>
-        )}
+        </div>
       </div>
 
       {/* OT */}

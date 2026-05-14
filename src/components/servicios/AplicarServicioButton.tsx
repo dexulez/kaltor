@@ -40,6 +40,12 @@ export default function AplicarServicioButton({ otId }: { otId: string }) {
       presupuesto_estimado: s.precio_base,
     }).eq('id', otId)
 
+    // Registrar el uso del servicio (para analytics)
+    await supabase.from('repair_order_services').insert({
+      repair_order_id: otId,
+      service_id: s.id,
+    }).then(r => r) // silenciar error si la tabla no existe aún
+
     // Agregar repuestos a repair_items
     if (s.repair_service_items?.length) {
       await supabase.from('repair_items').insert(

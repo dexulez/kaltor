@@ -415,3 +415,24 @@ CREATE POLICY "gestionar abonos"          ON repair_deposits FOR ALL    TO authe
 ALTER TABLE system_config ADD COLUMN IF NOT EXISTS mostrar_tecnico_pdf BOOLEAN DEFAULT true;
 
 SELECT 'repair_deposits tabla' AS check, count(*) FROM repair_deposits;
+
+-- ============================================================
+-- 16. RASTREO DE SERVICIOS APLICADOS A OTs
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS repair_order_services (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  repair_order_id UUID        NOT NULL REFERENCES repair_orders(id) ON DELETE CASCADE,
+  service_id      UUID        NOT NULL REFERENCES repair_services(id) ON DELETE CASCADE,
+  applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  applied_by      UUID        REFERENCES user_profiles(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ro_services_ot      ON repair_order_services (repair_order_id);
+CREATE INDEX IF NOT EXISTS idx_ro_services_service ON repair_order_services (service_id);
+
+ALTER TABLE repair_order_services ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "ver ros" ON repair_order_services FOR SELECT TO authenticated USING (true);
+CREATE POLICY "gestionar ros" ON repair_order_services FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+SELECT 'repair_order_services' AS tabla, count(*) FROM repair_order_services;

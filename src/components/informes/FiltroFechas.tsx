@@ -8,6 +8,7 @@ const TABS = [
   { key: 'taller',       label: '🔧 Taller',       title: 'Servicio Técnico' },
   { key: 'inventario',   label: '📦 Inventario',   title: 'Inventario y Stock' },
   { key: 'rentabilidad', label: '📈 Rentabilidad', title: 'Análisis de Rentabilidad' },
+  { key: 'servicios',    label: '🔩 Servicios',    title: 'Análisis de Servicios' },
   { key: 'auditoria',    label: '🔍 Auditoría',    title: 'Log de Usuarios' },
 ]
 

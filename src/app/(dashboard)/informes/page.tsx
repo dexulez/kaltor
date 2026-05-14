@@ -657,6 +657,110 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
   )
 }
 
+// ── Tab: Servicios ────────────────────────────────────────────────────────────
+
+async function TabServicios({ desde, hasta }: { desde: string; hasta: string }) {
+  const supabase = await createClient()
+  const desdeIso = `${desde}T00:00:00.000Z`
+  const hastaIso = `${hasta}T23:59:59.999Z`
+
+  const [{ data: usos }, { data: servicios }] = await Promise.all([
+    supabase.from('repair_order_services')
+      .select('service_id, applied_at, repair_orders(precio_servicio, estado)')
+      .gte('applied_at', desdeIso)
+      .lte('applied_at', hastaIso)
+      .then(r => r.error ? { data: [] } : r),
+    supabase.from('repair_services')
+      .select('id, nombre, tipo_reparacion, precio_base, repair_service_items(precio_costo, cantidad)')
+      .eq('activo', true)
+      .order('nombre'),
+  ])
+
+  type UsoRow = {
+    service_id: string
+    applied_at: string
+    repair_orders: { precio_servicio: number | null; estado: string } | null
+  }
+  const usosList = (usos ?? []) as unknown as UsoRow[]
+
+  type ServRow = {
+    id: string; nombre: string; tipo_reparacion: string; precio_base: number
+    repair_service_items: { precio_costo: number; cantidad: number }[]
+  }
+  const serviciosList = (servicios ?? []) as unknown as ServRow[]
+
+  // Agrupar usos por servicio
+  const porServicio: Record<string, { nombre: string; tipo: string; usos: number; ingresos: number; margen: number }> = {}
+  const servicioMap = Object.fromEntries(serviciosList.map(s => {
+    const costo = s.repair_service_items.reduce((sum, i) => sum + i.precio_costo * i.cantidad, 0)
+    const margen = costo > 0 ? Math.round(((s.precio_base - costo) / costo) * 100) : 0
+    return [s.id, { nombre: s.nombre, tipo: s.tipo_reparacion, margen }]
+  }))
+
+  usosList.forEach(u => {
+    const s = servicioMap[u.service_id]
+    if (!s) return
+    if (!porServicio[u.service_id]) porServicio[u.service_id] = { nombre: s.nombre, tipo: s.tipo, usos: 0, ingresos: 0, margen: s.margen }
+    porServicio[u.service_id].usos++
+    porServicio[u.service_id].ingresos += u.repair_orders?.precio_servicio ?? 0
+  })
+
+  const ranking = Object.values(porServicio).sort((a, b) => b.usos - a.usos)
+  const totalUsos = usosList.length
+  const totalIngresos = ranking.reduce((s, r) => s + r.ingresos, 0)
+
+  // Frecuencia por tipo
+  const porTipo: Record<string, number> = {}
+  usosList.forEach(u => {
+    const t = servicioMap[u.service_id]?.tipo ?? 'otro'
+    porTipo[t] = (porTipo[t] ?? 0) + 1
+  })
+  const pieTipo = Object.entries(porTipo).map(([name, value]) => ({ name, value }))
+
+  const TIPO_LABEL: Record<string, string> = {
+    pantalla: 'Pantalla', bateria: 'Batería', placa: 'Placa madre',
+    software: 'Software', camara: 'Cámara', conector: 'Conector', otro: 'Otro',
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <KpiCard label="Servicios aplicados" value={`${totalUsos}`} sub={`en el período`} colorIdx={0} />
+        <KpiCard label="Ingresos generados" value={formatCLP(totalIngresos)} sub="por OTs con servicio" colorIdx={1} />
+        <KpiCard label="Servicios activos" value={`${serviciosList.length}`} colorIdx={2} />
+      </div>
+
+      {totalUsos === 0 ? (
+        <div className="bg-white rounded-xl border text-center py-12 text-gray-400">
+          <span className="text-4xl block mb-2">🔩</span>
+          <p className="text-sm">Sin servicios aplicados en este período</p>
+          <p className="text-xs mt-1 text-gray-300">El rastreo se activa al ejecutar la migración SQL 16</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2">
+            <Section title="Servicios más usados">
+              <Tabla
+                headers={['Servicio', 'Tipo', 'Veces', 'Ingresos', 'Margen']}
+                rows={ranking.map(r => [
+                  r.nombre,
+                  TIPO_LABEL[r.tipo] ?? r.tipo,
+                  r.usos,
+                  formatCLP(r.ingresos),
+                  `${r.margen}%`,
+                ])}
+              />
+            </Section>
+          </div>
+          <Section title="Por tipo de reparación">
+            <GraficoPastel data={pieTipo} height={220} />
+          </Section>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Tab: Auditoría ────────────────────────────────────────────────────────────
 
 async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) {
@@ -818,6 +922,7 @@ export default async function InformesPage({
         {tab === 'taller'       && <TabTaller        desde={desde} hasta={hasta} />}
         {tab === 'inventario'   && <TabInventario    desde={desde} hasta={hasta} />}
         {tab === 'rentabilidad' && verRentab  && <TabRentabilidad  desde={desde} hasta={hasta} soloUserId={soloUserId} />}
+        {tab === 'servicios'    && <TabServicios desde={desde} hasta={hasta} />}
         {tab === 'auditoria'    && rolAuth === 'administrador' && <TabAuditoria desde={desde} hasta={hasta} />}
         {/* Mensajes de acceso restringido */}
         {tab === 'ventas'       && !verVentas  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Ventas.</div>}
