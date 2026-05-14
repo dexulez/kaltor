@@ -379,3 +379,12 @@ CREATE POLICY "gestionar liquidaciones"
 
 -- Verificación
 SELECT 'supplier_settlements' AS tabla, count(*) FROM supplier_settlements;
+
+-- ============================================================
+-- 14. IMEI2 Y N° SERIE EN EQUIPMENT
+-- ============================================================
+ALTER TABLE equipment ADD COLUMN IF NOT EXISTS imei2         TEXT;
+ALTER TABLE equipment ADD COLUMN IF NOT EXISTS numero_serie  TEXT;
+
+SELECT 'equipment.imei2'        AS check, column_name IS NOT NULL AS ok
+FROM information_schema.columns WHERE table_name='equipment' AND column_name='imei2';

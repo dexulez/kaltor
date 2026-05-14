@@ -39,8 +39,67 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   const [loading, setLoading] = useState(false)
   const [clientesList, setClientesList] = useState(clientes)
   const [clienteId, setClienteId] = useState(clienteIdInicial ?? '')
-  const [accesorios, setAccesorios] = useState<string[]>([])
-  const [condicion, setCondicion] = useState<string[]>([])
+  // ── Accesorios ──────────────────────────────────────────────────────────────
+  const [acc, setAcc] = useState({
+    cargador: false, cable: false, cajaCaraga: false, funda: false,
+    bandejaSim: false, microsd: false, sim: false,
+    simCantidad: 1 as 1 | 2, sim1Carrier: '', sim2Carrier: '',
+  })
+  function toggleAcc(k: keyof typeof acc) { setAcc(a => ({ ...a, [k]: !a[k] })) }
+
+  // ── IMEI / SN ────────────────────────────────────────────────────────────
+  const [imeiCount, setImeiCount] = useState<1 | 2>(1)
+  const [imei2, setImei2] = useState('')
+  const [numeroSerie, setNumeroSerie] = useState('')
+
+  // ── Condición visual y física ────────────────────────────────────────────
+  const [cond, setCond] = useState({
+    sin_danos: false,
+    rayones: [] as string[],   // áreas: pantalla, middle frame, tapa trasera
+    golpes: [] as string[],
+    pantalla_trizada: false,
+    marco_doblado: false,
+    humedad: [] as string[],      // áreas: conector de carga, bandeja de sim, auriculares
+    quemaduras: [] as string[],
+  })
+  function toggleCondSimple(k: 'sin_danos' | 'pantalla_trizada' | 'marco_doblado') {
+    setCond(c => ({ ...c, [k]: !c[k] }))
+  }
+  function toggleCondArea(k: 'rayones' | 'golpes' | 'humedad' | 'quemaduras', area: string) {
+    setCond(c => {
+      const arr = c[k]
+      return { ...c, [k]: arr.includes(area) ? arr.filter(a => a !== area) : [...arr, area] }
+    })
+  }
+  function isCondActiva(k: 'sin_danos' | 'pantalla_trizada' | 'marco_doblado'): boolean { return cond[k] }
+  function condAreas(k: 'rayones' | 'golpes' | 'humedad' | 'quemaduras'): string[] { return cond[k] }
+
+  // Builders para enviar al DB
+  function buildAccesorios(): string[] {
+    const r: string[] = []
+    if (acc.cargador) r.push('Cargador')
+    if (acc.cable) r.push('Cable')
+    if (acc.cajaCaraga) r.push('Caja de carga')
+    if (acc.funda) r.push('Funda')
+    if (acc.bandejaSim) r.push('Bandeja de SIM')
+    if (acc.microsd) r.push('MicroSD')
+    if (acc.sim) {
+      if (acc.simCantidad >= 1) r.push(`SIM 1${acc.sim1Carrier ? `: ${acc.sim1Carrier}` : ''}`)
+      if (acc.simCantidad === 2) r.push(`SIM 2${acc.sim2Carrier ? `: ${acc.sim2Carrier}` : ''}`)
+    }
+    return r
+  }
+  function buildCondicion(): string[] {
+    const r: string[] = []
+    if (cond.sin_danos) r.push('Sin daños visibles')
+    if (cond.rayones.length) r.push(`Rayones: ${cond.rayones.join(', ')}`)
+    if (cond.golpes.length) r.push(`Golpes: ${cond.golpes.join(', ')}`)
+    if (cond.pantalla_trizada) r.push('Pantalla trizada')
+    if (cond.marco_doblado) r.push('Marco doblado')
+    if (cond.humedad.length) r.push(`Humedad: ${cond.humedad.join(', ')}`)
+    if (cond.quemaduras.length) r.push(`Quemaduras: ${cond.quemaduras.join(', ')}`)
+    return r
+  }
   const [popupClienteOpen, setPopupClienteOpen] = useState(false)
   const [guardandoCliente, setGuardandoCliente] = useState(false)
 
@@ -155,10 +214,12 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       marca: equipo.marca || 'Sin especificar',
       modelo: equipo.modelo || 'Sin especificar',
       imei: equipo.imei || null,
+      imei2: imei2.trim() || null,
+      numero_serie: numeroSerie.trim() || null,
       color: equipo.color || null,
       capacidad: equipo.capacidad || null,
-      accesorios,
-      condicion_visual: condicion,
+      accesorios: buildAccesorios(),
+      condicion_visual: buildCondicion(),
       observaciones: equipo.observaciones || null,
       falla_reportada: equipo.falla_reportada,
     }).select().single()
@@ -337,84 +398,201 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       </div>
 
       {/* Equipo */}
-      <div className="bg-white rounded-xl border p-5 space-y-4">
+      <div className="bg-white rounded-xl border p-5 space-y-5">
         <h2 className="font-semibold text-gray-800">2. Datos del equipo</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <div className="space-y-1.5">
+
+        {/* Marca / Modelo / Color / Capacidad */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="sm:col-span-2 space-y-1.5">
             <Label>Marca</Label>
-            <MarcaSelector
-              value={equipo.marca}
-              onChange={v => setEquipo(eq => ({ ...eq, marca: v, modelo: '' }))}
-            />
+            <MarcaSelector value={equipo.marca} onChange={v => setEquipo(eq => ({ ...eq, marca: v, modelo: '' }))} />
           </div>
-          <div className="space-y-1.5">
+          <div className="sm:col-span-2 space-y-1.5">
             <Label>Modelo</Label>
-            <ModeloSelector
-              marca={equipo.marca}
-              value={equipo.modelo}
-              onChange={v => setEquipo(eq => ({ ...eq, modelo: v }))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>IMEI</Label>
-            <Input placeholder="15 dígitos" maxLength={15} value={equipo.imei}
-              onChange={e => setEquipo(eq => ({ ...eq, imei: e.target.value.replace(/\D/g, '') }))} />
+            <ModeloSelector marca={equipo.marca} value={equipo.modelo} onChange={v => setEquipo(eq => ({ ...eq, modelo: v }))} />
           </div>
           <div className="space-y-1.5">
             <Label>Color</Label>
             <Select value={equipo.color} onValueChange={v => setEquipo(eq => ({ ...eq, color: v ?? '' }))}>
               <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {COLORES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{COLORES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Capacidad</Label>
             <Select value={equipo.capacidad} onValueChange={v => setEquipo(eq => ({ ...eq, capacidad: v ?? '' }))}>
               <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {CAPACIDADES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{CAPACIDADES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
 
-        <div className="space-y-2">
+        {/* IMEI y N° Serie */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Label>IMEI</Label>
+            <div className="flex rounded-lg overflow-hidden border text-xs">
+              {([1, 2] as const).map(n => (
+                <button key={n} type="button" onClick={() => setImeiCount(n)}
+                  className={`px-3 py-1 font-medium transition-colors ${imeiCount === n ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                  {n} IMEI
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-500">IMEI {imeiCount === 2 ? '1' : ''}</Label>
+              <Input placeholder="15 dígitos" maxLength={15} value={equipo.imei}
+                onChange={e => setEquipo(eq => ({ ...eq, imei: e.target.value.replace(/\D/g, '') }))} />
+            </div>
+            {imeiCount === 2 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-500">IMEI 2</Label>
+                <Input placeholder="15 dígitos" maxLength={15} value={imei2}
+                  onChange={e => setImei2(e.target.value.replace(/\D/g, ''))} />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-500">N° Serie (SN)</Label>
+              <Input placeholder="Número de serie" value={numeroSerie} onChange={e => setNumeroSerie(e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        {/* Accesorios */}
+        <div className="space-y-3">
           <Label>Accesorios entregados</Label>
           <div className="flex flex-wrap gap-2">
-            {ACCESORIOS_OPTS.map(a => (
-              <button key={a} type="button"
-                onClick={() => toggleCheck(accesorios, setAccesorios, a)}
-                className={`px-3 py-1 rounded-full text-xs border transition-colors
-                  ${accesorios.includes(a) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
-                {a}
+            {([
+              { k: 'cargador',   label: 'Cargador' },
+              { k: 'cable',      label: 'Cable' },
+              { k: 'cajaCaraga', label: 'Caja de carga' },
+              { k: 'funda',      label: 'Funda' },
+              { k: 'bandejaSim', label: 'Bandeja de SIM' },
+              { k: 'sim',        label: 'SIM card' },
+              { k: 'microsd',    label: 'MicroSD' },
+            ] as { k: keyof typeof acc; label: string }[]).map(({ k, label }) => (
+              <button key={k} type="button" onClick={() => toggleAcc(k)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${acc[k] ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+                {label}
               </button>
+            ))}
+          </div>
+          {/* Sub-opciones SIM */}
+          {acc.sim && (
+            <div className="ml-2 pl-3 border-l-2 border-blue-200 space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-600 font-medium">¿Cuántas SIM?</span>
+                {([1, 2] as const).map(n => (
+                  <button key={n} type="button"
+                    onClick={() => setAcc(a => ({ ...a, simCantidad: n }))}
+                    className={`px-2.5 py-1 rounded-lg border font-semibold transition-colors ${acc.simCantidad === n ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">SIM 1 — Operadora</Label>
+                  <Input value={acc.sim1Carrier} onChange={e => setAcc(a => ({ ...a, sim1Carrier: e.target.value }))}
+                    placeholder="Ej: Entel, Claro..." className="h-8 text-xs mt-1" />
+                </div>
+                {acc.simCantidad === 2 && (
+                  <div>
+                    <Label className="text-xs">SIM 2 — Operadora</Label>
+                    <Input value={acc.sim2Carrier} onChange={e => setAcc(a => ({ ...a, sim2Carrier: e.target.value }))}
+                      placeholder="Ej: Movistar, WOM..." className="h-8 text-xs mt-1" />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Condición visual y física */}
+        <div className="space-y-3">
+          <Label>Condición visual y física</Label>
+          <div className="space-y-2">
+            {/* Sin daños visibles */}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => toggleCondSimple('sin_danos')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${isCondActiva('sin_danos') ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'}`}>
+                ✓ Sin daños visibles
+              </button>
+            </div>
+
+            {/* Rayones con sub-áreas */}
+            {(['rayones', 'golpes'] as const).map(tipo => (
+              <div key={tipo} className="space-y-1.5">
+                <button type="button"
+                  onClick={() => {
+                    if (condAreas(tipo).length > 0) setCond(c => ({ ...c, [tipo]: [] }))
+                    else setCond(c => ({ ...c, [tipo]: ['pantalla'] }))
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${condAreas(tipo).length > 0 ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'}`}>
+                  {tipo === 'rayones' ? 'Rayones' : 'Golpes'}
+                  {condAreas(tipo).length > 0 && ` (${condAreas(tipo).length})`}
+                </button>
+                {condAreas(tipo).length > 0 && (
+                  <div className="ml-2 flex flex-wrap gap-1.5 pl-3 border-l-2 border-orange-200">
+                    {['Pantalla', 'Middle Frame', 'Tapa trasera'].map(area => (
+                      <button key={area} type="button"
+                        onClick={() => toggleCondArea(tipo, area)}
+                        className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${condAreas(tipo).includes(area) ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-300 hover:border-orange-400'}`}>
+                        {area}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Simples */}
+            <div className="flex flex-wrap gap-2">
+              {(['pantalla_trizada', 'marco_doblado'] as const).map(k => (
+                <button key={k} type="button" onClick={() => toggleCondSimple(k)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${isCondActiva(k) ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'}`}>
+                  {k === 'pantalla_trizada' ? 'Pantalla trizada' : 'Marco doblado'}
+                </button>
+              ))}
+            </div>
+
+            {/* Humedad y Quemaduras con sub-áreas */}
+            {(['humedad', 'quemaduras'] as const).map(tipo => (
+              <div key={tipo} className="space-y-1.5">
+                <button type="button"
+                  onClick={() => {
+                    if (condAreas(tipo).length > 0) setCond(c => ({ ...c, [tipo]: [] }))
+                    else setCond(c => ({ ...c, [tipo]: ['Conector de carga'] }))
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${condAreas(tipo).length > 0 ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-300 hover:border-red-400'}`}>
+                  {tipo === 'humedad' ? '💧 Humedad' : '🔥 Quemaduras'}
+                  {condAreas(tipo).length > 0 && ` (${condAreas(tipo).length})`}
+                </button>
+                {condAreas(tipo).length > 0 && (
+                  <div className="ml-2 flex flex-wrap gap-1.5 pl-3 border-l-2 border-red-200">
+                    {['Conector de carga', 'Bandeja de SIM', 'Auriculares'].map(area => (
+                      <button key={area} type="button"
+                        onClick={() => toggleCondArea(tipo, area)}
+                        className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${condAreas(tipo).includes(area) ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-500 border-gray-300 hover:border-red-400'}`}>
+                        {area}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Condición visual</Label>
-          <div className="flex flex-wrap gap-2">
-            {CONDICION_OPTS.map(c => (
-              <button key={c} type="button"
-                onClick={() => toggleCheck(condicion, setCondicion, c)}
-                className={`px-3 py-1 rounded-full text-xs border transition-colors
-                  ${condicion.includes(c) ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'}`}>
-                {c}
-              </button>
-            ))}
-          </div>
-        </div>
-
+        {/* Observaciones y Falla */}
         <div className="space-y-1.5">
           <Label>Observaciones adicionales</Label>
           <Textarea placeholder="Detalles adicionales del estado del equipo..." rows={2}
             value={equipo.observaciones}
             onChange={e => setEquipo(eq => ({ ...eq, observaciones: e.target.value }))} />
         </div>
-
         <div className="space-y-1.5">
           <Label>Falla reportada por el cliente <span className="text-red-500">*</span></Label>
           <Textarea placeholder="Describe el problema según lo que indica el cliente..." rows={3}
