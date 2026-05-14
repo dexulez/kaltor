@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatRut } from '@/lib/calculations'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
+import Link from 'next/link'
 const CAPACIDADES = ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
 const COLORES = ['Negro', 'Blanco', 'Azul', 'Rojo', 'Verde', 'Dorado', 'Plateado', 'Morado', 'Rosa', 'Otro']
 const ACCESORIOS_OPTS = ['Cargador', 'Cable', 'Funda', 'Caja original', 'Audífonos', 'Vidrio templado']
@@ -42,6 +43,42 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   const [condicion, setCondicion] = useState<string[]>([])
   const [popupClienteOpen, setPopupClienteOpen] = useState(false)
   const [guardandoCliente, setGuardandoCliente] = useState(false)
+
+  // Combobox de cliente
+  const [busqCliente, setBusqCliente] = useState('')
+  const [comboOpen, setComboOpen] = useState(false)
+  const comboRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (comboRef.current && !comboRef.current.contains(e.target as Node)) setComboOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const q = busqCliente.trim().toLowerCase()
+  const clientesFiltrados = q
+    ? clientesList.filter(c =>
+        c.nombre.toLowerCase().includes(q) ||
+        c.telefono.includes(q) ||
+        (c.rut ?? '').toLowerCase().includes(q)
+      ).slice(0, 8)
+    : clientesList.slice(0, 8)
+
+  const hayCoincidenciaExacta = clientesList.some(c => c.nombre.toLowerCase() === q)
+
+  function seleccionarCliente(c: { id: string; nombre: string; telefono: string }) {
+    setClienteId(c.id)
+    setBusqCliente(c.nombre)
+    setComboOpen(false)
+  }
+
+  function abrirCrearConNombre() {
+    setNuevoCliente(v => ({ ...v, nombre: busqCliente.trim() }))
+    setComboOpen(false)
+    setPopupClienteOpen(true)
+  }
 
   const [nuevoCliente, setNuevoCliente] = useState({
     nombre: '',
@@ -160,7 +197,6 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
 
   const clienteSeleccionado = clientesList.find(c => c.id === clienteId)
   const tecnicoSeleccionado = tecnicos.find(t => t.id === ot.tecnico_id)
-  const clienteValue = clienteSeleccionado ? clienteId : ''
   const tecnicoValue = tecnicoSeleccionado ? ot.tecnico_id : ''
 
   return (
@@ -168,29 +204,67 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       {/* Cliente */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
         <h2 className="font-semibold text-gray-800">1. Cliente</h2>
-        <div className="max-w-md">
-          <Label>Cliente <span className="text-red-500">*</span></Label>
-          <Select value={clienteValue} onValueChange={(value) => setClienteId(value ?? '')}>
-            <SelectTrigger className="mt-1.5">
-              <span className="truncate text-sm text-left">
-                {clienteSeleccionado
-                  ? `${clienteSeleccionado.nombre} — ${clienteSeleccionado.telefono}`
-                  : clienteId ? 'Cliente no disponible' : 'Selecciona un cliente...'}
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              {clientesList.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.nombre} — {c.telefono}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="mt-2">
+        <div className="max-w-md space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>Cliente <span className="text-red-500">*</span></Label>
+            <Link href="/clientes" target="_blank"
+              className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
+              👥 Ver todos los clientes →
+            </Link>
+          </div>
+
+          {/* Combobox predictivo */}
+          <div className="relative" ref={comboRef}>
+            <input
+              value={busqCliente}
+              onChange={e => { setBusqCliente(e.target.value); setClienteId(''); setComboOpen(true) }}
+              onFocus={() => setComboOpen(true)}
+              placeholder="Escribe nombre, teléfono o RUT..."
+              autoComplete="off"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            {clienteId && clienteSeleccionado && (
+              <div className="mt-1 flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+                <span className="text-sm font-medium text-blue-800">{clienteSeleccionado.nombre}</span>
+                <span className="text-xs text-blue-500">{clienteSeleccionado.telefono}</span>
+                <Link href={`/clientes/${clienteId}`} target="_blank" className="ml-auto text-xs text-blue-600 hover:underline shrink-0">Ver ficha →</Link>
+                <button type="button" onClick={() => { setClienteId(''); setBusqCliente('') }}
+                  className="text-blue-400 hover:text-red-500 text-xs ml-1">✕</button>
+              </div>
+            )}
+            {comboOpen && !clienteId && (
+              <div className="absolute z-20 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
+                {clientesFiltrados.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto divide-y">
+                    {clientesFiltrados.map(c => (
+                      <button key={c.id} type="button" onClick={() => seleccionarCliente(c)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors">
+                        <p className="text-sm font-medium text-gray-900">{c.nombre}</p>
+                        <p className="text-xs text-gray-400">{c.telefono}{c.rut ? ` · ${c.rut}` : ''}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {busqCliente.trim() && !hayCoincidenciaExacta && (
+                  <button type="button" onClick={abrirCrearConNombre}
+                    className="w-full text-left px-4 py-3 text-sm text-blue-600 font-medium hover:bg-blue-50 border-t flex items-center gap-2">
+                    <span className="text-lg">✚</span>
+                    Crear nuevo cliente &quot;{busqCliente.trim()}&quot;
+                  </button>
+                )}
+                {!busqCliente.trim() && clientesFiltrados.length === 0 && (
+                  <p className="text-center py-4 text-gray-400 text-xs">No hay clientes registrados</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-1">
             <Dialog open={popupClienteOpen} onOpenChange={setPopupClienteOpen}>
-              <DialogTrigger render={<Button type="button" variant="outline" size="sm" />}>
-                + Crear cliente
-              </DialogTrigger>
+              <button type="button" onClick={() => setPopupClienteOpen(true)}
+                className="text-xs text-gray-500 hover:text-blue-600 underline">
+                + Crear cliente manualmente
+              </button>
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Nuevo cliente</DialogTitle>
