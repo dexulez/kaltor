@@ -388,3 +388,30 @@ ALTER TABLE equipment ADD COLUMN IF NOT EXISTS numero_serie  TEXT;
 
 SELECT 'equipment.imei2'        AS check, column_name IS NOT NULL AS ok
 FROM information_schema.columns WHERE table_name='equipment' AND column_name='imei2';
+
+-- ============================================================
+-- 15. ABONOS DE OT + CONFIGURACIÓN PDF
+-- ============================================================
+
+-- Tabla de abonos/depósitos por OT
+CREATE TABLE IF NOT EXISTS repair_deposits (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  repair_order_id UUID        NOT NULL REFERENCES repair_orders(id) ON DELETE CASCADE,
+  monto           INTEGER     NOT NULL,
+  metodo_pago     TEXT        NOT NULL DEFAULT 'efectivo',
+  nota            TEXT,
+  created_by      UUID        REFERENCES user_profiles(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_deposits_ot ON repair_deposits (repair_order_id);
+
+ALTER TABLE repair_deposits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "ver abonos autenticados"   ON repair_deposits FOR SELECT TO authenticated USING (true);
+CREATE POLICY "ver abonos publicos"       ON repair_deposits FOR SELECT TO anon          USING (true);
+CREATE POLICY "gestionar abonos"          ON repair_deposits FOR ALL    TO authenticated USING (true) WITH CHECK (true);
+
+-- Configuración PDF en system_config
+ALTER TABLE system_config ADD COLUMN IF NOT EXISTS mostrar_tecnico_pdf BOOLEAN DEFAULT true;
+
+SELECT 'repair_deposits tabla' AS check, count(*) FROM repair_deposits;

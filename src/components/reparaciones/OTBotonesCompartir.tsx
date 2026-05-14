@@ -41,7 +41,7 @@ interface Config {
   terminos_condiciones?: string | null
 }
 
-interface Props { ot: OTParaCompartir; config: Config; baseUrl: string }
+interface Props { ot: OTParaCompartir; config: Config; baseUrl: string; mostrarTecnico?: boolean }
 
 const TC_DEFAULT = `El cliente declara que los datos proporcionados y el equipo entregado es de su propiedad y es totalmente responsable del mismo.
 Todo equipo marcado como RIESGOSO tiene probabilidad de daño permanente, el cliente acepta el riesgo llegando a un acuerdo mutuo entre las partes.
@@ -61,7 +61,7 @@ const FORMAT_INFO: Record<PrintFormat, { label: string; desc: string; icon: stri
   ticket: { label: 'Ticket térmico', desc: '80 mm × continuo', icon: '🧾' },
 }
 
-export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
+export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico = true }: Props) {
   const [showPrintModal, setShowPrintModal] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [formato, setFormato] = useState<PrintFormat>('a5h')
@@ -130,7 +130,6 @@ export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
       <div style="text-align:right">
         <div style="font-size:9pt;font-weight:bold;font-family:monospace;color:#1a4e9f">${ot.numero_ot}</div>
         <div>${fecha}</div>
-        <div>Garantía: ${ot.dias_garantia ?? 30} días</div>
       </div>
     </div>`
 
@@ -191,7 +190,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
         <div class="ot-badge-label">Orden de Trabajo</div>
         <div class="ot-badge-num">${ot.numero_ot}</div>
         <div class="ot-badge-info">${fecha}</div>
-        <div class="ot-badge-info">Garantía: ${ot.dias_garantia ?? 30} días</div>
+        <div class="ot-badge-info">${fecha}</div>
       </div>
     </div>`
   }
@@ -230,7 +229,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl }: Props) {
       <div class="box-hdr"><span>&#128295;</span> INFORMACIÓN DEL SERVICIO</div>
       <div class="box-body">
         ${ot.tipo_reparacion ? `<div><strong>Tipo:</strong> ${TIPO_LABELS[ot.tipo_reparacion] ?? ot.tipo_reparacion}</div>` : ''}
-        ${ot.user_profiles ? `<div><strong>Técnico:</strong> ${ot.user_profiles.nombre_completo}</div>` : ''}
+        ${mostrarTecnico && ot.user_profiles ? `<div><strong>Técnico:</strong> ${ot.user_profiles.nombre_completo}</div>` : ''}
         <div><strong>Falla:</strong> ${equipo?.falla_reportada ?? '—'}</div>
         ${ot.diagnostico_tecnico ? `<div><strong>Diagnóstico:</strong> ${ot.diagnostico_tecnico}</div>` : ''}
       </div>

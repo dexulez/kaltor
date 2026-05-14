@@ -62,6 +62,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     dias_garantia_default: String(config.dias_garantia_default ?? 30),
     moneda: config.moneda ?? 'CLP',
     mostrar_precio_en_presupuesto: config.mostrar_precio_en_presupuesto,
+    mostrar_tecnico_pdf: (config as Record<string, unknown>).mostrar_tecnico_pdf !== false,
     terminos_condiciones: config.terminos_condiciones ?? TC_DEFAULT,
     costo_insumos_promedio: String(config.costo_insumos_promedio ?? 0),
   })
@@ -121,6 +122,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
       dias_garantia_default: parseInt(form.dias_garantia_default) || 0,
       moneda: form.moneda.trim() || 'CLP',
       mostrar_precio_en_presupuesto: form.mostrar_precio_en_presupuesto,
+      mostrar_tecnico_pdf: form.mostrar_tecnico_pdf,
       terminos_condiciones: form.terminos_condiciones.trim() || null,
       costo_insumos_promedio: parseInt(form.costo_insumos_promedio) || 0,
     }).eq('id', config.id)
@@ -232,6 +234,10 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={form.mostrar_precio_en_presupuesto} onChange={e => set('mostrar_precio_en_presupuesto', e.target.checked)} />
           Mostrar precio en presupuesto al cliente
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={form.mostrar_tecnico_pdf} onChange={e => set('mostrar_tecnico_pdf', e.target.checked)} />
+          Mostrar nombre del técnico en el comprobante PDF
         </label>
       </div>
 

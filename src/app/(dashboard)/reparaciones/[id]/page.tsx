@@ -7,6 +7,7 @@ import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
 import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
 import RepuestosOT from '@/components/reparaciones/RepuestosOT'
 import AplicarServicioButton from '@/components/servicios/AplicarServicioButton'
+import AbonoOTForm from '@/components/reparaciones/AbonoOTForm'
 import { Customer, Equipment, RepairOrder, RepairStatusHistory, UserProfile } from '@/types'
 
 const ESTADO_INFO: Record<string, { label: string; color: string }> = {
@@ -49,7 +50,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
   const protocol = host.includes('localhost') ? 'http' : 'https'
   const baseUrl = `${protocol}://${host}`
 
-  const [{ data: ot }, { data: historial }, { data: config }, { data: repuestos }] = await Promise.all([
+  const [{ data: ot }, { data: historial }, { data: config }, { data: repuestos }, { data: depositos }] = await Promise.all([
     supabase.from('repair_orders')
       .select('*, customers(*), equipment(*), user_profiles(nombre_completo)')
       .eq('id', id)
@@ -63,6 +64,10 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
       .select('id, nombre, cantidad, precio_costo, costo_envio, product_id')
       .eq('repair_order_id', id)
       .order('created_at'),
+    supabase.from('repair_deposits')
+      .select('id, monto, metodo_pago, nota, created_at')
+      .eq('repair_order_id', id)
+      .order('created_at'),
   ])
 
   if (!ot) notFound()
@@ -74,6 +79,9 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
   const equipo = otDetalle.equipment
   const cliente = otDetalle.customers
 
+  const configRaw = config as Record<string, unknown> | null
+  const mostrarTecnico = configRaw?.mostrar_tecnico_pdf !== false  // default true
+
   const configShare = {
     nombre_local: config?.nombre_local ?? 'TechRepair Pro',
     rut_local: config?.rut_local ?? null,
@@ -81,8 +89,8 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
     telefono: config?.telefono ?? null,
     whatsapp: config?.whatsapp ?? null,
     email: config?.email ?? null,
-    logo_url: (config as Record<string, unknown> | null)?.logo_url as string | null ?? null,
-    terminos_condiciones: (config as Record<string, unknown> | null)?.terminos_condiciones as string | null ?? null,
+    logo_url: configRaw?.logo_url as string | null ?? null,
+    terminos_condiciones: configRaw?.terminos_condiciones as string | null ?? null,
   }
 
   return (
@@ -139,6 +147,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
             ot={otDetalle as Parameters<typeof OTBotonesCompartir>[0]['ot']}
             config={configShare}
             baseUrl={baseUrl}
+            mostrarTecnico={mostrarTecnico}
           />
         </div>
       </div>
@@ -231,6 +240,14 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
           </div>
         )}
       </div>
+
+      {/* Abonos */}
+      <AbonoOTForm
+        otId={otDetalle.id}
+        numeroOt={otDetalle.numero_ot}
+        precioServicio={otDetalle.precio_servicio ?? null}
+        depositos={(depositos ?? []) as { id: string; monto: number; metodo_pago: string; nota: string | null; created_at: string }[]}
+      />
 
       {/* Repuestos */}
       <RepuestosOT

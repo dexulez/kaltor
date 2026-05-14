@@ -23,16 +23,17 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
     .from('repair_orders')
     .select(`
       id, numero_ot, estado, created_at, precio_servicio, presupuesto_estimado,
-      diagnostico_tecnico, dias_garantia, codigo_seguimiento,
+      diagnostico_tecnico, codigo_seguimiento,
       customers(nombre, telefono),
-      equipment(marca, modelo, color, capacidad, falla_reportada, observaciones)
+      equipment(marca, modelo, color, capacidad, falla_reportada, observaciones,
+                imei, imei2, numero_serie, accesorios, condicion_visual)
     `)
     .eq('codigo_seguimiento', codigo)
     .single()
 
   if (!ot) notFound()
 
-  const [{ data: historial }, { data: config }] = await Promise.all([
+  const [{ data: historial }, { data: config }, { data: depositos }] = await Promise.all([
     (await supabase).from('repair_status_history')
       .select('estado_nuevo, comentario, created_at')
       .eq('repair_order_id', ot.id)
@@ -40,6 +41,10 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
     (await supabase).from('system_config')
       .select('nombre_local, rut_local, direccion, telefono, whatsapp, email, logo_url')
       .single(),
+    (await supabase).from('repair_deposits')
+      .select('monto, metodo_pago, nota, created_at')
+      .eq('repair_order_id', ot.id)
+      .order('created_at'),
   ])
 
   type OTData = typeof ot & {
@@ -47,8 +52,13 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
     equipment: {
       marca: string; modelo: string; color?: string; capacidad?: string
       falla_reportada: string; observaciones?: string
+      imei?: string | null; imei2?: string | null; numero_serie?: string | null
+      accesorios?: string[]; condicion_visual?: string[]
     } | null
   }
+  type DepositoItem = { monto: number; metodo_pago: string; nota: string | null; created_at: string }
+  const depositosList = (depositos ?? []) as DepositoItem[]
+  const totalAbonado = depositosList.reduce((s, d) => s + d.monto, 0)
 
   const otData = ot as unknown as OTData
   const historialList = historial ?? []
@@ -189,7 +199,90 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
               <p className="text-sm text-gray-700">{otData.diagnostico_tecnico}</p>
             </div>
           )}
+
+          {/* IMEI / SN */}
+          {(equipo?.imei || equipo?.imei2 || equipo?.numero_serie) && (
+            <div className="pt-2 border-t border-gray-100 grid grid-cols-2 gap-2">
+              {equipo.imei && (
+                <div>
+                  <p className="text-xs text-gray-400">IMEI{equipo.imei2 ? ' 1' : ''}</p>
+                  <p className="text-xs font-mono text-gray-700">{equipo.imei}</p>
+                </div>
+              )}
+              {equipo.imei2 && (
+                <div>
+                  <p className="text-xs text-gray-400">IMEI 2</p>
+                  <p className="text-xs font-mono text-gray-700">{equipo.imei2}</p>
+                </div>
+              )}
+              {equipo.numero_serie && (
+                <div>
+                  <p className="text-xs text-gray-400">N° Serie</p>
+                  <p className="text-xs font-mono text-gray-700">{equipo.numero_serie}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Accesorios */}
+          {equipo?.accesorios && equipo.accesorios.length > 0 && (
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-1.5">Accesorios entregados</p>
+              <div className="flex flex-wrap gap-1.5">
+                {equipo.accesorios.map((a, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">{a}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Condición visual y física */}
+          {equipo?.condicion_visual && equipo.condicion_visual.length > 0 && (
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-1.5">Condición visual y física</p>
+              <div className="flex flex-wrap gap-1.5">
+                {equipo.condicion_visual.map((c, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-orange-50 text-orange-700 text-xs rounded-full border border-orange-200">{c}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Abonos recibidos */}
+        {(depositosList.length > 0 || (otData.precio_servicio && totalAbonado > 0)) && (
+          <div className="bg-white rounded-xl border shadow-sm p-5 space-y-3">
+            <h2 className="font-semibold text-gray-800 text-sm">Pagos recibidos</h2>
+            {otData.precio_servicio && (
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-gray-400">Total servicio</p>
+                  <p className="font-bold text-gray-800 mt-0.5">{new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP'}).format(otData.precio_servicio)}</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-2">
+                  <p className="text-gray-400">Abonado</p>
+                  <p className="font-bold text-green-700 mt-0.5">{new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP'}).format(totalAbonado)}</p>
+                </div>
+                <div className={`rounded-lg p-2 ${otData.precio_servicio - totalAbonado > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                  <p className="text-gray-400">Saldo</p>
+                  <p className={`font-bold mt-0.5 ${otData.precio_servicio - totalAbonado > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {otData.precio_servicio - totalAbonado > 0
+                      ? new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP'}).format(otData.precio_servicio - totalAbonado)
+                      : '✓ Al día'}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              {depositosList.map((d, i) => (
+                <div key={i} className="flex justify-between items-center bg-gray-50 rounded-lg px-3 py-2 text-xs">
+                  <span className="font-semibold text-gray-800">{new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP'}).format(d.monto)}</span>
+                  <span className="text-gray-400">{d.metodo_pago} · {new Date(d.created_at).toLocaleDateString('es-CL')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Timeline */}
         {historialList.length > 0 && (
