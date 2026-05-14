@@ -127,7 +127,29 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
       costo_insumos_promedio: parseInt(form.costo_insumos_promedio) || 0,
     }).eq('id', config.id)
 
-    if (error) { toast.error('Error al guardar: ' + error.message); setLoading(false); return }
+    if (error) {
+      // Si falla por columna nueva, reintentar sin ella
+      if (error.message.includes('mostrar_tecnico_pdf')) {
+        const { error: err2 } = await supabase.from('system_config').update({
+          nombre_local: form.nombre_local.trim(), rut_local: form.rut_local.trim() || null,
+          direccion: form.direccion.trim() || null, telefono: form.telefono.trim() || null,
+          email: form.email.trim() || null, whatsapp: form.whatsapp.trim() || null,
+          logo_url: form.logo_url.trim() || null,
+          iva: parseFloat(form.iva) || 0, ppm: parseFloat(form.ppm) || 0,
+          comision_debito: parseFloat(form.comision_debito) || 0,
+          comision_credito: parseFloat(form.comision_credito) || 0,
+          comision_transferencia: parseFloat(form.comision_transferencia) || 0,
+          dias_garantia_default: parseInt(form.dias_garantia_default) || 0,
+          moneda: form.moneda.trim() || 'CLP',
+          mostrar_precio_en_presupuesto: form.mostrar_precio_en_presupuesto,
+          terminos_condiciones: form.terminos_condiciones.trim() || null,
+          costo_insumos_promedio: parseInt(form.costo_insumos_promedio) || 0,
+        }).eq('id', config.id)
+        if (err2) { toast.error('Error al guardar: ' + err2.message); setLoading(false); return }
+      } else {
+        toast.error('Error al guardar: ' + error.message); setLoading(false); return
+      }
+    }
 
     toast.success('Configuración guardada correctamente')
     router.refresh()

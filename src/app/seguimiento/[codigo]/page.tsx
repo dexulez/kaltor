@@ -44,7 +44,8 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
     (await supabase).from('repair_deposits')
       .select('monto, metodo_pago, nota, created_at')
       .eq('repair_order_id', ot.id)
-      .order('created_at'),
+      .order('created_at')
+      .then(r => r.error?.message.includes('repair_deposits') ? { data: [] } : r),
   ])
 
   type OTData = typeof ot & {

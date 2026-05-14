@@ -20,11 +20,12 @@ interface OTParaCompartir {
   presupuesto_estimado?: number | null
   precio_servicio?: number | null
   diagnostico_tecnico?: string | null
-  dias_garantia?: number | null
+  fecha_estimada_entrega?: string | null
   customers?: { nombre: string; telefono: string; rut?: string | null; email?: string | null } | null
   equipment?: {
     marca: string; modelo: string; color?: string | null; capacidad?: string | null
-    imei?: string | null; accesorios?: string[]; condicion_visual?: string[]
+    imei?: string | null; imei2?: string | null; numero_serie?: string | null
+    accesorios?: string[]; condicion_visual?: string[]
     falla_reportada: string; observaciones?: string | null
   } | null
   user_profiles?: { nombre_completo: string } | null
@@ -79,6 +80,10 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   const cliente = ot.customers
   const equipo = ot.equipment
   const fecha = new Date(ot.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const fechaHoraRecibido = new Date(ot.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const fechaEntregaStr = ot.fecha_estimada_entrega
+    ? new Date(ot.fecha_estimada_entrega + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : null
   const tc = config.terminos_condiciones || TC_DEFAULT
 
   // ── Generadores de HTML ────────────────────────────────────────────────────
@@ -176,21 +181,21 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   // ── Cabecera profesional (igual en todos los formatos) ─────────────────────
   function cabeceraHtml() {
     return `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3mm">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2mm">
       <div style="display:flex;align-items:center;gap:3mm">
         ${logoHtml}
         <div>
-          <div style="font-size:13pt;font-weight:bold;line-height:1.1">${config.nombre_local}</div>
-          ${config.rut_local ? `<div style="font-size:8pt">RUT: ${config.rut_local}</div>` : ''}
-          ${config.direccion ? `<div style="font-size:8pt">${config.direccion}</div>` : ''}
-          ${config.telefono ? `<div style="font-size:8pt">Tel: ${config.telefono}</div>` : ''}
+          <div style="font-size:11pt;font-weight:bold;line-height:1.1">${config.nombre_local}</div>
+          ${config.rut_local ? `<div style="font-size:7.5pt">RUT: ${config.rut_local}</div>` : ''}
+          ${config.direccion ? `<div style="font-size:7.5pt">${config.direccion}</div>` : ''}
+          ${config.telefono ? `<div style="font-size:7.5pt">Tel: ${config.telefono}</div>` : ''}
         </div>
       </div>
       <div class="ot-badge">
         <div class="ot-badge-label">Orden de Trabajo</div>
         <div class="ot-badge-num">${ot.numero_ot}</div>
-        <div class="ot-badge-info">${fecha}</div>
-        <div class="ot-badge-info">${fecha}</div>
+        <div class="ot-badge-info">Recibido: ${fechaHoraRecibido}</div>
+        ${fechaEntregaStr ? `<div class="ot-badge-info">Entrega est.: ${fechaEntregaStr}</div>` : ''}
       </div>
     </div>`
   }
@@ -210,16 +215,18 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
 
   function boxEquipo() {
     const accs = equipo?.accesorios?.length
-      ? equipo.accesorios.map(a => `${a} <span class="acc-ok">&#10003;</span>`).join('&nbsp;&nbsp;')
+      ? equipo.accesorios.map(a => `${a} <span class="acc-ok">&#10003;</span>`).join('&nbsp;')
       : null
     return `<div class="box">
       <div class="box-hdr"><span>&#128241;</span> DETALLES DEL EQUIPO</div>
       <div class="box-body">
         <div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong></div>
-        ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(': ')}</div>` : ''}
-        ${equipo?.imei ? `<div style="font-family:monospace;font-size:7.5pt">IMEI: ${equipo.imei}</div>` : ''}
-        ${accs ? `<div>Acc: ${accs}</div>` : ''}
-        ${equipo?.condicion_visual?.length ? `<div>Cond: ${equipo.condicion_visual.join(', ')}</div>` : ''}
+        ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</div>` : ''}
+        ${equipo?.imei ? `<div style="font-family:monospace;font-size:7pt">IMEI 1: ${equipo.imei}</div>` : ''}
+        ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:7pt">IMEI 2: ${equipo.imei2}</div>` : ''}
+        ${equipo?.numero_serie ? `<div style="font-family:monospace;font-size:7pt">S/N: ${equipo.numero_serie}</div>` : ''}
+        ${accs ? `<div style="font-size:7.5pt">Acc: ${accs}</div>` : ''}
+        ${equipo?.condicion_visual?.length ? `<div style="font-size:7.5pt">Cond: ${equipo.condicion_visual.join(' · ')}</div>` : ''}
       </div>
     </div>`
   }
@@ -275,38 +282,55 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   // ── Generar cuerpo HTML por formato ───────────────────────────────────────
 
   function generarCuerpo(): string {
+    // ── A5 Horizontal — UNA SOLA HOJA, QR + firmas en la misma página ─────────
     if (formato === 'a5h') {
-      const unaHoja = () => `
+      // Copia única: todo en la misma hoja
+      const unaHoja = `
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:3mm">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">
           ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
         </div>
-        ${trackHtml()}
-        ${firmasHtml()}`
-      const sep = copias === 2 ? `<hr class="separator">` : ''
-      const copia2 = copias === 2 ? `
-        <div>
-          ${cabeceraHtml()}
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2mm">
-            ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
+        <div style="display:flex;align-items:center;gap:3mm;margin-top:2mm">
+          ${qrDataUrl ? `<img src="${qrDataUrl}" style="width:18mm;height:18mm;display:block;flex-shrink:0">` : ''}
+          <div style="font-size:7pt;color:#6b7280">
+            <div>Escanea para ver el estado de tu reparación</div>
+            <div style="font-family:monospace;font-size:6.5pt">${trackingUrl}</div>
           </div>
-          ${firmasHtml()}
-        </div>` : ''
-      return unaHoja() + sep + copia2 + tcHtml
+          <div style="flex:1"></div>
+          <div style="display:flex;gap:8mm">
+            <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma y RUT cliente</div></div>
+            <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma técnico / Sello</div></div>
+          </div>
+        </div>`
+
+      if (copias === 1) return unaHoja + tcHtml
+
+      // 2 copias: separador punteado + segunda copia compacta
+      const copia2 = `
+        <hr class="separator">
+        ${cabeceraHtml()}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">
+          ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
+        </div>
+        <div style="display:flex;gap:8mm;margin-top:2mm">
+          <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma y RUT cliente</div></div>
+          <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma técnico / Sello</div></div>
+        </div>`
+      return unaHoja + copia2 + tcHtml
     }
 
+    // ── A5 Vertical ────────────────────────────────────────────────────────────
     if (formato === 'a5v') {
-      const una = () => `
+      const una = `
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">
           ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
         </div>
         ${trackHtml()}${firmasHtml()}`
-      const sep = copias === 2 ? `<hr class="separator">` : ''
-      const copia2 = copias === 2 ? `${cabeceraHtml()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">${boxCliente()}${boxEquipo()}</div>${firmasHtml()}` : ''
-      return una() + sep + copia2 + tcHtml
+      const copia2 = copias === 2 ? `<hr class="separator">${cabeceraHtml()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">${boxCliente()}${boxEquipo()}</div>${firmasHtml()}` : ''
+      return una + copia2 + tcHtml
     }
 
     if (formato === 'a4') {

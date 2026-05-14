@@ -77,11 +77,15 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   // ── Condición visual y física ────────────────────────────────────────────
   const [cond, setCond] = useState({
     sin_danos: false,
-    rayones: [] as string[],   // áreas: pantalla, middle frame, tapa trasera
+    equipo_apagado: false,
+    carga: '' as '' | 'si' | 'no_carga',
+    cargaVoltios: '',
+    cargaAmperaje: '',
+    rayones: [] as string[],
     golpes: [] as string[],
     pantalla_trizada: false,
     marco_doblado: false,
-    humedad: [] as string[],      // áreas: conector de carga, bandeja de sim, auriculares
+    humedad: [] as string[],
     quemaduras: [] as string[],
   })
   function toggleCondSimple(k: 'sin_danos' | 'pantalla_trizada' | 'marco_doblado') {
@@ -113,6 +117,12 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   }
   function buildCondicion(): string[] {
     const r: string[] = []
+    if (cond.equipo_apagado) r.push('Equipo apagado')
+    if (cond.carga === 'si') {
+      const v = cond.cargaVoltios.trim(); const a = cond.cargaAmperaje.trim()
+      r.push(`Carga: ${v ? v + 'V' : ''}${v && a ? ' / ' : ''}${a ? a + 'A' : ''}`.trim().replace(/Carga: $/, 'Carga: Sí'))
+    }
+    if (cond.carga === 'no_carga') r.push('No carga')
     if (cond.sin_danos) r.push('Sin daños visibles')
     if (cond.rayones.length) r.push(`Rayones: ${cond.rayones.join(', ')}`)
     if (cond.golpes.length) r.push(`Golpes: ${cond.golpes.join(', ')}`)
@@ -175,7 +185,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     observaciones: '', falla_reportada: '',
   })
   const [ot, setOt] = useState({
-    tecnico_id: '', tipo_reparacion: '', presupuesto_estimado: '',
+    tecnico_id: '', tipo_reparacion: '', presupuesto_estimado: '', fecha_estimada_entrega: '',
   })
 
   function toggleCheck(list: string[], setList: (v: string[]) => void, value: string) {
@@ -273,6 +283,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       tecnico_id: ot.tecnico_id || null,
       tipo_reparacion: ot.tipo_reparacion || null,
       presupuesto_estimado: ot.presupuesto_estimado ? parseFloat(ot.presupuesto_estimado) : null,
+      fecha_estimada_entrega: ot.fecha_estimada_entrega || null,
       estado: 'recibido',
     }).select().single()
 
@@ -561,6 +572,51 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         <div className="space-y-3">
           <Label>Condición visual y física</Label>
           <div className="space-y-2">
+
+            {/* Equipo apagado */}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setCond(c => ({ ...c, equipo_apagado: !c.equipo_apagado }))}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${cond.equipo_apagado ? 'bg-gray-700 text-white border-gray-700' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
+                📵 Equipo apagado
+              </button>
+            </div>
+
+            {/* Carga */}
+            <div className="space-y-1.5">
+              <div className="flex gap-1.5 flex-wrap">
+                <button type="button" onClick={() => setCond(c => ({ ...c, carga: c.carga !== '' ? '' : 'si' }))}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${cond.carga !== '' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+                  🔋 Carga
+                </button>
+              </div>
+              {cond.carga !== '' && (
+                <div className="ml-2 pl-3 border-l-2 border-blue-200 space-y-2">
+                  <div className="flex gap-1.5">
+                    {(['si', 'no_carga'] as const).map(v => (
+                      <button key={v} type="button" onClick={() => setCond(c => ({ ...c, carga: v }))}
+                        className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${cond.carga === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}>
+                        {v === 'si' ? 'Sí carga' : 'No carga'}
+                      </button>
+                    ))}
+                  </div>
+                  {cond.carga === 'si' && (
+                    <div className="flex gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500">Voltios (V)</label>
+                        <input value={cond.cargaVoltios} onChange={e => setCond(c => ({ ...c, cargaVoltios: e.target.value }))}
+                          placeholder="ej: 5" className="w-20 h-7 border rounded px-2 text-xs block mt-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Amperaje (A)</label>
+                        <input value={cond.cargaAmperaje} onChange={e => setCond(c => ({ ...c, cargaAmperaje: e.target.value }))}
+                          placeholder="ej: 2.4" className="w-20 h-7 border rounded px-2 text-xs block mt-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Sin daños visibles */}
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => toggleCondSimple('sin_danos')}
@@ -736,6 +792,11 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             <Input type="number" placeholder="0" min={0}
               value={ot.presupuesto_estimado}
               onChange={e => setOt(o => ({ ...o, presupuesto_estimado: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Fecha tentativa de entrega</Label>
+            <Input type="date" value={ot.fecha_estimada_entrega}
+              onChange={e => setOt(o => ({ ...o, fecha_estimada_entrega: e.target.value }))} />
           </div>
         </div>
       </div>

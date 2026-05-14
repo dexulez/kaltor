@@ -25,8 +25,9 @@ const ESTADO_INFO: Record<string, { label: string; color: string }> = {
 }
 
 type OTDetalle = RepairOrder & {
+  fecha_estimada_entrega?: string | null
   customers: Customer | null
-  equipment: Equipment | null
+  equipment: (Equipment & { imei2?: string | null; numero_serie?: string | null }) | null
   user_profiles: Pick<UserProfile, 'nombre_completo'> | null
 }
 
