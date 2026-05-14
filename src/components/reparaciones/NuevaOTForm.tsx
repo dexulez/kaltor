@@ -47,6 +47,28 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   })
   function toggleAcc(k: keyof typeof acc) { setAcc(a => ({ ...a, [k]: !a[k] })) }
 
+  // ── Operadoras SIM (localStorage) ────────────────────────────────────────
+  const [savedCarriers, setSavedCarriers] = useState<string[]>([])
+  useEffect(() => {
+    try { setSavedCarriers(JSON.parse(localStorage.getItem('tr_sim_carriers') ?? '[]')) } catch { /* ignore */ }
+  }, [])
+  function saveCarrier(carrier: string) {
+    const c = carrier.trim()
+    if (!c || savedCarriers.includes(c)) return
+    const updated = [...savedCarriers, c].sort()
+    setSavedCarriers(updated)
+    try { localStorage.setItem('tr_sim_carriers', JSON.stringify(updated)) } catch { /* ignore */ }
+  }
+
+  // ── Servicios disponibles ────────────────────────────────────────────────
+  interface ServicioItem { id: string; nombre: string; tipo_reparacion: string; precio_base: number; descripcion: string | null }
+  const [servicios, setServicios] = useState<ServicioItem[]>([])
+  useEffect(() => {
+    supabase.from('repair_services').select('id, nombre, tipo_reparacion, precio_base, descripcion').eq('activo', true).order('nombre')
+      .then(({ data }) => setServicios((data ?? []) as ServicioItem[]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── IMEI / SN ────────────────────────────────────────────────────────────
   const [imeiCount, setImeiCount] = useState<1 | 2>(1)
   const [imei2, setImei2] = useState('')
@@ -209,23 +231,38 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     if (!equipo.falla_reportada) { toast.error('Describe la falla del equipo'); return }
     setLoading(true)
 
-    const { data: equipoData, error: eqErr } = await supabase.from('equipment').insert({
+    // Intentar con imei2/numero_serie (requiere SQL migración 14)
+    const basePayload = {
       customer_id: clienteId,
       marca: equipo.marca || 'Sin especificar',
       modelo: equipo.modelo || 'Sin especificar',
       imei: equipo.imei || null,
-      imei2: imei2.trim() || null,
-      numero_serie: numeroSerie.trim() || null,
       color: equipo.color || null,
       capacidad: equipo.capacidad || null,
       accesorios: buildAccesorios(),
       condicion_visual: buildCondicion(),
       observaciones: equipo.observaciones || null,
       falla_reportada: equipo.falla_reportada,
+    }
+    let { data: equipoData, error: eqErr } = await supabase.from('equipment').insert({
+      ...basePayload,
+      imei2: imei2.trim() || null,
+      numero_serie: numeroSerie.trim() || null,
     }).select().single()
 
-    if (eqErr) {
-      toast.error('Error al registrar el equipo: ' + eqErr.message)
+    // Si falla por columnas no existentes, reintentar sin ellas
+    if (eqErr && eqErr.message.includes('imei2')) {
+      const fallback = await supabase.from('equipment').insert({
+        ...basePayload,
+        // Guardar en observaciones como fallback
+        observaciones: [equipo.observaciones, imei2.trim() ? `IMEI2: ${imei2.trim()}` : '', numeroSerie.trim() ? `SN: ${numeroSerie.trim()}` : ''].filter(Boolean).join(' | ') || null,
+      }).select().single()
+      equipoData = fallback.data
+      eqErr = fallback.error
+    }
+
+    if (eqErr || !equipoData) {
+      toast.error('Error al registrar el equipo: ' + eqErr?.message)
       setLoading(false)
       return
     }
@@ -492,17 +529,27 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                   </button>
                 ))}
               </div>
+              <datalist id="carriers-list">
+                {savedCarriers.map(c => <option key={c} value={c} />)}
+                {['Entel', 'Claro', 'Movistar', 'WOM', 'Virgin Mobile', 'Bitel', 'Mundo'].filter(c => !savedCarriers.includes(c)).map(c => <option key={c} value={c} />)}
+              </datalist>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">SIM 1 — Operadora</Label>
-                  <Input value={acc.sim1Carrier} onChange={e => setAcc(a => ({ ...a, sim1Carrier: e.target.value }))}
-                    placeholder="Ej: Entel, Claro..." className="h-8 text-xs mt-1" />
+                  <input list="carriers-list" value={acc.sim1Carrier}
+                    onChange={e => setAcc(a => ({ ...a, sim1Carrier: e.target.value }))}
+                    onBlur={e => saveCarrier(e.target.value)}
+                    placeholder="Ej: Entel, Claro..."
+                    className="w-full h-8 border rounded-lg px-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 mt-1" />
                 </div>
                 {acc.simCantidad === 2 && (
                   <div>
                     <Label className="text-xs">SIM 2 — Operadora</Label>
-                    <Input value={acc.sim2Carrier} onChange={e => setAcc(a => ({ ...a, sim2Carrier: e.target.value }))}
-                      placeholder="Ej: Movistar, WOM..." className="h-8 text-xs mt-1" />
+                    <input list="carriers-list" value={acc.sim2Carrier}
+                      onChange={e => setAcc(a => ({ ...a, sim2Carrier: e.target.value }))}
+                      onBlur={e => saveCarrier(e.target.value)}
+                      placeholder="Ej: Movistar, WOM..."
+                      className="w-full h-8 border rounded-lg px-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 mt-1" />
                   </div>
                 )}
               </div>
@@ -599,6 +646,59 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             required value={equipo.falla_reportada}
             onChange={e => setEquipo(eq => ({ ...eq, falla_reportada: e.target.value }))} />
         </div>
+
+        {/* Servicios sugeridos */}
+        {servicios.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold text-gray-700">
+                Servicios disponibles
+                {equipo.falla_reportada.trim().length >= 3 && ' — sugeridos por la falla'}
+              </Label>
+              <Link href="/servicios/nuevo" target="_blank"
+                className="text-xs text-blue-600 hover:underline">+ Crear servicio</Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(equipo.falla_reportada.trim().length >= 3
+                ? servicios.filter(s => {
+                    const words = equipo.falla_reportada.toLowerCase().split(/\s+/)
+                    return words.some(w => w.length > 2 && (
+                      s.nombre.toLowerCase().includes(w) ||
+                      (s.descripcion ?? '').toLowerCase().includes(w) ||
+                      s.tipo_reparacion.includes(w)
+                    ))
+                  }).slice(0, 6)
+                : servicios.slice(0, 6)
+              ).map(s => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setOt(o => ({
+                    ...o,
+                    tipo_reparacion: s.tipo_reparacion,
+                    presupuesto_estimado: String(s.precio_base),
+                  }))}
+                  className={`text-left p-3 rounded-xl border transition-all ${ot.presupuesto_estimado === String(s.precio_base) && ot.tipo_reparacion === s.tipo_reparacion ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
+                >
+                  <p className="text-sm font-semibold text-gray-800 leading-tight">{s.nombre}</p>
+                  <p className="text-xs text-blue-700 font-bold mt-0.5">
+                    ${s.precio_base.toLocaleString('es-CL')}
+                  </p>
+                  {s.descripcion && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{s.descripcion}</p>}
+                </button>
+              ))}
+            </div>
+            {equipo.falla_reportada.trim().length >= 3 &&
+              servicios.filter(s => {
+                const words = equipo.falla_reportada.toLowerCase().split(/\s+/)
+                return words.some(w => w.length > 2 && s.nombre.toLowerCase().includes(w))
+              }).length === 0 && (
+              <p className="text-xs text-gray-400 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Sin servicios que coincidan — <Link href="/servicios/nuevo" target="_blank" className="text-blue-600 hover:underline">crea uno</Link>
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* OT */}
