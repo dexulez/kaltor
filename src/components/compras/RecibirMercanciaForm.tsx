@@ -20,6 +20,7 @@ export default function RecibirMercanciaForm({ oc }: Props) {
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
+  const [numeroFactura, setNumeroFactura] = useState((oc as unknown as Record<string, unknown>).numero_factura_proveedor as string ?? '')
   const [cantidades, setCantidades] = useState<Record<string, number>>(
     Object.fromEntries((oc.purchase_order_items ?? []).map(i => [i.id, i.cantidad_recibida]))
   )
@@ -107,6 +108,7 @@ export default function RecibirMercanciaForm({ oc }: Props) {
     await supabase.from('purchase_orders').update({
       estado: nuevoEstado,
       fecha_recepcion: new Date().toISOString(),
+      ...(numeroFactura.trim() ? { numero_factura_proveedor: numeroFactura.trim() } : {}),
     }).eq('id', oc.id)
 
     toast.success('Recepción registrada correctamente')
@@ -121,16 +123,28 @@ export default function RecibirMercanciaForm({ oc }: Props) {
       )}
 
       <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between">
-          <p className="font-semibold text-amber-800 text-sm">Registrar recepción de mercancía</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowScanner(true)}
-            className="text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
-          >
-            📷 Escanear QR
-          </Button>
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="font-semibold text-amber-800 text-sm">Registrar recepción de mercancía</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowScanner(true)}
+              className="text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
+            >
+              📷 Escanear QR
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-amber-800 shrink-0">N° Factura proveedor</label>
+            <input
+              type="text"
+              value={numeroFactura}
+              onChange={e => setNumeroFactura(e.target.value)}
+              placeholder="Ej: 001234 (opcional)"
+              className="flex-1 text-xs border border-amber-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+            />
+          </div>
         </div>
         <div className="divide-y">
           {(oc.purchase_order_items ?? []).map(item => (

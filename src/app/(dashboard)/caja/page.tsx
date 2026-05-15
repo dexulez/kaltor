@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCLP } from '@/lib/calculations'
 import { Customer, Equipment, RepairOrder, Sale } from '@/types'
+import SesionCajaPanel from '@/components/caja/SesionCajaPanel'
 
 type VentaCaja = Sale & {
   customers: Pick<Customer, 'nombre'> | null
@@ -58,6 +59,8 @@ export default async function CajaPage() {
           </Link>
         </div>
       </div>
+
+      <SesionCajaPanel />
 
       {/* Resumen del día */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

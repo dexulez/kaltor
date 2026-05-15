@@ -42,7 +42,11 @@ export default function ClienteForm({ cliente }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (form.rut && !validarRut(form.rut)) {
+    if (!form.rut.trim()) {
+      toast.error('El RUT es obligatorio')
+      return
+    }
+    if (!validarRut(form.rut)) {
       toast.error('El RUT ingresado no es válido')
       return
     }
@@ -105,20 +109,21 @@ export default function ClienteForm({ cliente }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="rut">RUT</Label>
+          <Label htmlFor="rut">RUT / DNI <span className="text-red-500">*</span></Label>
           <Input
             id="rut"
             value={form.rut}
             onChange={handleRutChange}
             placeholder="26595544-4"
             inputMode="numeric"
-            className={rutError ? 'border-red-400' : rutError === '' && form.rut ? 'border-green-400' : ''}
+            required
+            className={rutError ? 'border-red-400' : form.rut && !rutError ? 'border-green-400' : ''}
           />
           {rutError
             ? <p className="text-xs text-red-500">⚠ {rutError}</p>
             : form.rut
               ? <p className="text-xs text-green-600">✓ RUT válido</p>
-              : <p className="text-xs text-gray-400">Escribe los dígitos, el guión se agrega solo</p>
+              : <p className="text-xs text-gray-400">Requerido · El guión se agrega solo</p>
           }
         </div>
 
