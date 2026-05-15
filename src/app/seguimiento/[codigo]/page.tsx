@@ -294,53 +294,95 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
           </div>
         )}
 
-        {/* Timeline — siempre visible */}
-        <div className="bg-white rounded-xl border shadow-sm p-5">
-          <h2 className="font-semibold text-gray-800 mb-4 text-sm">Historial de actualizaciones</h2>
+        {/* ── Seguimiento estilo courier ──────────────────────────────── */}
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          <div className="bg-gray-50 border-b px-5 py-3">
+            <h2 className="font-bold text-gray-800 text-sm">📍 Seguimiento del servicio</h2>
+          </div>
+
           {historialList.length === 0 ? (
-            <div className="text-center py-4">
-              <p className="text-sm text-gray-400">📋 Estado actual: <strong>{estadoActual.label}</strong></p>
-              <p className="text-xs text-gray-300 mt-1">Los cambios de estado aparecerán aquí</p>
+            <div className="p-6 text-center">
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${estadoActual.bg} ${estadoActual.color} mb-2`}>
+                <span className="text-lg">{estadoActual.icono}</span>
+                {estadoActual.label}
+              </div>
+              <p className="text-xs text-gray-400 mt-2">Las actualizaciones aparecerán aquí</p>
             </div>
           ) : (
-            <div className="relative">
-              <div className="absolute left-3.5 top-2 bottom-2 w-px bg-gray-200" />
-              <div className="space-y-4">
-                {historialList.map((h: { estado_nuevo: unknown; comentario: unknown; created_at: unknown; foto_url?: unknown }, i: number) => {
-                  const info = ESTADO_INFO[h.estado_nuevo as string]
-                  const esActual = i === historialList.length - 1
-                  return (
-                    <div key={i} className="relative flex items-start gap-3 pl-10">
-                      <div className={`absolute left-0 w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 shadow-sm
-                        ${esActual ? 'bg-blue-600 text-white' : 'bg-white border-2 border-gray-200 text-gray-400'}`}>
-                        {esActual ? '●' : '○'}
+            <div className="p-5 space-y-0">
+              {historialList.map((h: { estado_nuevo: unknown; comentario: unknown; created_at: unknown; foto_url?: unknown }, i: number) => {
+                const info = ESTADO_INFO[h.estado_nuevo as string]
+                const esActual = i === historialList.length - 1
+                const esPasado = !esActual
+                const fecha = new Date(h.created_at as string).toLocaleString('es-CL', {
+                  timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short',
+                  hour: '2-digit', minute: '2-digit',
+                })
+
+                return (
+                  <div key={i} className="flex gap-4">
+                    {/* Línea vertical + nodo */}
+                    <div className="flex flex-col items-center shrink-0">
+                      {/* Nodo */}
+                      <div className={`relative w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0 shadow-sm border-2 z-10
+                        ${esActual
+                          ? `${info?.bg ?? 'bg-blue-100'} border-blue-400`
+                          : 'bg-gray-50 border-gray-200'}`}>
+                        {esActual && (
+                          <span className="absolute inset-0 rounded-full animate-ping opacity-30 bg-blue-400" />
+                        )}
+                        <span className={esActual ? '' : 'grayscale opacity-60'}>{info?.icono ?? '📋'}</span>
                       </div>
-                      <div className="flex-1 min-w-0 pb-1">
-                        <p className={`text-sm font-semibold ${esActual ? 'text-gray-900' : 'text-gray-500'}`}>
-                          {info?.icono} {info?.label ?? h.estado_nuevo}
-                        </p>
+                      {/* Conector hacia abajo */}
+                      {i < historialList.length - 1 && (
+                        <div className="w-0.5 flex-1 min-h-[24px] bg-gray-200 my-1" />
+                      )}
+                    </div>
+
+                    {/* Contenido del evento */}
+                    <div className={`flex-1 pb-5 min-w-0 ${i < historialList.length - 1 ? '' : ''}`}>
+                      <div className={`rounded-xl border p-3.5 ${esActual ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
+                        {/* Encabezado */}
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <p className={`font-bold text-sm ${esActual ? 'text-blue-900' : 'text-gray-700'}`}>
+                            {info?.label ?? (h.estado_nuevo as string)}
+                            {esActual && <span className="ml-2 text-xs font-normal bg-blue-600 text-white px-1.5 py-0.5 rounded-full">Actual</span>}
+                          </p>
+                          <p className="text-xs text-gray-400 shrink-0 capitalize">{fecha}</p>
+                        </div>
+
+                        {/* Comentario */}
                         {(h.comentario as string) && (
-                          <p className="text-xs text-gray-600 mt-0.5 bg-gray-50 rounded px-2 py-1 mt-1">
+                          <p className={`text-xs mt-2 leading-relaxed ${esActual ? 'text-blue-800' : 'text-gray-600'}`}>
                             {h.comentario as string}
                           </p>
                         )}
-                        <p className="text-xs text-gray-400 mt-1">
-                          {new Date(h.created_at as string).toLocaleString('es-CL', {
-                            day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: TZ,
-                          })}
-                        </p>
+
+                        {/* Foto */}
                         {!!h.foto_url && (
-                          <a href={h.foto_url as string} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                          <a href={h.foto_url as string} target="_blank" rel="noopener noreferrer"
+                            className="mt-3 block group relative overflow-hidden rounded-lg border border-gray-200">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={h.foto_url as string} alt="Foto del estado" className="h-32 w-full object-cover rounded-lg border hover:opacity-90 transition-opacity" />
-                            <p className="text-xs text-blue-500 mt-0.5">Ver foto completa →</p>
+                            <img src={h.foto_url as string} alt="Evidencia" className="w-full max-h-48 object-cover group-hover:opacity-95 transition-opacity" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-end">
+                              <p className="w-full text-center text-xs text-white bg-black/40 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                📷 Ver foto completa
+                              </p>
+                            </div>
                           </a>
                         )}
                       </div>
+
+                      {esPasado && (
+                        <div className="flex items-center gap-1.5 mt-1.5 ml-1">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span className="text-xs text-green-700 font-medium">Completado</span>
+                        </div>
+                      )}
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

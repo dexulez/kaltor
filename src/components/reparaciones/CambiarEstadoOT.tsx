@@ -43,11 +43,36 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
 
   const opciones = TODOS_ESTADOS.filter(e => e !== estadoActual)
 
-  function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function comprimirFoto(file: File): Promise<File> {
+    const MAX = 500 * 1024 // 0.5 MB
+    if (file.size <= MAX) return file
+    const img = new Image()
+    const srcUrl = URL.createObjectURL(file)
+    await new Promise<void>(res => { img.onload = () => res(); img.src = srcUrl })
+    URL.revokeObjectURL(srcUrl)
+    let { width, height } = img
+    const MAX_DIM = 1600
+    if (width > MAX_DIM || height > MAX_DIM) {
+      if (width >= height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM }
+      else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM }
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = width; canvas.height = height
+    canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+    for (let q = 0.85; q >= 0.1; q -= 0.1) {
+      const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/jpeg', q))
+      if (blob.size <= MAX) return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+    }
+    const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/jpeg', 0.1))
+    return new File([blob], 'foto.jpg', { type: 'image/jpeg' })
+  }
+
+  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
-    setFoto(f)
-    setFotoPreview(URL.createObjectURL(f))
+    const comprimida = await comprimirFoto(f)
+    setFoto(comprimida)
+    setFotoPreview(URL.createObjectURL(comprimida))
   }
 
   function quitarFoto() {
