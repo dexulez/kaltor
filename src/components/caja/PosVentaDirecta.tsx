@@ -329,8 +329,20 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     }
 
     toast.success(`Venta ${venta.numero_venta} registrada — ${formatCLP(totalFinal)}`)
+
+    // Limpiar todo el POS para la siguiente venta
     setCarrito([])
     setServiciosOT([])
+    setClienteId('')
+    setBusqueda('')
+    setDescuentoInput('')
+    setTipoDescuento('monto')
+    setMetodo('efectivo')
+    setTipoDoc('boleta')
+    setCobromixto(false)
+    setMetodo2('efectivo')
+    setMonto2Input('')
+
     router.refresh()
     setLoading(false)
   }
