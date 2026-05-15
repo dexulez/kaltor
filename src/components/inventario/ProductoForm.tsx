@@ -153,13 +153,50 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
       imei: form.imei.trim() || null,
     }
 
+    // Obtener usuario actual para el log
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: perfil } = user
+      ? await supabase.from('user_profiles').select('nombre_completo').eq('id', user.id).single()
+      : { data: null }
+    const nombreUsuario = (perfil as { nombre_completo?: string } | null)?.nombre_completo ?? null
+
     if (producto) {
+      const stockAnterior = producto.stock_actual ?? 0
+      const stockNuevo = payload.stock_actual
       const { error } = await supabase.from('products').update(payload).eq('id', producto.id)
       if (error) { toast.error('Error al actualizar: ' + error.message); setLoading(false); return }
+      // Registrar movimiento solo si cambió el stock
+      if (stockNuevo !== stockAnterior) {
+        await supabase.from('stock_movements').insert({
+          product_id: producto.id,
+          tipo: stockNuevo > stockAnterior ? 'ajuste_positivo' : 'ajuste_negativo',
+          cantidad: Math.abs(stockNuevo - stockAnterior),
+          stock_anterior: stockAnterior,
+          stock_nuevo: stockNuevo,
+          razon: 'Ajuste manual desde inventario',
+          referencia_tipo: 'ajuste_manual',
+          usuario_id: user?.id ?? null,
+          nombre_usuario: nombreUsuario,
+        }).then(r => r) // silenciar si usuario_id columna no existe aún
+      }
       toast.success('Producto actualizado')
     } else {
-      const { error } = await supabase.from('products').insert(payload)
+      const { data: prod, error } = await supabase.from('products').insert(payload).select('id').single()
       if (error) { toast.error('Error al crear: ' + error.message); setLoading(false); return }
+      // Registrar stock inicial si > 0
+      if (payload.stock_actual > 0 && prod) {
+        await supabase.from('stock_movements').insert({
+          product_id: prod.id,
+          tipo: 'carga_inicial',
+          cantidad: payload.stock_actual,
+          stock_anterior: 0,
+          stock_nuevo: payload.stock_actual,
+          razon: 'Carga inicial — producto creado manualmente',
+          referencia_tipo: 'carga_manual',
+          usuario_id: user?.id ?? null,
+          nombre_usuario: nombreUsuario,
+        }).then(r => r)
+      }
       toast.success('Producto creado correctamente')
     }
 

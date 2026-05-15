@@ -247,6 +247,14 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
     let ok = 0
     let errCount = 0
 
+    // Obtener usuario actual para log
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: perfil } = user
+      ? await supabase.from('user_profiles').select('nombre_completo').eq('id', user.id).single()
+      : { data: null }
+    const nombreUsuario = (perfil as { nombre_completo?: string } | null)?.nombre_completo ?? null
+    const importId = crypto.randomUUID() // ID agrupador de esta carga masiva
+
     for (const fila of validas) {
       const payload = {
         nombre: fila.nombre,
@@ -265,17 +273,42 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
         activo: true,
       }
 
+      let prodId: string | null = null
+      let stockAnterior = 0
+
       // Upsert por SKU si tiene SKU, sino siempre insert
       if (fila.sku) {
-        const { error } = await supabase
+        // Buscar si ya existe para saber stock anterior
+        const { data: existente } = await supabase.from('products').select('id, stock_actual').eq('sku', fila.sku).maybeSingle()
+        stockAnterior = (existente as { stock_actual?: number } | null)?.stock_actual ?? 0
+        const { data: upserted, error } = await supabase
           .from('products')
           .upsert(payload, { onConflict: 'sku', ignoreDuplicates: false })
-        if (error) errCount++
-        else ok++
+          .select('id').single()
+        if (error) { errCount++; continue }
+        prodId = (upserted as { id: string } | null)?.id ?? (existente as { id: string } | null)?.id ?? null
+        ok++
       } else {
-        const { error } = await supabase.from('products').insert(payload)
-        if (error) errCount++
-        else ok++
+        const { data: inserted, error } = await supabase.from('products').insert(payload).select('id').single()
+        if (error) { errCount++; continue }
+        prodId = (inserted as { id: string } | null)?.id ?? null
+        ok++
+      }
+
+      // Log de movimiento
+      if (prodId && fila.stock_actual > 0) {
+        await supabase.from('stock_movements').insert({
+          product_id: prodId,
+          tipo: 'carga_inicial',
+          cantidad: fila.stock_actual,
+          stock_anterior: stockAnterior,
+          stock_nuevo: fila.stock_actual,
+          razon: `Carga masiva de inventario`,
+          referencia_id: importId,
+          referencia_tipo: 'carga_masiva',
+          usuario_id: user?.id ?? null,
+          nombre_usuario: nombreUsuario,
+        }).then(r => r) // silenciar si columnas no existen aún
       }
     }
 

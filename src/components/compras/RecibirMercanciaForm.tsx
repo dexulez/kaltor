@@ -54,6 +54,12 @@ export default function RecibirMercanciaForm({ oc }: Props) {
   async function handleRecibir() {
     setLoading(true)
     const items = oc.purchase_order_items ?? []
+    // Obtener usuario para log
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: perfil } = user
+      ? await supabase.from('user_profiles').select('nombre_completo').eq('id', user.id).single()
+      : { data: null }
+    const nombreUsuario = (perfil as { nombre_completo?: string } | null)?.nombre_completo ?? null
 
     for (const item of items) {
       const nuevaCantidad = cantidades[item.id] ?? item.cantidad_recibida
@@ -91,6 +97,8 @@ export default function RecibirMercanciaForm({ oc }: Props) {
             razon: `Recepción OC ${oc.numero_oc}`,
             referencia_id: oc.id,
             referencia_tipo: 'purchase_order',
+            usuario_id: user?.id ?? null,
+            nombre_usuario: nombreUsuario,
           })
         }
       }

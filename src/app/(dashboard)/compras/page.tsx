@@ -31,7 +31,14 @@ export default async function ComprasPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-gray-900">Compras y Proveedores</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold text-gray-900">Compras y Proveedores</h1>
+        <Link href="/compras/historial">
+          <Button variant="outline" className="gap-1.5 text-indigo-700 border-indigo-200 hover:bg-indigo-50">
+            🔍 Historial de compras
+          </Button>
+        </Link>
+      </div>
 
       <Tabs defaultValue="proveedores">
         <TabsList>
