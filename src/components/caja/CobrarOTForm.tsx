@@ -139,7 +139,11 @@ export default function CobrarOTForm({ ot, config }: Props) {
     setVentaData({ id: venta.id, numero_venta: venta.numero_venta })
     setVentaCompletada(true)
     setLoading(false)
-    router.refresh()
+    // Redirigir a caja después de 2 segundos para que se vea el comprobante
+    setTimeout(() => {
+      router.push('/caja')
+      router.refresh()
+    }, 2500)
   }
 
   // ── Vista post-cobro: comprobante ──────────────────────────────────────────
@@ -152,8 +156,8 @@ export default function CobrarOTForm({ ot, config }: Props) {
             <p className="font-semibold text-green-800">OT {ot.numero_ot} cobrada exitosamente</p>
             <p className="text-sm text-green-700">Venta {ventaData.numero_venta} — {formatCLP(totalFinal)}</p>
           </div>
-          <Button variant="outline" className="ml-auto" onClick={() => router.push('/caja')}>
-            Volver a Caja
+          <Button variant="outline" className="ml-auto" onClick={() => { router.push('/caja'); router.refresh() }}>
+            Volver a Caja →
           </Button>
         </div>
 
