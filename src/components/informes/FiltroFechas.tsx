@@ -9,6 +9,8 @@ const TABS = [
   { key: 'inventario',   label: '📦 Inventario',   title: 'Inventario y Stock' },
   { key: 'rentabilidad', label: '📈 Rentabilidad', title: 'Análisis de Rentabilidad' },
   { key: 'servicios',    label: '🔩 Servicios',    title: 'Análisis de Servicios' },
+  { key: 'compras',      label: '🛒 Compras',      title: 'Compras y Proveedores' },
+  { key: 'gastos',       label: '💸 Gastos',       title: 'Gastos Operacionales' },
   { key: 'auditoria',    label: '🔍 Auditoría',    title: 'Log de Usuarios' },
 ]
 

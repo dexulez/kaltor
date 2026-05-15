@@ -865,6 +865,141 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
   )
 }
 
+// ── Tab: Compras ──────────────────────────────────────────────────────────────
+
+async function TabCompras({ desde, hasta }: { desde: string; hasta: string }) {
+  const supabase = await createClient()
+  const { data: ocs } = await supabase
+    .from('purchase_orders')
+    .select('id, numero_oc, total, estado, created_at, suppliers(nombre)')
+    .gte('created_at', `${desde}T00:00:00`)
+    .lte('created_at', `${hasta}T23:59:59`)
+    .order('created_at', { ascending: false })
+
+  const lista = (ocs ?? []) as { id: string; numero_oc: string; total: number; estado: string; created_at: string; suppliers: { nombre: string } | { nombre: string }[] | null }[]
+  const totalMonto = lista.reduce((s, o) => s + (o.total ?? 0), 0)
+  const pendientes = lista.filter(o => o.estado === 'pendiente').length
+  const recibidas  = lista.filter(o => o.estado?.startsWith('recibida')).length
+  const enTransito = lista.filter(o => o.estado === 'en_transito').length
+
+  const porProveedor: Record<string, { nombre: string; total: number; count: number }> = {}
+  lista.forEach(o => {
+    const sup = o.suppliers
+    const nombre = (Array.isArray(sup) ? sup[0]?.nombre : (sup as { nombre: string } | null)?.nombre) ?? 'Sin proveedor'
+    if (!porProveedor[nombre]) porProveedor[nombre] = { nombre, total: 0, count: 0 }
+    porProveedor[nombre].total += o.total ?? 0
+    porProveedor[nombre].count++
+  })
+  const proveedoresList = Object.values(porProveedor).sort((a, b) => b.total - a.total)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard label="Total OCs"     value={String(lista.length)}     colorIdx={0} />
+        <KpiCard label="Monto total"   value={formatCLP(totalMonto)}    colorIdx={1} />
+        <KpiCard label="Pendientes"    value={String(pendientes)}        colorIdx={4} />
+        <KpiCard label="Recibidas"     value={String(recibidas)}         colorIdx={2} />
+      </div>
+      {enTransito > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2 text-sm text-blue-700">
+          📦 {enTransito} OC(s) en tránsito
+        </div>
+      )}
+      {proveedoresList.length > 0 && (
+        <Section title="Por proveedor">
+          <Tabla
+            headers={['Proveedor', 'OCs', 'Monto total']}
+            rows={proveedoresList.map(p => [p.nombre, p.count, formatCLP(p.total)])}
+          />
+        </Section>
+      )}
+      <Section title="Órdenes de compra del período">
+        <Tabla
+          headers={['N° OC', 'Proveedor', 'Fecha', 'Estado', 'Total']}
+          rows={lista.map(o => {
+            const sup = o.suppliers
+            const nombre = (Array.isArray(sup) ? sup[0]?.nombre : (sup as { nombre: string } | null)?.nombre) ?? '—'
+            return [o.numero_oc, nombre, o.created_at.split('T')[0], o.estado?.replace(/_/g, ' ') ?? '—', formatCLP(o.total ?? 0)]
+          })}
+        />
+      </Section>
+    </div>
+  )
+}
+
+// ── Tab: Gastos ───────────────────────────────────────────────────────────────
+
+async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
+  const supabase = await createClient()
+  const { data: gastos, error } = await supabase
+    .from('gastos')
+    .select('id, concepto, monto, categoria, metodo_pago, fecha, created_at')
+    .gte('fecha', desde)
+    .lte('fecha', hasta)
+    .order('fecha', { ascending: false })
+
+  if (error?.message.toLowerCase().includes('gastos')) {
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+        <p className="text-lg font-semibold text-amber-800 mb-1">Módulo de gastos no configurado</p>
+        <p className="text-sm text-amber-700">Ejecuta la migración SQL de gastos en Supabase para activar este módulo.</p>
+      </div>
+    )
+  }
+
+  const lista = (gastos ?? []) as { id: string; concepto: string; monto: number; categoria: string; metodo_pago: string; fecha: string }[]
+  const totalGastos = lista.reduce((s, g) => s + g.monto, 0)
+
+  const porCategoria: Record<string, number> = {}
+  lista.forEach(g => { porCategoria[g.categoria] = (porCategoria[g.categoria] ?? 0) + g.monto })
+  const catData = Object.entries(porCategoria)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+
+  const porMetodo: Record<string, number> = {}
+  lista.forEach(g => { porMetodo[g.metodo_pago] = (porMetodo[g.metodo_pago] ?? 0) + g.monto })
+
+  const dias = Math.max(1, Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86400000) + 1)
+  const promDiario = Math.round(totalGastos / dias)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <KpiCard label="Total gastos"     value={formatCLP(totalGastos)} colorIdx={4} />
+        <KpiCard label="N° registros"     value={String(lista.length)}   colorIdx={0} />
+        <KpiCard label="Promedio diario"  value={formatCLP(promDiario)}  colorIdx={2} />
+      </div>
+      {catData.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Section title="Por categoría">
+            <GraficoPastel data={catData} />
+          </Section>
+          <Section title="Detalle por categoría">
+            <Tabla
+              headers={['Categoría', 'Total', 'Part. %']}
+              rows={catData.map(c => [c.name, formatCLP(c.value), `${Math.round(c.value / totalGastos * 100)}%`])}
+            />
+          </Section>
+        </div>
+      )}
+      {Object.keys(porMetodo).length > 0 && (
+        <Section title="Por método de pago">
+          <Tabla
+            headers={['Método', 'Total', 'Part. %']}
+            rows={Object.entries(porMetodo).sort((a, b) => b[1] - a[1]).map(([m, v]) => [m, formatCLP(v), `${Math.round(v / totalGastos * 100)}%`])}
+          />
+        </Section>
+      )}
+      <Section title="Registro de gastos">
+        <Tabla
+          headers={['Fecha', 'Concepto', 'Categoría', 'Método', 'Monto']}
+          rows={lista.map(g => [g.fecha, g.concepto, g.categoria, g.metodo_pago, formatCLP(g.monto)])}
+        />
+      </Section>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function InformesPage({
@@ -923,6 +1058,8 @@ export default async function InformesPage({
         {tab === 'inventario'   && <TabInventario    desde={desde} hasta={hasta} />}
         {tab === 'rentabilidad' && verRentab  && <TabRentabilidad  desde={desde} hasta={hasta} soloUserId={soloUserId} />}
         {tab === 'servicios'    && <TabServicios desde={desde} hasta={hasta} />}
+        {tab === 'compras'      && <TabCompras   desde={desde} hasta={hasta} />}
+        {tab === 'gastos'       && <TabGastos    desde={desde} hasta={hasta} />}
         {tab === 'auditoria'    && rolAuth === 'administrador' && <TabAuditoria desde={desde} hasta={hasta} />}
         {/* Mensajes de acceso restringido */}
         {tab === 'ventas'       && !verVentas  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Ventas.</div>}
