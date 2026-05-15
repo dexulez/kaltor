@@ -36,6 +36,13 @@ export default function CrearServicioInline({ onCreated, nombreSugerido }: Props
   async function crear() {
     if (!nombre.trim()) { toast.error('Escribe un nombre'); return }
     setSaving(true)
+    const { data: existente } = await supabase
+      .from('repair_services').select('id').ilike('nombre', nombre.trim()).maybeSingle()
+    if (existente) {
+      toast.error(`Ya existe un servicio llamado "${nombre.trim()}"`)
+      setSaving(false)
+      return
+    }
     const { data, error } = await supabase.from('repair_services').insert({
       nombre: nombre.trim(),
       tipo_reparacion: tipo,

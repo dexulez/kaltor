@@ -103,6 +103,18 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
     if (!nombre.trim()) { toast.error('Escribe el nombre del servicio'); return }
     setLoading(true)
 
+    // Validar nombre duplicado (excluir el servicio actual si es edición)
+    const { data: existente } = await supabase
+      .from('repair_services')
+      .select('id')
+      .ilike('nombre', nombre.trim())
+      .maybeSingle()
+    if (existente && existente.id !== servicio?.id) {
+      toast.error(`Ya existe un servicio llamado "${nombre.trim()}"`)
+      setLoading(false)
+      return
+    }
+
     const payload = {
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || null,

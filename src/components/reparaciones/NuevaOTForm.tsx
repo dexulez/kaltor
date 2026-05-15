@@ -810,10 +810,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         {/* Servicios sugeridos */}
         <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-gray-700">
-                🔩 Servicios disponibles
-                {equipo.falla_reportada.trim().length >= 3 && ' — sugeridos por la falla'}
-              </Label>
+              <Label className="text-sm font-semibold text-gray-700">🔩 Servicio</Label>
               <CrearServicioInline
                 nombreSugerido={equipo.falla_reportada.trim()}
                 onCreated={s => {
@@ -822,6 +819,14 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                 }}
               />
             </div>
+
+            {/* Buscador de servicio */}
+            <BuscadorServicioOT
+              servicios={servicios}
+              onSelect={s => setOt(o => ({ ...o, tipo_reparacion: s.tipo_reparacion, presupuesto_estimado: String(s.precio_base) }))}
+              selectedPrecio={ot.presupuesto_estimado}
+              selectedTipo={ot.tipo_reparacion}
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(equipo.falla_reportada.trim().length >= 3
                 ? servicios.filter(s => {
@@ -1001,5 +1006,87 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
       </div>
     </form>
+  )
+}
+
+// ── Buscador de servicio existente ────────────────────────────────────────────
+function BuscadorServicioOT({
+  servicios,
+  onSelect,
+  selectedPrecio,
+  selectedTipo,
+}: {
+  servicios: { id: string; nombre: string; tipo_reparacion: string; precio_base: number; descripcion: string | null }[]
+  onSelect: (s: { tipo_reparacion: string; precio_base: number }) => void
+  selectedPrecio: string
+  selectedTipo: string
+}) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function h(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const filtrados = q.trim().length >= 1
+    ? servicios.filter(s => s.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
+    : servicios.slice(0, 8)
+
+  const seleccionado = servicios.find(
+    s => s.tipo_reparacion === selectedTipo && String(s.precio_base) === selectedPrecio
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <input
+          type="text"
+          value={q}
+          onChange={e => { setQ(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          placeholder="Buscar servicio por nombre..."
+          className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 pr-8"
+        />
+        {q && (
+          <button type="button" onClick={() => { setQ(''); setOpen(false) }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm">✕</button>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full bg-white border rounded-xl shadow-lg max-h-56 overflow-y-auto">
+          {filtrados.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-4">Sin resultados</p>
+          ) : filtrados.map(s => {
+            const activo = s.tipo_reparacion === selectedTipo && String(s.precio_base) === selectedPrecio
+            return (
+              <button key={s.id} type="button"
+                onClick={() => { onSelect(s); setQ(s.nombre); setOpen(false) }}
+                className={`w-full text-left px-3 py-2.5 border-b last:border-0 hover:bg-blue-50 transition-colors flex justify-between items-center gap-2 ${activo ? 'bg-blue-50' : ''}`}>
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800 text-sm truncate">{s.nombre}</p>
+                  {s.descripcion && <p className="text-xs text-gray-400 truncate">{s.descripcion}</p>}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-blue-700 text-sm">${s.precio_base.toLocaleString('es-CL')}</p>
+                  {activo && <p className="text-xs text-blue-600">✓ seleccionado</p>}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {seleccionado && !open && (
+        <p className="text-xs text-blue-700 mt-1 font-medium">
+          ✓ Servicio seleccionado: <strong>{seleccionado.nombre}</strong> — ${seleccionado.precio_base.toLocaleString('es-CL')}
+        </p>
+      )}
+    </div>
   )
 }

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import { Suspense } from 'react'
 import BuscadorServicios from '@/components/servicios/BuscadorServicios'
+import BorrarServicioBtn from '@/components/servicios/BorrarServicioBtn'
 
 const TIPO_LABEL: Record<string, string> = {
   pantalla: '📱 Pantalla', bateria: '🔋 Batería', placa: '🔬 Placa madre',
@@ -137,13 +138,14 @@ export default async function ServiciosPage({
                 </div>
 
                 {/* Acciones */}
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 flex-wrap">
                   <Link href={`/servicios/${s.id}`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full text-xs">Ver detalle</Button>
                   </Link>
                   <Link href={`/servicios/${s.id}/editar`}>
                     <Button variant="outline" size="sm" className="text-xs">✏️</Button>
                   </Link>
+                  <BorrarServicioBtn id={s.id} nombre={s.nombre} />
                 </div>
               </div>
             )
