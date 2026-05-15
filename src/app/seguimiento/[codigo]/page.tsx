@@ -77,8 +77,9 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
   const esListo = otData.estado === 'listo'
   const esEntregado = otData.estado === 'entregado'
 
+  const TZ = 'America/Santiago'
   const fecha = new Date(otData.created_at).toLocaleDateString('es-CL', {
-    day: 'numeric', month: 'long', year: 'numeric',
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ,
   })
 
   return (
@@ -285,7 +286,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
               {depositosList.map((d, i) => (
                 <div key={i} className="flex justify-between items-center bg-gray-50 rounded-lg px-3 py-2 text-xs">
                   <span className="font-semibold text-gray-800">{new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP'}).format(d.monto)}</span>
-                  <span className="text-gray-400">{d.metodo_pago} · {new Date(d.created_at).toLocaleDateString('es-CL')}</span>
+                  <span className="text-gray-400">{d.metodo_pago} · {new Date(d.created_at).toLocaleDateString('es-CL', { timeZone: TZ })}</span>
                 </div>
               ))}
             </div>
@@ -319,7 +320,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
                         )}
                         <p className="text-xs text-gray-400 mt-1">
                           {new Date(h.created_at as string).toLocaleString('es-CL', {
-                            day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+                            day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: TZ,
                           })}
                         </p>
                       </div>
