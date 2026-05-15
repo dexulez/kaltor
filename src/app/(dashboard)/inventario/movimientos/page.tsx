@@ -33,58 +33,80 @@ export default async function MovimientosPage({
   const limit  = 100
   const offset = (page - 1) * limit
 
-  // Query principal de movimientos
-  let query = supabase
-    .from('stock_movements')
-    .select(`
-      id, tipo, cantidad, stock_anterior, stock_nuevo, razon,
-      referencia_id, referencia_tipo, usuario_id, nombre_usuario, created_at,
-      products(id, nombre, sku, codigo_barras)
-    `)
-    .gte('created_at', `${desde}T00:00:00`)
-    .lte('created_at', `${hasta}T23:59:59`)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+  type MovRow = {
+    id: string; tipo: string; cantidad: number; stock_anterior: number; stock_nuevo: number
+    razon: string | null; referencia_id: string | null; referencia_tipo: string | null
+    product_id: string | null; usuario_id?: string | null; nombre_usuario?: string | null
+    created_at: string
+    // resolved after join
+    prod_nombre?: string; prod_sku?: string | null; prod_id?: string | null
+    user_nombre?: string | null
+  }
 
-  if (tipo) query = query.eq('tipo', tipo)
-
-  const { data: movimientos, error } = await query
-
-  // Si hay error por columnas faltantes, reintenta sin las nuevas columnas
-  let lista = movimientos ?? []
-  if (error) {
-    const { data: fallback } = await supabase
+  // ── Paso 1: movimientos sin join (siempre funciona) ──────────────────────
+  let movBase: MovRow[] = []
+  {
+    let q2 = supabase
       .from('stock_movements')
-      .select(`
-        id, tipo, cantidad, stock_anterior, stock_nuevo, razon,
-        referencia_id, referencia_tipo, created_at,
-        products(id, nombre, sku)
-      `)
+      .select('id, tipo, cantidad, stock_anterior, stock_nuevo, razon, referencia_id, referencia_tipo, product_id, usuario_id, nombre_usuario, created_at')
       .gte('created_at', `${desde}T00:00:00`)
       .lte('created_at', `${hasta}T23:59:59`)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
-    lista = (fallback ?? []).map(m => ({ ...m, usuario_id: null, nombre_usuario: null, products: (m.products ?? []).map((p: { id: unknown; nombre: unknown; sku: unknown }) => ({ ...p, codigo_barras: null })) }))
+    if (tipo) q2 = q2.eq('tipo', tipo)
+    const { data: r1, error: e1 } = await q2
+
+    if (e1) {
+      // Fallback sin columnas nuevas (nombre_usuario, usuario_id puede no existir)
+      let q3 = supabase
+        .from('stock_movements')
+        .select('id, tipo, cantidad, stock_anterior, stock_nuevo, razon, referencia_id, referencia_tipo, product_id, created_at')
+        .gte('created_at', `${desde}T00:00:00`)
+        .lte('created_at', `${hasta}T23:59:59`)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+      if (tipo) q3 = q3.eq('tipo', tipo)
+      const { data: r2 } = await q3
+      movBase = (r2 ?? []).map(m => ({ ...(m as unknown as MovRow), usuario_id: null, nombre_usuario: null }))
+    } else {
+      movBase = (r1 ?? []) as unknown as MovRow[]
+    }
   }
 
-  // Filtrar por nombre de producto si hay búsqueda
-  type Movimiento = {
-    id: string; tipo: string; cantidad: number; stock_anterior: number; stock_nuevo: number
-    razon: string | null; referencia_id: string | null; referencia_tipo: string | null
-    usuario_id?: string | null; nombre_usuario?: string | null; created_at: string
-    products: { id: string; nombre: string; sku?: string | null; codigo_barras?: string | null } | { id: string; nombre: string; sku?: string | null; codigo_barras?: string | null }[] | null
+  // ── Paso 2: nombres de productos (por product_id) ────────────────────────
+  const prodIds = [...new Set(movBase.map(m => m.product_id).filter(Boolean))] as string[]
+  const prodMap: Record<string, { nombre: string; sku: string | null }> = {}
+  if (prodIds.length) {
+    const { data: prods } = await supabase.from('products').select('id, nombre, sku').in('id', prodIds)
+    ;(prods ?? []).forEach((p: { id: string; nombre: string; sku?: string | null }) => { prodMap[p.id] = { nombre: p.nombre, sku: p.sku ?? null } })
   }
 
-  let movList = lista as Movimiento[]
+  // ── Paso 3: nombres de usuarios (por usuario_id) ─────────────────────────
+  const userIds = [...new Set(movBase.map(m => m.usuario_id).filter(Boolean))] as string[]
+  const userMap: Record<string, string> = {}
+  if (userIds.length) {
+    const { data: users } = await supabase.from('user_profiles').select('id, nombre_completo').in('id', userIds)
+    ;(users ?? []).forEach((u: { id: string; nombre_completo: string }) => { userMap[u.id] = u.nombre_completo })
+  }
+
+  // ── Combinar ─────────────────────────────────────────────────────────────
+  const movListRaw = movBase.map(m => ({
+    ...m,
+    prod_id: m.product_id,
+    prod_nombre: m.product_id ? (prodMap[m.product_id]?.nombre ?? 'Producto eliminado') : null,
+    prod_sku: m.product_id ? (prodMap[m.product_id]?.sku ?? null) : null,
+    user_nombre: m.nombre_usuario ?? (m.usuario_id ? (userMap[m.usuario_id] ?? `ID:${m.usuario_id.slice(0, 6)}`) : null),
+  }))
+
+  let movList = movListRaw
   if (q.trim()) {
     const term = q.toLowerCase()
-    movList = movList.filter(m => {
-      const prod = Array.isArray(m.products) ? m.products[0] : m.products
-      return prod?.nombre?.toLowerCase().includes(term) ||
-        prod?.sku?.toLowerCase().includes(term) ||
-        m.razon?.toLowerCase().includes(term) ||
-        m.nombre_usuario?.toLowerCase().includes(term)
-    })
+    movList = movList.filter(m =>
+      (m.prod_nombre ?? '').toLowerCase().includes(term) ||
+      (m.prod_sku ?? '').toLowerCase().includes(term) ||
+      (m.razon ?? '').toLowerCase().includes(term) ||
+      (m.user_nombre ?? '').toLowerCase().includes(term)
+    )
   }
 
   // Estadísticas rápidas
@@ -193,7 +215,6 @@ export default async function MovimientosPage({
                   </td>
                 </tr>
               ) : movList.map(m => {
-                const prod = Array.isArray(m.products) ? m.products[0] : m.products
                 const info = TIPO_INFO[m.tipo] ?? { label: m.tipo, color: 'bg-gray-100 text-gray-700', icono: '📋' }
                 const esEntrada = ['entrada', 'carga_inicial', 'ajuste_positivo'].includes(m.tipo)
                 const esSalida  = ['salida', 'ajuste_negativo'].includes(m.tipo)
@@ -202,8 +223,7 @@ export default async function MovimientosPage({
                   hour: '2-digit', minute: '2-digit',
                 })
                 const docLink = m.referencia_tipo === 'purchase_order' && m.referencia_id
-                  ? `/compras/orden/${m.referencia_id}`
-                  : null
+                  ? `/compras/orden/${m.referencia_id}` : null
 
                 return (
                   <tr key={m.id} className="hover:bg-gray-50 transition-colors">
@@ -214,14 +234,18 @@ export default async function MovimientosPage({
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
-                      {prod ? (
+                      {m.prod_nombre ? (
                         <div>
-                          <Link href={`/inventario/${prod.id}/editar`} className="font-medium text-gray-900 hover:text-blue-700 hover:underline text-sm">
-                            {prod.nombre}
-                          </Link>
-                          {prod.sku && <p className="text-xs text-gray-400">{prod.sku}</p>}
+                          {m.prod_id ? (
+                            <Link href={`/inventario/${m.prod_id}/editar`} className="font-medium text-gray-900 hover:text-blue-700 hover:underline text-sm">
+                              {m.prod_nombre}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-gray-900 text-sm">{m.prod_nombre}</span>
+                          )}
+                          {m.prod_sku && <p className="text-xs text-gray-400">{m.prod_sku}</p>}
                         </div>
-                      ) : <span className="text-gray-400 text-xs">Producto eliminado</span>}
+                      ) : <span className="text-gray-400 text-xs">Sin producto</span>}
                     </td>
                     <td className="px-3 py-2.5 text-center">
                       <span className={`font-bold text-sm ${esEntrada ? 'text-green-700' : esSalida ? 'text-red-700' : 'text-yellow-700'}`}>
@@ -236,17 +260,11 @@ export default async function MovimientosPage({
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-600 max-w-[200px]">
                       <p className="truncate">{m.razon ?? '—'}</p>
-                      {docLink && (
-                        <Link href={docLink} className="text-blue-600 hover:underline text-xs">
-                          Ver OC →
-                        </Link>
-                      )}
-                      {m.referencia_tipo === 'carga_masiva' && (
-                        <p className="text-purple-600 text-xs">CSV import</p>
-                      )}
+                      {docLink && <Link href={docLink} className="text-blue-600 hover:underline text-xs">Ver OC →</Link>}
+                      {m.referencia_tipo === 'carga_masiva' && <p className="text-purple-600 text-xs">CSV import</p>}
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-600">
-                      {m.nombre_usuario ?? (m.usuario_id ? `ID:${m.usuario_id.slice(0, 6)}` : <span className="text-gray-300">—</span>)}
+                      {m.user_nombre ?? <span className="text-gray-300">—</span>}
                     </td>
                   </tr>
                 )
