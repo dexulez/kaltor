@@ -85,9 +85,14 @@ export default function CobrarOTForm({ ot, config }: Props) {
       return
     }
     setLoading(true)
-    // Si el precio fue ingresado manualmente, guardarlo en la OT
-    if (!ot.precio_servicio && parseInt(precioManual) > 0) {
-      await supabase.from('repair_orders').update({ precio_servicio: parseInt(precioManual) }).eq('id', ot.id)
+
+    // Protección anti-duplicado: verificar que la OT sigue en estado 'listo'
+    const { data: otActual } = await supabase.from('repair_orders').select('estado').eq('id', ot.id).single()
+    if (otActual?.estado === 'entregado') {
+      toast.error('Esta OT ya fue cobrada anteriormente')
+      setLoading(false)
+      setTimeout(() => { router.push('/caja'); router.refresh() }, 1500)
+      return
     }
 
     const { data: venta, error: ve } = await supabase.from('sales').insert({
@@ -120,13 +125,19 @@ export default function CobrarOTForm({ ot, config }: Props) {
       subtotal: totalFinal,
     })
 
-    await supabase.from('repair_orders').update({
+    // Actualizar estado de la OT — NO incluir iva_aplicado/ppm_aplicado
+    // porque la columna es DECIMAL(5,2) y no admite montos en CLP
+    const { error: errOT } = await supabase.from('repair_orders').update({
       estado: 'entregado',
       metodo_pago: metodo,
       fecha_entrega: new Date().toISOString(),
-      iva_aplicado: ivaTotal,
-      ppm_aplicado: ppmTotal,
+      precio_servicio: precioServicio, // guardar precio final siempre
     }).eq('id', ot.id)
+
+    if (errOT) {
+      // Fallback mínimo: solo cambiar el estado
+      await supabase.from('repair_orders').update({ estado: 'entregado' }).eq('id', ot.id)
+    }
 
     await supabase.from('repair_status_history').insert({
       repair_order_id: ot.id,
