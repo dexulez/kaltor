@@ -57,6 +57,9 @@ export default async function InventarioPage({
           <Link href="/inventario/movimientos">
             <Button variant="outline" className="gap-1.5">🔍 Movimientos</Button>
           </Link>
+          <Link href="/inventario/ajuste">
+            <Button variant="outline" className="gap-1.5 text-orange-700 border-orange-300 hover:bg-orange-50">📦 Ajuste stock</Button>
+          </Link>
           <Link href="/inventario/toma">
             <Button variant="outline" className="gap-1.5">📋 Toma inventario</Button>
           </Link>
