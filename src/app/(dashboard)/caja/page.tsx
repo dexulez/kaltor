@@ -3,12 +3,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCLP } from '@/lib/calculations'
-import { Customer, Equipment, RepairOrder, Sale } from '@/types'
+import { Customer, Equipment, RepairOrder } from '@/types'
 import SesionCajaPanel from '@/components/caja/SesionCajaPanel'
-
-type VentaCaja = Sale & {
-  customers: Pick<Customer, 'nombre'> | null
-}
+import AnularVentaBtn from '@/components/caja/AnularVentaBtn'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 type OtPendienteCaja = RepairOrder & {
   customers: Pick<Customer, 'nombre'> | null
@@ -19,20 +17,32 @@ export default async function CajaPage() {
   const supabase = await createClient()
   const hoy = new Date().toISOString().split('T')[0]
 
-  const [{ data: ventasHoy }, { data: ultimasVentas }, { data: otsPendientes }] = await Promise.all([
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const [{ data: ventasHoy }, { data: ultimasVentas }, { data: otsPendientes }, { data: perfil }, { data: sysConfig }] = await Promise.all([
     supabase.from('sales').select('total, metodo_pago, iva, ppm')
       .gte('created_at', hoy).eq('anulada', false),
-    supabase.from('sales').select('*, customers(nombre)')
-      .order('created_at', { ascending: false }).limit(10).eq('anulada', false),
+    supabase.from('sales').select('id, numero_venta, total, metodo_pago, tipo_documento, created_at, anulada, customers(nombre)')
+      .order('created_at', { ascending: false }).limit(20),
     supabase.from('repair_orders').select('*, customers(nombre), equipment(marca, modelo)')
       .eq('estado', 'listo').order('updated_at', { ascending: false }).limit(10),
+    supabase.from('user_profiles').select('permisos_modulos, roles(nombre)').eq('id', user!.id).single(),
+    supabase.from('system_config').select('pin_autorizacion').maybeSingle()
+      .then(r => r.error ? { data: null } : r),
   ])
+
+  const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
+  const puedeAnular = tieneSubPermiso('caja.anular', rolNombre, permisos)
+  const pinAdmin = (sysConfig as { pin_autorizacion?: string } | null)?.pin_autorizacion ?? null
 
   const totalHoy = ventasHoy?.reduce((s, v) => s + v.total, 0) ?? 0
   const ivaHoy = ventasHoy?.reduce((s, v) => s + (v.iva ?? 0), 0) ?? 0
   const ppmHoy = ventasHoy?.reduce((s, v) => s + (v.ppm ?? 0), 0) ?? 0
   const netoHoy = totalHoy - ivaHoy - ppmHoy
-  const ultimasVentasList: VentaCaja[] = (ultimasVentas ?? []) as VentaCaja[]
+  type VentaRow = { id: string; numero_venta: string; total: number; metodo_pago: string; tipo_documento: string; created_at: string; anulada: boolean; customers: { nombre: string } | { nombre: string }[] | null }
+  const ultimasVentasList = (ultimasVentas ?? []) as unknown as VentaRow[]
   const otsPendientesList: OtPendienteCaja[] = (otsPendientes ?? []) as OtPendienteCaja[]
 
   const METODOS = ['efectivo', 'transferencia', 'debito', 'credito']
@@ -126,16 +136,33 @@ export default async function CajaPage() {
               <p className="text-center text-gray-400 py-8 text-sm">Sin ventas registradas hoy</p>
             ) : (
               <div className="divide-y">
-                {ultimasVentasList.map((v) => (
-                  <div key={v.id} className="px-4 py-3 flex items-center justify-between">
-                    <div>
-                      <p className="font-mono text-xs text-gray-400">{v.numero_venta}</p>
-                      <p className="text-sm font-medium text-gray-800">{v.customers?.nombre ?? 'Sin cliente'}</p>
-                      <p className="text-xs text-gray-500 capitalize">{v.metodo_pago} · {v.tipo_documento}</p>
+                {ultimasVentasList.map((v) => {
+                  const nombreCliente = Array.isArray(v.customers) ? v.customers[0]?.nombre : v.customers?.nombre
+                  return (
+                    <div key={v.id} className={`px-4 py-3 flex items-center justify-between gap-2 ${v.anulada ? 'opacity-50 bg-red-50' : ''}`}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono text-xs text-gray-400">{v.numero_venta}</p>
+                          {v.anulada && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">Anulada</span>}
+                        </div>
+                        <p className="text-sm font-medium text-gray-800 truncate">{nombreCliente ?? 'Sin cliente'}</p>
+                        <p className="text-xs text-gray-500 capitalize">{v.metodo_pago} · {v.tipo_documento}</p>
+                      </div>
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                        <p className={`font-bold ${v.anulada ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{formatCLP(v.total)}</p>
+                        {!v.anulada && (
+                          <AnularVentaBtn
+                            ventaId={v.id}
+                            numeroVenta={v.numero_venta}
+                            total={v.total}
+                            puedeAnular={puedeAnular}
+                            pinAdmin={pinAdmin}
+                          />
+                        )}
+                      </div>
                     </div>
-                    <p className="font-bold text-gray-900">{formatCLP(v.total)}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
