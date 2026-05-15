@@ -173,7 +173,7 @@ export default async function MovimientosPage({
 
       {/* Filtros rápidos por tipo */}
       <div className="flex flex-wrap gap-2">
-        <Link href={pageUrl(1)} onClick={() => {}}>
+        <Link href={pageUrl(1)}>
           <span className={`px-2.5 py-1 rounded-xl text-xs font-medium border cursor-pointer ${!tipo ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
             Todos ({movBase.length})
           </span>

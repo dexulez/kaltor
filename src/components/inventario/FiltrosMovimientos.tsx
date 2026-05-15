@@ -65,10 +65,10 @@ export default function FiltrosMovimientos({ desde, hasta, tipo, q }: Props) {
           <label className="text-xs text-gray-500 font-medium block">Buscar producto / usuario</label>
           <input type="text" defaultValue={q}
             placeholder="Nombre, SKU, razón..."
-            onChange={e => {
-              const val = e.target.value
-              const t = setTimeout(() => navigate({ q: val }), 500)
-              return () => clearTimeout(t)
+            onInput={(e) => {
+              const val = (e.target as HTMLInputElement).value
+              clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>).__movTimer)
+              ;(window as unknown as Record<string, ReturnType<typeof setTimeout>>).__movTimer = setTimeout(() => navigate({ q: val }), 500)
             }}
             className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
         </div>
