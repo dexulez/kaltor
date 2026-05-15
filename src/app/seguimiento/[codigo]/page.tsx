@@ -38,7 +38,15 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
       .select('estado_nuevo, comentario, created_at, foto_url')
       .eq('repair_order_id', ot.id as string)
       .order('created_at', { ascending: true })
-      .then(r => r.error ? { data: [] } : r),
+      .then(async r => {
+        if (!r.error) return r
+        // foto_url columna no existe aún → reintentar sin ella
+        const r2 = await supabase.from('repair_status_history')
+          .select('estado_nuevo, comentario, created_at')
+          .eq('repair_order_id', ot.id as string)
+          .order('created_at', { ascending: true })
+        return r2.error ? { data: [] } : { data: (r2.data ?? []).map(h => ({ ...h, foto_url: null })) }
+      }),
     supabase.from('system_config')
       .select('nombre_local, rut_local, direccion, telefono, whatsapp, email, logo_url')
       .maybeSingle(),
