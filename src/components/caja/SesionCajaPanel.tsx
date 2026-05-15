@@ -411,35 +411,32 @@ ${d.cierreObs ? `<h2>📝 Observaciones</h2><p style="padding:2mm;background:#f9
   }
 
   // ── Panel principal ────────────────────────────────────────────────────────
+
+  // CAJA CERRADA o sin sesión → solo botón Abrir
   if (!sesion || sesion.estado === 'cerrada') {
-    const yaHuboSesion = sesion?.estado === 'cerrada'
     return (
-      <div className="bg-white rounded-xl border p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-semibold text-gray-800 text-sm">
-              {yaHuboSesion ? '🔒 Caja cerrada hoy' : '⚪ Sin apertura de caja hoy'}
+      <div className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${sesion?.estado === 'cerrada' ? 'bg-gray-50 border-gray-200' : 'bg-white'}`}>
+        <div>
+          <p className="font-semibold text-gray-800 text-sm">
+            {sesion?.estado === 'cerrada' ? '🔒 Caja cerrada' : '⚪ Caja sin abrir hoy'}
+          </p>
+          {sesion?.cierre_at && (
+            <p className="text-xs text-gray-500">
+              Cerrada a las {new Date(sesion.cierre_at).toLocaleTimeString('es-CL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}
+              {' · '}Efectivo: {formatCLP(sesion.efectivo_cierre ?? 0)}
+              {' · '}Transbank: {formatCLP(sesion.transbank_cierre ?? 0)}
+              {' · '}Transfer.: {formatCLP(sesion.transferencia_cierre ?? 0)}
             </p>
-            {yaHuboSesion && sesion.cierre_at && (
-              <p className="text-xs text-gray-500">
-                Cerrada a las {new Date(sesion.cierre_at).toLocaleTimeString('es-CL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}
-                {' · '}Efectivo: {formatCLP(sesion.efectivo_cierre ?? 0)}
-                {' · '}Transbank: {formatCLP(sesion.transbank_cierre ?? 0)}
-                {' · '}Transferencia: {formatCLP(sesion.transferencia_cierre ?? 0)}
-              </p>
-            )}
-          </div>
-          {!yaHuboSesion && (
-            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setView('apertura')}>
-              🔓 Abrir caja
-            </Button>
           )}
         </div>
+        <Button size="sm" className="bg-green-600 hover:bg-green-700 shrink-0" onClick={() => setView('apertura')}>
+          🔓 Abrir caja
+        </Button>
       </div>
     )
   }
 
-  // Sesión abierta
+  // CAJA ABIERTA → solo botón Cerrar (+ arqueo secundario)
   const esperadoTotal = sesion.efectivo_apertura + ventas.total
   return (
     <div className="bg-white rounded-xl border overflow-hidden">
@@ -448,14 +445,14 @@ ${d.cierreObs ? `<h2>📝 Observaciones</h2><p style="padding:2mm;background:#f9
           <p className="font-semibold text-green-800 text-sm">🟢 Caja abierta</p>
           <p className="text-xs text-green-700">
             Desde las {new Date(sesion.apertura_at).toLocaleTimeString('es-CL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}
-            {' · '}Fondo apertura: {formatCLP(sesion.efectivo_apertura)}
+            {' · '}Fondo: {formatCLP(sesion.efectivo_apertura)}
           </p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => { setArqueoEfectivo(String(sesion.efectivo_apertura + ventas.efectivo)); setArqueoTransbank(String(ventas.transbank)); setArqueoTransferencia(String(ventas.transferencia)); setView('arqueo') }}>
             🔢 Arqueo
           </Button>
-          <Button size="sm" className="bg-gray-800 hover:bg-gray-900" onClick={() => setView('cierre')}>
+          <Button size="sm" className="bg-red-700 hover:bg-red-800" onClick={() => setView('cierre')}>
             🔒 Cerrar caja
           </Button>
         </div>
