@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { RepairOrder, RepairStatus, Customer, Equipment, UserProfile } from '@/types'
 import { tieneSubPermiso } from '@/lib/modulos'
 import AdjudicarOTButton from '@/components/reparaciones/AdjudicarOTButton'
+import { Suspense } from 'react'
+import BuscadorOTs from '@/components/reparaciones/BuscadorOTs'
 
 const ESTADOS: { value: RepairStatus | 'todas'; label: string; color: string }[] = [
   { value: 'todas',              label: 'Todas',              color: 'bg-gray-100 text-gray-700' },
@@ -111,9 +113,9 @@ function OTTable({ ots, userId, puedeAdjudicar, puedeCobrar }: {
 export default async function ReparacionesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>
+  searchParams: Promise<{ estado?: string; q?: string }>
 }) {
-  const { estado } = await searchParams
+  const { estado, q: busqueda } = await searchParams
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -212,11 +214,21 @@ export default async function ReparacionesPage({
   if (estadoActivo !== 'todas') query = query.eq('estado', estadoActivo as RepairStatus)
 
   const { data: ots } = await query
-  const otList = (ots ?? []) as OTRow[]
+  let otList = (ots ?? []) as OTRow[]
+
+  // Filtrar por búsqueda (nombre, teléfono, RUT del cliente o nº OT)
+  if (busqueda?.trim()) {
+    const q = busqueda.toLowerCase()
+    otList = otList.filter(ot =>
+      ot.numero_ot?.toLowerCase().includes(q) ||
+      (ot.customers?.nombre ?? '').toLowerCase().includes(q) ||
+      (ot.customers?.telefono ?? '').toLowerCase().includes(q)
+    )
+  }
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reparaciones</h1>
           <p className="text-gray-500 text-sm mt-0.5">{otList.length} orden(es)</p>
@@ -227,6 +239,11 @@ export default async function ReparacionesPage({
           </Link>
         )}
       </div>
+
+      {/* Buscador */}
+      <Suspense fallback={null}>
+        <BuscadorOTs q={busqueda ?? ''} />
+      </Suspense>
 
       <div className="flex flex-wrap gap-2">
         {ESTADOS.map(e => (

@@ -139,16 +139,13 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     </div>`
 
   const tcHtml = incluirTC ? `
-    <div style="page-break-before:always">
-      <div style="background:#374151;color:#fff;text-align:center;padding:2mm;font-size:8pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">
-        Cláusulas y Condiciones para la Recepción de Equipos
+    <div style="margin-top:3mm;border-top:1px solid #ccc;padding-top:2mm">
+      <div style="background:#374151;color:#fff;text-align:center;padding:1mm 2mm;font-size:6pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1mm">
+        Cláusulas y Condiciones
       </div>
-      <ul style="font-size:6.5pt;column-count:2;column-gap:5mm;line-height:1.4;margin-top:3mm;padding-left:10px">
-        ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:2px">${l.replace(/^•\s*/, '')}</li>`).join('')}
+      <ul style="font-size:5.5pt;column-count:2;column-gap:4mm;line-height:1.3;padding-left:8px">
+        ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:1px">${l.replace(/^•\s*/, '')}</li>`).join('')}
       </ul>
-      <p style="text-align:center;font-size:7pt;margin-top:4mm;color:#555">
-        ${config.nombre_local}${config.rut_local ? ` · RUT ${config.rut_local}` : ''}${config.telefono ? ` · ${config.telefono}` : ''}
-      </p>
     </div>` : ''
 
   const trackingBox = `<div style="border:1px dashed #999;padding:2mm;text-align:center;font-size:7pt;margin-top:2mm;border-radius:2px">Seguimiento: <strong>${trackingUrl}</strong></div>`

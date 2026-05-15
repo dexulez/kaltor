@@ -154,9 +154,92 @@ export default function SesionCajaPanel() {
     }).eq('id', sesion.id)
     if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
     toast.success('Caja cerrada correctamente')
+
+    // Imprimir informe de cierre
+    imprimirCierreCaja({
+      fecha: hoy, apertura: sesion.apertura_at,
+      fondoApertura: sesion.efectivo_apertura,
+      ventas, ef, tb, tr, ot,
+      difEf, cuentas, cierreObs,
+    })
+
     setView('panel')
     setSaving(false)
     await cargar()
+  }
+
+  function imprimirCierreCaja(d: {
+    fecha: string; apertura: string; fondoApertura: number
+    ventas: typeof ventas; ef: number; tb: number; tr: number; ot: number
+    difEf: number; cuentas: CuentaBancaria[]; cierreObs: string
+  }) {
+    const fmt = (n: number) => n.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })
+    const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-CL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+    const totalCierre = d.ef + d.tb + d.tr + d.ot
+    const totalEsperado = d.fondoApertura + d.ventas.total
+
+    const win = window.open('', '_blank', 'width=620,height=900')
+    if (!win) { alert('Activa las ventanas emergentes para imprimir'); return }
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Cierre de caja ${d.fecha}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;font-size:9pt;color:#111;padding:8mm}
+  @page{size:A4;margin:10mm}
+  h1{font-size:14pt;text-align:center;border-bottom:2px solid #111;padding-bottom:3mm;margin-bottom:4mm}
+  h2{font-size:10pt;font-weight:bold;background:#374151;color:#fff;padding:1.5mm 3mm;margin:4mm 0 2mm}
+  table{width:100%;border-collapse:collapse;margin-bottom:3mm}
+  td{padding:1.5mm 2mm;vertical-align:top}
+  .r{text-align:right}
+  .row{display:flex;justify-content:space-between;padding:1mm 0;border-bottom:1px solid #eee}
+  .row.total{border-top:2px solid #111;font-weight:bold;font-size:11pt;padding-top:2mm;margin-top:1mm}
+  .ok{color:#166534;font-weight:bold}
+  .bad{color:#991b1b;font-weight:bold}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+  .box{border:1px solid #ccc;border-radius:2mm;padding:3mm}
+  .box h3{font-size:8pt;color:#555;text-transform:uppercase;margin-bottom:2mm}
+  .big{font-size:16pt;font-weight:bold}
+</style></head><body>
+<h1>🔒 Cierre de Caja — ${d.fecha}</h1>
+<div class="grid2" style="margin-bottom:4mm">
+  <div class="box"><h3>Apertura</h3><div>${hora(d.apertura)}</div><div>Fondo: <strong>${fmt(d.fondoApertura)}</strong></div></div>
+  <div class="box"><h3>Total ingresos del día</h3><div class="big">${fmt(d.ventas.total)}</div></div>
+</div>
+
+<h2>💰 Ventas del día</h2>
+<div class="row"><span>Efectivo vendido</span><span>${fmt(d.ventas.efectivo)}</span></div>
+<div class="row"><span>Transbank (déb/cred)</span><span>${fmt(d.ventas.transbank)}</span></div>
+<div class="row"><span>Transferencias</span><span>${fmt(d.ventas.transferencia)}</span></div>
+<div class="row"><span>Otros</span><span>${fmt(d.ventas.otros)}</span></div>
+<div class="row total"><span>TOTAL VENTAS</span><span>${fmt(d.ventas.total)}</span></div>
+
+<h2>🔢 Cierre físico</h2>
+<div class="row"><span>💵 Efectivo contado (incluye fondo)</span><span>${fmt(d.ef)}</span></div>
+<div class="row"><span>💳 Transbank (reporte Z)</span><span>${fmt(d.tb)}</span></div>
+<div class="row"><span>🏦 Transferencias recibidas</span><span>${fmt(d.tr)}</span></div>
+<div class="row"><span>📦 Otros</span><span>${fmt(d.ot)}</span></div>
+<div class="row total"><span>TOTAL CIERRE</span><span>${fmt(totalCierre)}</span></div>
+
+<h2>⚖️ Cuadre</h2>
+<div class="row"><span>Total esperado (fondo + ventas)</span><span>${fmt(totalEsperado)}</span></div>
+<div class="row"><span>Total contado</span><span>${fmt(totalCierre)}</span></div>
+<div class="row total"><span>Diferencia efectivo</span>
+  <span class="${d.difEf === 0 ? 'ok' : 'bad'}">${d.difEf === 0 ? '✓ Cuadra' : (d.difEf > 0 ? '+' : '') + fmt(d.difEf)}</span>
+</div>
+
+${d.cuentas.length ? `<h2>🏦 Cuentas destino transferencias</h2><table>
+${d.cuentas.map(c => `<tr><td>${c.banco}</td><td>${c.tipo_cuenta}</td><td class="r">···${c.numero.slice(-4)}</td></tr>`).join('')}
+</table>` : ''}
+
+${d.cierreObs ? `<h2>📝 Observaciones</h2><p style="padding:2mm;background:#f9f9f9;border:1px solid #eee;border-radius:2mm">${d.cierreObs}</p>` : ''}
+
+<div style="margin-top:8mm;display:flex;gap:8mm">
+  <div style="flex:1;border-top:1px solid #111;padding-top:2mm;text-align:center;font-size:8pt">Firma encargado</div>
+  <div style="flex:1;border-top:1px solid #111;padding-top:2mm;text-align:center;font-size:8pt">V°B° administrador</div>
+</div>
+</body></html>`)
+    win.document.close()
+    setTimeout(() => { win.focus(); win.print() }, 400)
   }
 
   if (loading || sesion === undefined) {

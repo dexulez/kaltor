@@ -119,6 +119,11 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
             </Link>
           )}
           <AplicarServicioButton otId={otDetalle.id} />
+          <Link href={`/servicios/nuevo?returnTo=/reparaciones/${otDetalle.id}`}>
+            <Button variant="outline" size="sm" className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50">
+              ➕ Crear servicio
+            </Button>
+          </Link>
           <CambiarEstadoOT otId={otDetalle.id} estadoActual={otDetalle.estado} />
         </div>
       </div>

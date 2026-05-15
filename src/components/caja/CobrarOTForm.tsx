@@ -56,8 +56,9 @@ export default function CobrarOTForm({ ot, config }: Props) {
   const [loading, setLoading] = useState(false)
   const [ventaCompletada, setVentaCompletada] = useState(false)
   const [ventaData, setVentaData] = useState<{ id: string; numero_venta: string } | null>(null)
+  const [precioManual, setPrecioManual] = useState(String(ot.presupuesto_estimado ?? ''))
 
-  const precioServicio = ot.precio_servicio ?? 0
+  const precioServicio = ot.precio_servicio ? ot.precio_servicio : (parseInt(precioManual) || 0)
   const repuestosTotal = (ot.repair_items ?? []).reduce((s, i) => s + i.precio_costo * i.cantidad, 0)
   const baseTotal = precioServicio + repuestosTotal
 
@@ -79,11 +80,15 @@ export default function CobrarOTForm({ ot, config }: Props) {
   const monto1 = Math.max(0, totalFinal - monto2)
 
   async function handleCobro() {
-    if (totalFinal === 0 && precioServicio === 0) {
-      toast.error('Esta OT no tiene precio de servicio definido')
+    if (precioServicio === 0) {
+      toast.error('Ingresa el precio del servicio antes de cobrar')
       return
     }
     setLoading(true)
+    // Si el precio fue ingresado manualmente, guardarlo en la OT
+    if (!ot.precio_servicio && parseInt(precioManual) > 0) {
+      await supabase.from('repair_orders').update({ precio_servicio: parseInt(precioManual) }).eq('id', ot.id)
+    }
 
     const { data: venta, error: ve } = await supabase.from('sales').insert({
       tipo: 'reparacion',
@@ -218,6 +223,29 @@ export default function CobrarOTForm({ ot, config }: Props) {
       <div className="lg:col-span-2">
         <div className="bg-white rounded-xl border p-5 space-y-4 sticky top-4">
           <h2 className="font-semibold text-gray-800 text-lg">Resumen de cobro</h2>
+
+          {/* Precio del servicio — editable si no está definido */}
+          {!ot.precio_servicio && (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 space-y-1.5">
+              <Label className="text-amber-800 font-semibold">⚠ Esta OT no tiene precio definido</Label>
+              <p className="text-xs text-amber-700">Ingresa el precio del servicio para poder cobrar</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={precioManual}
+                  onChange={e => setPrecioManual(e.target.value)}
+                  placeholder="Ej: 35000"
+                  className="border-amber-300 focus:ring-amber-400"
+                />
+                {parseInt(precioManual) > 0 && (
+                  <span className="text-sm font-bold text-amber-800 shrink-0">
+                    {formatCLP(parseInt(precioManual))}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Descuento */}
           <div className="space-y-1.5">

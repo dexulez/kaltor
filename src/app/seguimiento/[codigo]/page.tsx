@@ -35,7 +35,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
 
   const [{ data: historial }, { data: config }, { data: depositos }] = await Promise.all([
     supabase.from('repair_status_history')
-      .select('estado_nuevo, comentario, created_at')
+      .select('estado_nuevo, comentario, created_at, foto_url')
       .eq('repair_order_id', ot.id as string)
       .order('created_at', { ascending: true })
       .then(r => r.error ? { data: [] } : r),
@@ -306,7 +306,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
             <div className="relative">
               <div className="absolute left-3.5 top-2 bottom-2 w-px bg-gray-200" />
               <div className="space-y-4">
-                {historialList.map((h: { estado_nuevo: unknown; comentario: unknown; created_at: unknown }, i: number) => {
+                {historialList.map((h: { estado_nuevo: unknown; comentario: unknown; created_at: unknown; foto_url?: unknown }, i: number) => {
                   const info = ESTADO_INFO[h.estado_nuevo as string]
                   const esActual = i === historialList.length - 1
                   return (
@@ -329,6 +329,13 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
                             day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: TZ,
                           })}
                         </p>
+                        {!!h.foto_url && (
+                          <a href={h.foto_url as string} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={h.foto_url as string} alt="Foto del estado" className="h-32 w-full object-cover rounded-lg border hover:opacity-90 transition-opacity" />
+                            <p className="text-xs text-blue-500 mt-0.5">Ver foto completa →</p>
+                          </a>
+                        )}
                       </div>
                     </div>
                   )
