@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { formatRut } from '@/lib/calculations'
+import { formatRut, formatCLP } from '@/lib/calculations'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
 import CrearServicioInline from '@/components/servicios/CrearServicioInline'
 import Link from 'next/link'
@@ -68,6 +68,50 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       .then(({ data }) => setServicios((data ?? []) as ServicioItem[]))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ── Repuestos a agregar en la recepción ──────────────────────────────────
+  interface RepuestoLocal { _key: string; product_id: string | null; nombre: string; cantidad: number; precio_costo: number }
+  const [repuestos, setRepuestos] = useState<RepuestoLocal[]>([])
+  const [prodSearch, setProdSearch] = useState('')
+  const [prodResults, setProdResults] = useState<{ id: string; nombre: string; precio_costo: number }[]>([])
+  const [prodOpen, setProdOpen] = useState(false)
+  const [addManual, setAddManual] = useState(false)
+  const [manualPart, setManualPart] = useState({ nombre: '', cantidad: '1', precio_costo: '0' })
+  const prodRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const trimmed = prodSearch.trim()
+    if (trimmed.length < 2) { setProdResults([]); setProdOpen(false); return }
+    const t = setTimeout(async () => {
+      const { data } = await supabase.from('products').select('id, nombre, precio_costo').ilike('nombre', `%${trimmed}%`).limit(8)
+      setProdResults((data ?? []) as { id: string; nombre: string; precio_costo: number }[])
+      setProdOpen(true)
+    }, 300)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prodSearch])
+
+  useEffect(() => {
+    function h(e: MouseEvent) {
+      if (prodRef.current && !prodRef.current.contains(e.target as Node)) setProdOpen(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  function agregarProducto(p: { id: string; nombre: string; precio_costo: number }) {
+    setRepuestos(prev => [...prev, { _key: crypto.randomUUID(), product_id: p.id, nombre: p.nombre, cantidad: 1, precio_costo: p.precio_costo }])
+    setProdSearch(''); setProdResults([]); setProdOpen(false)
+  }
+  function agregarManual() {
+    if (!manualPart.nombre.trim()) return
+    setRepuestos(prev => [...prev, { _key: crypto.randomUUID(), product_id: null, nombre: manualPart.nombre.trim(), cantidad: parseInt(manualPart.cantidad) || 1, precio_costo: parseInt(manualPart.precio_costo) || 0 }])
+    setManualPart({ nombre: '', cantidad: '1', precio_costo: '0' }); setAddManual(false)
+  }
+  function quitarRepuesto(key: string) { setRepuestos(prev => prev.filter(r => r._key !== key)) }
+  function updCant(key: string, delta: number) {
+    setRepuestos(prev => prev.map(r => r._key === key ? { ...r, cantidad: Math.max(1, r.cantidad + delta) } : r))
+  }
 
   // ── IMEI / SN ────────────────────────────────────────────────────────────
   const [imeiCount, setImeiCount] = useState<1 | 2>(1)
@@ -295,6 +339,19 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       estado_nuevo: 'recibido',
       comentario: 'Equipo recibido en taller',
     })
+
+    if (repuestos.length > 0) {
+      await supabase.from('repair_items').insert(
+        repuestos.map(r => ({
+          repair_order_id: otData.id,
+          product_id: r.product_id,
+          nombre: r.nombre,
+          cantidad: r.cantidad,
+          precio_costo: r.precio_costo,
+          costo_envio: 0,
+        }))
+      )
+    }
 
     toast.success(`OT ${otData.numero_ot} creada correctamente`)
     router.push(`/reparaciones/${otData.id}`)
@@ -799,6 +856,92 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
               onChange={e => setOt(o => ({ ...o, fecha_estimada_entrega: e.target.value }))} />
           </div>
         </div>
+      </div>
+
+      {/* Repuestos */}
+      <div className="bg-white rounded-xl border p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800">4. Repuestos <span className="text-gray-400 font-normal text-sm">(opcional)</span></h2>
+          {repuestos.length > 0 && (
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+              {repuestos.length} ítem(s) · {formatCLP(repuestos.reduce((s, r) => s + r.precio_costo * r.cantidad, 0))}
+            </span>
+          )}
+        </div>
+
+        {/* Búsqueda en inventario */}
+        <div ref={prodRef} className="relative">
+          <Input
+            placeholder="🔍 Buscar repuesto del inventario..."
+            value={prodSearch}
+            onChange={e => setProdSearch(e.target.value)}
+            onFocus={() => prodResults.length > 0 && setProdOpen(true)}
+          />
+          {prodOpen && prodResults.length > 0 && (
+            <div className="absolute z-20 mt-1 w-full bg-white border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+              {prodResults.map(p => (
+                <button key={p.id} type="button" onClick={() => agregarProducto(p)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors text-sm border-b last:border-0 flex justify-between items-center">
+                  <span className="font-medium text-gray-800 truncate">{p.nombre}</span>
+                  <span className="text-xs text-blue-600 shrink-0 ml-2">{formatCLP(p.precio_costo)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Agregar manual */}
+        {!addManual ? (
+          <button type="button" onClick={() => setAddManual(true)}
+            className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2">
+            + Agregar repuesto sin inventario
+          </button>
+        ) : (
+          <div className="bg-gray-50 rounded-xl p-3 space-y-2 border">
+            <Input placeholder="Nombre del repuesto" value={manualPart.nombre} autoFocus
+              onChange={e => setManualPart(v => ({ ...v, nombre: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), agregarManual())} />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Cantidad</Label>
+                <Input type="number" min={1} value={manualPart.cantidad}
+                  onChange={e => setManualPart(v => ({ ...v, cantidad: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Costo (CLP)</Label>
+                <Input type="number" min={0} value={manualPart.precio_costo}
+                  onChange={e => setManualPart(v => ({ ...v, precio_costo: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={agregarManual}>Agregar</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setAddManual(false)}>Cancelar</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de repuestos agregados */}
+        {repuestos.length > 0 && (
+          <div className="space-y-2 pt-1">
+            {repuestos.map(r => (
+              <div key={r._key} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{r.nombre}</p>
+                  <p className="text-xs text-gray-500">{formatCLP(r.precio_costo)} c/u · Total: {formatCLP(r.precio_costo * r.cantidad)}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button type="button" onClick={() => updCant(r._key, -1)}
+                    className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold">−</button>
+                  <span className="w-6 text-center text-sm font-semibold text-gray-800">{r.cantidad}</span>
+                  <button type="button" onClick={() => updCant(r._key, 1)}
+                    className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold">+</button>
+                </div>
+                <button type="button" onClick={() => quitarRepuesto(r._key)}
+                  className="text-red-400 hover:text-red-600 w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 shrink-0">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">

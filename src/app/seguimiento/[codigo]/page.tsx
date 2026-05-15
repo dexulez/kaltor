@@ -40,7 +40,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
       .order('created_at', { ascending: true }),
     (await supabase).from('system_config')
       .select('nombre_local, rut_local, direccion, telefono, whatsapp, email, logo_url')
-      .single(),
+      .maybeSingle(),
     (await supabase).from('repair_deposits')
       .select('monto, metodo_pago, nota, created_at')
       .eq('repair_order_id', ot.id)
@@ -63,8 +63,11 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
 
   const otData = ot as unknown as OTData
   const historialList = historial ?? []
-  const equipo = otData.equipment
-  const cliente = otData.customers
+  // Supabase puede devolver el join como array o como objeto según dirección de FK
+  const rawEq = (ot as Record<string, unknown>).equipment
+  const equipo = (Array.isArray(rawEq) ? rawEq[0] : rawEq) as OTData['equipment']
+  const rawCl = (ot as Record<string, unknown>).customers
+  const cliente = (Array.isArray(rawCl) ? rawCl[0] : rawCl) as OTData['customers']
 
   const estadoActual = ESTADO_INFO[otData.estado] ?? {
     label: otData.estado, color: 'text-gray-700', bg: 'bg-gray-100', icono: '📋',
@@ -158,7 +161,9 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-xs text-gray-400">Marca y modelo</p>
-              <p className="font-semibold text-gray-800">{equipo?.marca} {equipo?.modelo}</p>
+              <p className="font-semibold text-gray-800">
+                {[equipo?.marca, equipo?.modelo].filter(Boolean).join(' ') || 'Sin especificar'}
+              </p>
             </div>
             {(equipo?.color || equipo?.capacidad) && (
               <div>
