@@ -31,6 +31,7 @@ export default function CrearServicioInline({ onCreated, nombreSugerido }: Props
   const [nombre, setNombre] = useState(nombreSugerido ?? '')
   const [tipo, setTipo] = useState('otro')
   const [precio, setPrecio] = useState('')
+  const [costo, setCosto] = useState('')
   const [saving, setSaving] = useState(false)
 
   async function crear() {
@@ -47,6 +48,7 @@ export default function CrearServicioInline({ onCreated, nombreSugerido }: Props
       nombre: nombre.trim(),
       tipo_reparacion: tipo,
       precio_base: parseInt(precio) || 0,
+      precio_costo: parseInt(costo) || 0,
       activo: true,
     }).select('id, nombre, tipo_reparacion, precio_base').single()
     if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
@@ -56,6 +58,7 @@ export default function CrearServicioInline({ onCreated, nombreSugerido }: Props
     setSaving(false)
     setNombre('')
     setPrecio('')
+    setCosto('')
   }
 
   return (
@@ -87,10 +90,16 @@ export default function CrearServicioInline({ onCreated, nombreSugerido }: Props
                 </div>
               </div>
               <div>
-                <Label>Precio base (CLP)</Label>
+                <Label>Precio venta (CLP)</Label>
                 <Input type="number" min={0} value={precio} onChange={e => setPrecio(e.target.value)}
                   placeholder="0" className="mt-1" />
                 {precio && <p className="text-xs text-blue-600 mt-0.5">{formatCLP(parseInt(precio) || 0)}</p>}
+              </div>
+              <div>
+                <Label>Precio costo (CLP)</Label>
+                <Input type="number" min={0} value={costo} onChange={e => setCosto(e.target.value)}
+                  placeholder="0" className="mt-1" />
+                {costo && <p className="text-xs text-gray-500 mt-0.5">{formatCLP(parseInt(costo) || 0)}</p>}
               </div>
             </div>
             <div className="flex gap-2 mt-4">

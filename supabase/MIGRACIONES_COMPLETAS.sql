@@ -436,3 +436,15 @@ CREATE POLICY "ver ros" ON repair_order_services FOR SELECT TO authenticated USI
 CREATE POLICY "gestionar ros" ON repair_order_services FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 SELECT 'repair_order_services' AS tabla, count(*) FROM repair_order_services;
+
+-- ============================================================
+-- 17. PRECIO COSTO EN SERVICIOS + POLICY PÚBLICA HISTORIAL
+-- ============================================================
+
+ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS precio_costo INTEGER NOT NULL DEFAULT 0;
+
+-- Política pública para que el seguimiento muestre el historial sin login
+DROP POLICY IF EXISTS "history_public" ON repair_status_history;
+CREATE POLICY "history_public" ON repair_status_history FOR SELECT TO anon USING (true);
+
+SELECT 'repair_services.precio_costo' AS check;

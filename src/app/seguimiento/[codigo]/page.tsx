@@ -36,8 +36,9 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
   const [{ data: historial }, { data: config }, { data: depositos }] = await Promise.all([
     supabase.from('repair_status_history')
       .select('estado_nuevo, comentario, created_at')
-      .eq('repair_order_id', ot.id)
-      .order('created_at', { ascending: true }),
+      .eq('repair_order_id', ot.id as string)
+      .order('created_at', { ascending: true })
+      .then(r => r.error ? { data: [] } : r),
     supabase.from('system_config')
       .select('nombre_local, rut_local, direccion, telefono, whatsapp, email, logo_url')
       .maybeSingle(),
@@ -293,10 +294,15 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
           </div>
         )}
 
-        {/* Timeline */}
-        {historialList.length > 0 && (
-          <div className="bg-white rounded-xl border shadow-sm p-5">
-            <h2 className="font-semibold text-gray-800 mb-4 text-sm">Historial de actualizaciones</h2>
+        {/* Timeline — siempre visible */}
+        <div className="bg-white rounded-xl border shadow-sm p-5">
+          <h2 className="font-semibold text-gray-800 mb-4 text-sm">Historial de actualizaciones</h2>
+          {historialList.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-400">📋 Estado actual: <strong>{estadoActual.label}</strong></p>
+              <p className="text-xs text-gray-300 mt-1">Los cambios de estado aparecerán aquí</p>
+            </div>
+          ) : (
             <div className="relative">
               <div className="absolute left-3.5 top-2 bottom-2 w-px bg-gray-200" />
               <div className="space-y-4">
@@ -329,8 +335,8 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
                 })}
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Footer */}
         <div className="bg-white rounded-xl border shadow-sm p-4 text-center space-y-1">
