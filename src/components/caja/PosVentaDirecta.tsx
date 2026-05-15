@@ -65,6 +65,15 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     notas: '',
   })
   const [carrito, setCarrito] = useState<ItemCarrito[]>([])
+  const [productosExtra, setProductosExtra] = useState<Product[]>([])
+  const [modalNuevoProd, setModalNuevoProd] = useState(false)
+  const [categoriasDisp, setCategoriasDisp] = useState<{ id: string; nombre: string }[]>([])
+  const [npNombre, setNpNombre]     = useState('')
+  const [npPrecioVenta, setNpPrecioVenta] = useState('')
+  const [npPrecioCosto, setNpPrecioCosto] = useState('')
+  const [npStock, setNpStock]       = useState('0')
+  const [npCatId, setNpCatId]       = useState('')
+  const [npSaving, setNpSaving]     = useState(false)
   const [metodo, setMetodo] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
   const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura' | 'presupuesto'>('boleta')
   const [busqueda, setBusqueda] = useState('')
@@ -78,8 +87,47 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const [metodo2, setMetodo2] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
   const [monto2Input, setMonto2Input] = useState('')
 
+  async function abrirModalNuevoProd() {
+    setNpNombre(busqueda.trim())
+    setNpPrecioVenta('')
+    setNpPrecioCosto('')
+    setNpStock('0')
+    setModalNuevoProd(true)
+    if (!categoriasDisp.length) {
+      const { data } = await supabase.from('product_categories').select('id, nombre').order('nombre')
+      setCategoriasDisp((data ?? []) as { id: string; nombre: string }[])
+      if (data?.[0]) setNpCatId(data[0].id)
+    }
+  }
+
+  async function crearProductoRapido() {
+    if (!npNombre.trim()) { toast.error('Ingresa el nombre del producto'); return }
+    if (!npPrecioVenta || parseInt(npPrecioVenta) <= 0) { toast.error('Ingresa el precio de venta'); return }
+    if (!npCatId) { toast.error('Selecciona una categoría'); return }
+    setNpSaving(true)
+    const { data, error } = await supabase.from('products').insert({
+      nombre: npNombre.trim(),
+      precio_venta: parseInt(npPrecioVenta),
+      precio_costo: parseInt(npPrecioCosto) || 0,
+      stock_actual: parseInt(npStock) || 0,
+      stock_minimo: 0,
+      categoria_id: npCatId,
+      activo: true,
+      precio_incluye_iva: true,
+    }).select('*').single()
+    if (error) { toast.error('Error: ' + error.message); setNpSaving(false); return }
+    const prod = data as Product
+    setProductosExtra(prev => [...prev, prod])
+    agregarProducto(prod)
+    toast.success(`"${prod.nombre}" creado y agregado al carrito`)
+    setModalNuevoProd(false)
+    setBusqueda('')
+    setNpSaving(false)
+  }
+
   const q = busqueda.toLowerCase().trim()
-  const productosFiltrados = productos.filter(p =>
+  const productosTodos = [...productos, ...productosExtra]
+  const productosFiltrados = productosTodos.filter(p =>
     p.stock_actual > 0 && (
       p.nombre.toLowerCase().includes(q) ||
       (p.sku && p.sku.toLowerCase().includes(q)) ||
@@ -353,6 +401,52 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       <QRScanner onScan={handleQRScan} onClose={() => setShowScanner(false)} />
     )}
 
+    {/* ── Modal crear producto rápido ────────────────────────────────── */}
+    {modalNuevoProd && (
+      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setModalNuevoProd(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+          <h3 className="font-bold text-gray-800 text-lg">➕ Crear producto</h3>
+          <div className="space-y-3">
+            <div>
+              <Label>Nombre <span className="text-red-500">*</span></Label>
+              <Input value={npNombre} onChange={e => setNpNombre(e.target.value)} autoFocus className="mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Precio venta (CLP) <span className="text-red-500">*</span></Label>
+                <Input type="number" min={0} value={npPrecioVenta} onChange={e => setNpPrecioVenta(e.target.value)} className="mt-1" placeholder="0" />
+                {npPrecioVenta && <p className="text-xs text-blue-600 mt-0.5">{formatCLP(parseInt(npPrecioVenta) || 0)}</p>}
+              </div>
+              <div>
+                <Label>Precio costo (CLP)</Label>
+                <Input type="number" min={0} value={npPrecioCosto} onChange={e => setNpPrecioCosto(e.target.value)} className="mt-1" placeholder="0" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Stock inicial</Label>
+                <Input type="number" min={0} value={npStock} onChange={e => setNpStock(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label>Categoría <span className="text-red-500">*</span></Label>
+                <select value={npCatId} onChange={e => setNpCatId(e.target.value)}
+                  className="mt-1 w-full border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  <option value="">Seleccionar...</option>
+                  {categoriasDisp.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" className="flex-1" onClick={() => setModalNuevoProd(false)}>Cancelar</Button>
+            <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={crearProductoRapido} disabled={npSaving}>
+              {npSaving ? 'Creando...' : 'Crear y agregar'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* ── Diálogo importar OT ─────────────────────────────────────────── */}
     {showImportOT && (
       <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowImportOT(false)}>
@@ -423,7 +517,16 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
           {busqueda && (
             <div className="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
               {productosFiltrados.length === 0 ? (
-                <p className="text-center text-gray-400 text-sm py-4">Sin resultados</p>
+                <div className="text-center py-4 space-y-2">
+                  <p className="text-gray-400 text-sm">Sin resultados para &quot;{busqueda}&quot;</p>
+                  <button
+                    type="button"
+                    onClick={abrirModalNuevoProd}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium underline underline-offset-2"
+                  >
+                    + Crear &quot;{busqueda}&quot; como nuevo producto
+                  </button>
+                </div>
               ) : (
                 productosFiltrados.map(p => (
                   <button key={p.id} onClick={() => agregarProducto(p)}
