@@ -42,9 +42,9 @@ interface Servicio {
   repair_service_items?: Repuesto[]
 }
 
-interface Props { servicio?: Servicio }
+interface Props { servicio?: Servicio; returnTo?: string }
 
-export default function ServicioForm({ servicio }: Props) {
+export default function ServicioForm({ servicio, returnTo }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -138,7 +138,7 @@ export default function ServicioForm({ servicio }: Props) {
     }
 
     toast.success(servicio ? 'Servicio actualizado' : 'Servicio creado')
-    router.push('/servicios')
+    router.push(returnTo ?? '/servicios')
     router.refresh()
     setLoading(false)
   }

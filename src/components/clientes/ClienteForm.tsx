@@ -13,9 +13,10 @@ import { formatRut, validarRut } from '@/lib/calculations'
 
 interface Props {
   cliente?: Customer
+  returnTo?: string
 }
 
-export default function ClienteForm({ cliente }: Props) {
+export default function ClienteForm({ cliente, returnTo }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -79,7 +80,7 @@ export default function ClienteForm({ cliente }: Props) {
       toast.success('Cliente creado correctamente')
     }
 
-    router.push('/clientes')
+    router.push(returnTo ?? '/clientes')
     router.refresh()
   }
 

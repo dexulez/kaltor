@@ -17,9 +17,10 @@ interface Props {
   producto?: Product
   categorias: ProductCategory[]
   proveedores: Pick<Supplier, 'id' | 'nombre'>[]
+  returnTo?: string
 }
 
-export default function ProductoForm({ producto, categorias, proveedores }: Props) {
+export default function ProductoForm({ producto, categorias, proveedores, returnTo }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -180,6 +181,9 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
         }).then(r => r) // silenciar si usuario_id columna no existe aún
       }
       toast.success('Producto actualizado')
+      router.push(returnTo ?? '/inventario')
+      router.refresh()
+      return
     } else {
       const { data: prod, error } = await supabase.from('products').insert(payload).select('id').single()
       if (error) { toast.error('Error al crear: ' + error.message); setLoading(false); return }
@@ -200,7 +204,7 @@ export default function ProductoForm({ producto, categorias, proveedores }: Prop
       toast.success('Producto creado correctamente')
     }
 
-    router.push('/inventario')
+    router.push(returnTo ?? '/inventario')
     router.refresh()
   }
 

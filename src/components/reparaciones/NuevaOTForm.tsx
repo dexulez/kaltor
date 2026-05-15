@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import { useAutoSaveDraft, loadDraft, clearDraft } from '@/hooks/useFormDraft'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -33,12 +34,16 @@ interface Props {
   clienteIdInicial?: string
 }
 
+const DRAFT_KEY = 'nueva_ot'
+
 export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [clientesList, setClientesList] = useState(clientes)
   const [clienteId, setClienteId] = useState(clienteIdInicial ?? '')
+  const [draftRestored, setDraftRestored] = useState(false)
   // ── Accesorios ──────────────────────────────────────────────────────────────
   const [acc, setAcc] = useState({
     cargador: false, cable: false, cajaCaraga: false, funda: false,
@@ -232,6 +237,25 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     tecnico_id: '', tipo_reparacion: '', presupuesto_estimado: '', fecha_estimada_entrega: '',
   })
 
+  // ── Restaurar borrador al montar ─────────────────────────────────────────
+  useEffect(() => {
+    const draft = loadDraft<{
+      clienteId: string; busqCliente: string
+      equipo: typeof equipo; ot: typeof ot
+      imei2: string; numeroSerie: string; imeiCount: 1 | 2
+    }>(DRAFT_KEY)
+    if (!draft) return
+    if (draft.clienteId) { setClienteId(draft.clienteId); setBusqCliente(draft.busqCliente ?? '') }
+    if (draft.equipo?.falla_reportada || draft.equipo?.marca) setEquipo(draft.equipo)
+    if (draft.ot?.tipo_reparacion || draft.ot?.presupuesto_estimado) setOt(draft.ot)
+    if (draft.imei2) setImei2(draft.imei2)
+    if (draft.numeroSerie) setNumeroSerie(draft.numeroSerie)
+    if (draft.imeiCount) setImeiCount(draft.imeiCount)
+    const hadData = !!(draft.clienteId || draft.equipo?.marca || draft.equipo?.falla_reportada)
+    if (hadData) setDraftRestored(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
 
   async function crearClienteDesdePopup() {
     if (!nuevoCliente.nombre.trim()) {
@@ -362,6 +386,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       )
     }
 
+    clearDraft(DRAFT_KEY)
     toast.success(`OT ${otData.numero_ot} creada correctamente`)
     router.push(`/reparaciones/${otData.id}`)
     router.refresh()
@@ -371,8 +396,23 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   const tecnicoSeleccionado = tecnicos.find(t => t.id === ot.tecnico_id)
   const tecnicoValue = tecnicoSeleccionado ? ot.tecnico_id : ''
 
+  // Auto-guardar borrador
+  useAutoSaveDraft(DRAFT_KEY, { clienteId, busqCliente, equipo, ot, imei2, numeroSerie, imeiCount })
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Banner borrador restaurado */}
+      {draftRestored && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-amber-800 font-medium">
+            📋 Se restauró un borrador guardado. Continúa donde lo dejaste.
+          </p>
+          <button type="button" onClick={() => { clearDraft(DRAFT_KEY); router.refresh() }}
+            className="text-xs text-amber-600 hover:text-amber-800 underline shrink-0">
+            Descartar borrador
+          </button>
+        </div>
+      )}
       {/* Cliente */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
         <h2 className="font-semibold text-gray-800">1. Cliente</h2>
@@ -818,7 +858,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                 return words.some(w => w.length > 2 && s.nombre.toLowerCase().includes(w))
               }).length === 0 && (
               <p className="text-xs text-gray-400 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                Sin servicios que coincidan — <Link href="/servicios/nuevo" target="_blank" className="text-blue-600 hover:underline">crea uno</Link>
+                Sin servicios que coincidan — <Link href={`/servicios/nuevo?returnTo=${encodeURIComponent(pathname)}`} className="text-blue-600 hover:underline">crea uno</Link>
               </p>
             )}
         </div>
