@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 
 const ESTADO_INFO: Record<string, { label: string; color: string; bg: string; icono: string }> = {
@@ -17,9 +17,9 @@ const ESTADO_INFO: Record<string, { label: string; color: string; bg: string; ic
 
 export default async function SeguimientoPage({ params }: { params: Promise<{ codigo: string }> }) {
   const { codigo } = await params
-  const supabase = createClient()
+  const supabase = createServiceClient()
 
-  const { data: ot } = await (await supabase)
+  const { data: ot } = await supabase
     .from('repair_orders')
     .select(`
       id, numero_ot, estado, created_at, precio_servicio, presupuesto_estimado,
@@ -34,18 +34,20 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
   if (!ot) notFound()
 
   const [{ data: historial }, { data: config }, { data: depositos }] = await Promise.all([
-    (await supabase).from('repair_status_history')
+    supabase.from('repair_status_history')
       .select('estado_nuevo, comentario, created_at')
       .eq('repair_order_id', ot.id)
       .order('created_at', { ascending: true }),
-    (await supabase).from('system_config')
+    supabase.from('system_config')
       .select('nombre_local, rut_local, direccion, telefono, whatsapp, email, logo_url')
       .maybeSingle(),
-    (await supabase).from('repair_deposits')
+    supabase.from('repair_deposits')
       .select('monto, metodo_pago, nota, created_at')
       .eq('repair_order_id', ot.id)
       .order('created_at')
-      .then(r => r.error?.message.includes('repair_deposits') ? { data: [] } : r),
+      .then((r: { data: unknown[] | null; error: { message: string } | null }) =>
+        r.error?.message.includes('repair_deposits') ? { data: [] } : r
+      ),
   ])
 
   type OTData = typeof ot & {
@@ -235,7 +237,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
             <div className="pt-2 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-1.5">Accesorios entregados</p>
               <div className="flex flex-wrap gap-1.5">
-                {equipo.accesorios.map((a, i) => (
+                {equipo.accesorios.map((a: string, i: number) => (
                   <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">{a}</span>
                 ))}
               </div>
@@ -247,7 +249,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
             <div className="pt-2 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-1.5">Condición visual y física</p>
               <div className="flex flex-wrap gap-1.5">
-                {equipo.condicion_visual.map((c, i) => (
+                {equipo.condicion_visual.map((c: string, i: number) => (
                   <span key={i} className="px-2 py-0.5 bg-orange-50 text-orange-700 text-xs rounded-full border border-orange-200">{c}</span>
                 ))}
               </div>
@@ -297,7 +299,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
             <div className="relative">
               <div className="absolute left-3.5 top-2 bottom-2 w-px bg-gray-200" />
               <div className="space-y-4">
-                {historialList.map((h, i) => {
+                {historialList.map((h: { estado_nuevo: unknown; comentario: unknown; created_at: unknown }, i: number) => {
                   const info = ESTADO_INFO[h.estado_nuevo as string]
                   const esActual = i === historialList.length - 1
                   return (
