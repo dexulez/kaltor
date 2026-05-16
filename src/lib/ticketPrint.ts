@@ -46,9 +46,7 @@ export function imprimirTicketVenta(
   const margin = isTicket ? '3mm' : '12mm'
   const bodyPad = isTicket ? '3mm' : '10mm'
 
-  const docLabel: Record<string, string> = {
-    boleta: 'BOLETA', factura: 'FACTURA', presupuesto: 'PRESUPUESTO',
-  }
+  const docLabel = 'COMPROBANTE DE TRANSACCIÓN'
   const metodoLabel: Record<string, string> = {
     efectivo: 'Efectivo', transferencia: 'Transferencia',
     debito: 'Débito', credito: 'Crédito',
@@ -97,7 +95,7 @@ export function imprimirTicketVenta(
         </div>
         <div style="text-align:right;background:#1e3a5f;color:#fff;padding:4mm 6mm;border-radius:8px;min-width:52mm;flex-shrink:0">
           <div style="font-size:10pt;font-weight:bold;letter-spacing:1.5px;color:#93c5fd">
-            ${docLabel[data.tipo_documento] ?? data.tipo_documento.toUpperCase()}
+            ${docLabel}
           </div>
           <div style="font-family:monospace;font-size:15pt;color:#fbbf24;margin-top:1mm">${data.numero_venta}</div>
           <div style="font-size:9pt;color:#bfdbfe;margin-top:1mm">${fechaHora}</div>
@@ -174,7 +172,7 @@ export function imprimirTicketVenta(
     // Datos del documento debajo de la cabecera empresa
     const infoDocs = `
       <div style="text-align:center;padding:2.5mm 0;margin-bottom:3mm;border-bottom:1px dashed #000">
-        <div style="font-weight:bold;font-size:13pt">${docLabel[data.tipo_documento] ?? data.tipo_documento.toUpperCase()}</div>
+        <div style="font-weight:bold;font-size:13pt">${docLabel}</div>
         <div style="font-family:monospace;font-size:12pt;margin-top:1mm">${data.numero_venta}</div>
         <div style="font-size:10pt;margin-top:1mm">${fechaHora}</div>
         ${data.cliente_nombre ? `<div style="font-size:10pt;margin-top:1.5mm">Cliente: <strong>${data.cliente_nombre}</strong></div>` : ''}
