@@ -129,7 +129,6 @@ export function imprimirTicketVenta(
       ${!esPresupuesto ? `
         <div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:1mm"><span>Neto</span><span>${fmt(data.subtotal)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:1mm"><span>IVA (19%)</span><span>${fmt(data.iva)}</span></div>
-        ${data.ppm > 0 ? `<div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:1mm"><span>PPM (3%)</span><span>${fmt(data.ppm)}</span></div>` : ''}
       ` : ''}
       <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:16pt;border-top:2px solid #000;margin-top:2.5mm;padding-top:2.5mm">
         <span>TOTAL</span><span>${fmt(data.total)}</span>
