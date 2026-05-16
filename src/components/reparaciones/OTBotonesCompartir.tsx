@@ -92,52 +92,6 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     ? `<img src="${config.logo_url}" style="max-height:14mm;max-width:50mm;display:block;object-fit:contain" alt="Logo">`
     : `<span style="font-size:22pt">🔧</span>`
 
-  const presupuestoHtml = ot.presupuesto_estimado
-    ? `<tr><td>Presupuesto est.:</td><td style="text-align:right">${formatCLP(ot.presupuesto_estimado)}</td></tr>` : ''
-  const precioHtml = ot.precio_servicio
-    ? `<tr style="font-size:10pt;font-weight:bold"><td>TOTAL:</td><td style="text-align:right;color:#16a34a">${formatCLP(ot.precio_servicio)}</td></tr>` : ''
-
-  const clienteHtml = `
-    <div><strong>${cliente?.nombre ?? '—'}</strong></div>
-    <div>${cliente?.telefono ?? ''}</div>
-    ${cliente?.rut ? `<div>RUT: ${cliente.rut}</div>` : ''}
-    ${cliente?.email ? `<div>${cliente.email}</div>` : ''}`
-
-  const equipoHtml = `
-    <div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong></div>
-    ${equipo?.color || equipo?.capacidad ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</div>` : ''}
-    ${equipo?.imei ? `<div style="font-family:monospace;font-size:7pt">IMEI: ${equipo.imei}</div>` : ''}
-    ${equipo?.accesorios?.length ? `<div>Acc: ${equipo.accesorios.join(', ')}</div>` : ''}
-    ${equipo?.condicion_visual?.length ? `<div>Cond: ${equipo.condicion_visual.join(', ')}</div>` : ''}`
-
-  const servicioHtml = `
-    ${ot.tipo_reparacion ? `<div>Tipo: ${TIPO_LABELS[ot.tipo_reparacion] ?? ot.tipo_reparacion}</div>` : ''}
-    ${ot.user_profiles ? `<div>Técnico: ${ot.user_profiles.nombre_completo}</div>` : ''}
-    <div style="margin-top:2mm"><strong>Falla:</strong> ${equipo?.falla_reportada ?? '—'}</div>
-    ${ot.diagnostico_tecnico ? `<div><strong>Diagnóstico:</strong> ${ot.diagnostico_tecnico}</div>` : ''}`
-
-  const cobroHtml = `
-    <table style="width:100%;font-size:8pt;border-collapse:collapse">
-      <tbody>
-        ${presupuestoHtml}${precioHtml}
-      </tbody>
-    </table>`
-
-  const headerHtml = `
-    <div style="display:flex;align-items:center;gap:4mm;border-bottom:2px solid #000;padding-bottom:3mm;margin-bottom:3mm">
-      ${logoHtml}
-      <div style="flex:1">
-        <div style="font-size:10pt;font-weight:bold">${config.nombre_local}</div>
-        ${config.rut_local ? `<div>RUT: ${config.rut_local}</div>` : ''}
-        ${config.direccion ? `<div>${config.direccion}</div>` : ''}
-        ${config.telefono ? `<div>Tel: ${config.telefono}</div>` : ''}
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:9pt;font-weight:bold;font-family:monospace;color:#1a4e9f">${ot.numero_ot}</div>
-        <div>${fecha}</div>
-      </div>
-    </div>`
-
   const tcHtml = incluirTC ? `
     <div style="margin-top:3mm;border-top:1px solid #ccc;padding-top:2mm">
       <div style="background:#374151;color:#fff;text-align:center;padding:1mm 2mm;font-size:6pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1mm">
@@ -147,8 +101,6 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:1px">${l.replace(/^•\s*/, '')}</li>`).join('')}
       </ul>
     </div>` : ''
-
-  const trackingBox = `<div style="border:1px dashed #999;padding:2mm;text-align:center;font-size:7pt;margin-top:2mm;border-radius:2px">Seguimiento: <strong>${trackingUrl}</strong></div>`
 
   // ── CSS base compartido ────────────────────────────────────────────────────
   const CSS_BASE = `
@@ -212,18 +164,18 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
 
   function boxEquipo() {
     const accs = equipo?.accesorios?.length
-      ? equipo.accesorios.map(a => `${a} <span class="acc-ok">&#10003;</span>`).join('&nbsp;')
+      ? equipo.accesorios.map(a => `${a} <span class="acc-ok">&#10003;</span>`).join(' · ')
       : null
-    return `<div class="box">
+    return `<div class="box" style="height:100%">
       <div class="box-hdr"><span>&#128241;</span> DETALLES DEL EQUIPO</div>
-      <div class="box-body">
+      <div class="box-body" style="word-break:break-word">
         <div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong></div>
         ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</div>` : ''}
-        ${equipo?.imei ? `<div style="font-family:monospace;font-size:7pt">IMEI 1: ${equipo.imei}</div>` : ''}
-        ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:7pt">IMEI 2: ${equipo.imei2}</div>` : ''}
+        ${equipo?.imei ? `<div style="font-family:monospace;font-size:7pt;word-break:break-all">IMEI 1: ${equipo.imei}</div>` : ''}
+        ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:7pt;word-break:break-all">IMEI 2: ${equipo.imei2}</div>` : ''}
         ${equipo?.numero_serie ? `<div style="font-family:monospace;font-size:7pt">S/N: ${equipo.numero_serie}</div>` : ''}
-        ${accs ? `<div style="font-size:7.5pt">Acc: ${accs}</div>` : ''}
-        ${equipo?.condicion_visual?.length ? `<div style="font-size:7.5pt">Cond: ${equipo.condicion_visual.join(' · ')}</div>` : ''}
+        ${accs ? `<div style="font-size:7.5pt;line-height:1.6">Acc: ${accs}</div>` : ''}
+        ${equipo?.condicion_visual?.length ? `<div style="font-size:7.5pt;line-height:1.6">Cond: ${equipo.condicion_visual.join(' · ')}</div>` : ''}
         ${equipo?.observaciones ? `<div style="font-size:7.5pt;margin-top:1mm"><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
       </div>
     </div>`
@@ -244,7 +196,6 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   }
 
   function boxCobro() {
-    // Compensación: 20% más pequeño (6.5pt, padding 2mm)
     const rows = [
       ot.presupuesto_estimado ? `<tr><td>Presupuesto est.</td><td style="font-weight:bold">${formatCLP(ot.presupuesto_estimado)}</td></tr>` : '',
       ot.precio_servicio ? `<tr class="cobro-total"><td>Total</td><td style="color:#16a34a">${formatCLP(ot.precio_servicio)}</td></tr>` : '',
@@ -280,18 +231,33 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     </div>`
   }
 
+  // ── Bloque de dos columnas: izq=Cliente+Servicio+Cobro, der=Equipo ──────────
+  function dosColumnas(gap = '2mm', colLeft = '44%') {
+    return `
+    <div style="display:grid;grid-template-columns:${colLeft} 1fr;gap:${gap};margin-bottom:${gap}">
+      <div style="display:flex;flex-direction:column;gap:${gap}">
+        ${boxCliente()}${boxServicio()}${boxCobro()}
+      </div>
+      <div>${boxEquipo()}</div>
+    </div>`
+  }
+
+  function firmaRow() {
+    return `<div style="display:flex;gap:8mm;margin-top:2mm">
+      <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma y RUT cliente</div></div>
+      <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma técnico / Sello</div></div>
+    </div>`
+  }
+
   // ── Generar cuerpo HTML por formato ───────────────────────────────────────
 
   function generarCuerpo(): string {
-    // ── A5 Horizontal — UNA SOLA HOJA, QR + firmas en la misma página ─────────
+    // ── A5 Horizontal ─────────────────────────────────────────────────────────
     if (formato === 'a5h') {
-      // Copia única: todo en la misma hoja
       const unaHoja = `
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm;align-items:start">
-          <div style="display:flex;flex-direction:column;gap:2mm">${boxCliente()}${boxServicio()}</div><div style="display:flex;flex-direction:column;gap:2mm">${boxEquipo()}${boxCobro()}</div>
-        </div>
+        ${dosColumnas('2mm', '44%')}
         <div style="display:flex;align-items:center;gap:3mm;margin-top:2mm">
           ${qrDataUrl ? `<img src="${qrDataUrl}" style="width:18mm;height:18mm;display:block;flex-shrink:0">` : ''}
           <div style="font-size:7pt;color:#6b7280">
@@ -299,25 +265,16 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
             <div style="font-family:monospace;font-size:6.5pt">${trackingUrl}</div>
           </div>
           <div style="flex:1"></div>
-          <div style="display:flex;gap:8mm">
-            <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma y RUT cliente</div></div>
-            <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma técnico / Sello</div></div>
-          </div>
+          ${firmaRow()}
         </div>`
 
       if (copias === 1) return unaHoja + tcHtml
 
-      // 2 copias: separador punteado + segunda copia compacta
       const copia2 = `
         <hr class="separator">
         ${cabeceraHtml()}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm;align-items:start">
-          <div style="display:flex;flex-direction:column;gap:2mm">${boxCliente()}${boxServicio()}</div><div style="display:flex;flex-direction:column;gap:2mm">${boxEquipo()}${boxCobro()}</div>
-        </div>
-        <div style="display:flex;gap:8mm;margin-top:2mm">
-          <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma y RUT cliente</div></div>
-          <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma técnico / Sello</div></div>
-        </div>`
+        ${dosColumnas('2mm', '44%')}
+        ${firmaRow()}`
       return unaHoja + copia2 + tcHtml
     }
 
@@ -326,11 +283,9 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       const una = `
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm;align-items:start">
-          <div style="display:flex;flex-direction:column;gap:2mm">${boxCliente()}${boxServicio()}</div><div style="display:flex;flex-direction:column;gap:2mm">${boxEquipo()}${boxCobro()}</div>
-        </div>
+        ${dosColumnas('2mm', '44%')}
         ${trackHtml()}${firmasHtml()}`
-      const copia2 = copias === 2 ? `<hr class="separator">${cabeceraHtml()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm;align-items:start">${boxCliente()}${boxEquipo()}</div>${firmasHtml()}` : ''
+      const copia2 = copias === 2 ? `<hr class="separator">${cabeceraHtml()}${dosColumnas('2mm', '44%')}${firmasHtml()}` : ''
       return una + copia2 + tcHtml
     }
 
@@ -338,15 +293,11 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       return `
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:3mm">
-          <div style="display:flex;flex-direction:column;gap:2mm">${boxCliente()}${boxServicio()}</div><div style="display:flex;flex-direction:column;gap:2mm">${boxEquipo()}${boxCobro()}</div>
-        </div>
+        ${dosColumnas('3mm', '44%')}
         ${trackHtml()}${firmasHtml()}
         <hr class="separator">
         ${cabeceraHtml()}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2mm">
-          ${boxCliente()}${boxEquipo()}
-        </div>
+        ${dosColumnas('3mm', '44%')}
         ${firmasHtml()}
         ${tcHtml}`
     }

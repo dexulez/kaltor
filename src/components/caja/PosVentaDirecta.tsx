@@ -573,7 +573,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
         {/* Carrito */}
         <div className="bg-white rounded-xl border overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b">
-            <p className="font-semibold text-gray-800">Productos y/o Servicios a Cobrar ({carrito.length + serviciosOT.length})</p>
+            <p className="font-semibold text-gray-800">Productos en venta ({carrito.length + serviciosOT.length})</p>
           </div>
           {carrito.length === 0 ? (
             <p className="text-center text-gray-400 py-10 text-sm">Busca y agrega productos...</p>
