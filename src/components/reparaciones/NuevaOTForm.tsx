@@ -77,40 +77,44 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   }, [])
 
   function agregarServicioOT(s: ServicioItem) {
-    setServiciosSeleccionados(prev => {
-      if (prev.find(x => x.id === s.id)) return prev
-      const nuevo = [...prev, s]
-      const suma = nuevo.reduce((t, x) => t + x.precio_base, 0)
-      setOt(o => ({ ...o, presupuesto_estimado: String(suma) }))
-      return nuevo
-    })
+    setServiciosSeleccionados(prev =>
+      prev.find(x => x.id === s.id) ? prev : [...prev, s]
+    )
   }
 
   function quitarServicioOT(id: string) {
-    setServiciosSeleccionados(prev => {
-      const nuevo = prev.filter(x => x.id !== id)
-      const suma = nuevo.reduce((t, x) => t + x.precio_base, 0)
-      setOt(o => ({ ...o, presupuesto_estimado: nuevo.length > 0 ? String(suma) : '' }))
-      return nuevo
-    })
+    setServiciosSeleccionados(prev => prev.filter(x => x.id !== id))
   }
 
   // ── Repuestos a agregar en la recepción ──────────────────────────────────
-  interface RepuestoLocal { _key: string; product_id: string | null; nombre: string; cantidad: number; precio_costo: number }
+  interface RepuestoLocal {
+    _key: string; product_id: string | null; nombre: string; cantidad: number
+    precio_costo: number; precio_venta: number; sumar_al_presupuesto: boolean
+  }
   const [repuestos, setRepuestos] = useState<RepuestoLocal[]>([])
   const [prodSearch, setProdSearch] = useState('')
-  const [prodResults, setProdResults] = useState<{ id: string; nombre: string; precio_costo: number }[]>([])
+  const [prodResults, setProdResults] = useState<{ id: string; nombre: string; precio_costo: number; precio_venta: number }[]>([])
   const [prodOpen, setProdOpen] = useState(false)
   const [addManual, setAddManual] = useState(false)
-  const [manualPart, setManualPart] = useState({ nombre: '', cantidad: '1', precio_costo: '0' })
+  const [manualPart, setManualPart] = useState({
+    nombre: '', cantidad: '1', precio_costo: '0', precio_venta: '0', sumar_al_presupuesto: true,
+  })
   const prodRef = useRef<HTMLDivElement>(null)
+
+  // Auto-calcular presupuesto cada vez que cambian servicios o repuestos
+  useEffect(() => {
+    const sumS = serviciosSeleccionados.reduce((t, s) => t + s.precio_base, 0)
+    const sumR = repuestos.filter(r => r.sumar_al_presupuesto).reduce((t, r) => t + r.precio_venta * r.cantidad, 0)
+    setOt(o => ({ ...o, presupuesto_estimado: String(sumS + sumR) }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviciosSeleccionados, repuestos])
 
   useEffect(() => {
     const trimmed = prodSearch.trim()
     if (trimmed.length < 2) { setProdResults([]); setProdOpen(false); return }
     const t = setTimeout(async () => {
-      const { data } = await supabase.from('products').select('id, nombre, precio_costo').ilike('nombre', `%${trimmed}%`).limit(8)
-      setProdResults((data ?? []) as { id: string; nombre: string; precio_costo: number }[])
+      const { data } = await supabase.from('products').select('id, nombre, precio_costo, precio_venta').ilike('nombre', `%${trimmed}%`).limit(8)
+      setProdResults((data ?? []) as { id: string; nombre: string; precio_costo: number; precio_venta: number }[])
       setProdOpen(true)
     }, 300)
     return () => clearTimeout(t)
@@ -125,18 +129,33 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
-  function agregarProducto(p: { id: string; nombre: string; precio_costo: number }) {
-    setRepuestos(prev => [...prev, { _key: crypto.randomUUID(), product_id: p.id, nombre: p.nombre, cantidad: 1, precio_costo: p.precio_costo }])
+  function agregarProducto(p: { id: string; nombre: string; precio_costo: number; precio_venta: number }) {
+    setRepuestos(prev => [...prev, {
+      _key: crypto.randomUUID(), product_id: p.id, nombre: p.nombre, cantidad: 1,
+      precio_costo: p.precio_costo,
+      precio_venta: p.precio_venta || p.precio_costo,
+      sumar_al_presupuesto: true,
+    }])
     setProdSearch(''); setProdResults([]); setProdOpen(false)
   }
   function agregarManual() {
     if (!manualPart.nombre.trim()) return
-    setRepuestos(prev => [...prev, { _key: crypto.randomUUID(), product_id: null, nombre: manualPart.nombre.trim(), cantidad: parseInt(manualPart.cantidad) || 1, precio_costo: parseInt(manualPart.precio_costo) || 0 }])
-    setManualPart({ nombre: '', cantidad: '1', precio_costo: '0' }); setAddManual(false)
+    setRepuestos(prev => [...prev, {
+      _key: crypto.randomUUID(), product_id: null, nombre: manualPart.nombre.trim(),
+      cantidad: parseInt(manualPart.cantidad) || 1,
+      precio_costo: parseInt(manualPart.precio_costo) || 0,
+      precio_venta: parseInt(manualPart.precio_venta) || 0,
+      sumar_al_presupuesto: manualPart.sumar_al_presupuesto,
+    }])
+    setManualPart({ nombre: '', cantidad: '1', precio_costo: '0', precio_venta: '0', sumar_al_presupuesto: true })
+    setAddManual(false)
   }
   function quitarRepuesto(key: string) { setRepuestos(prev => prev.filter(r => r._key !== key)) }
   function updCant(key: string, delta: number) {
     setRepuestos(prev => prev.map(r => r._key === key ? { ...r, cantidad: Math.max(1, r.cantidad + delta) } : r))
+  }
+  function toggleSumar(key: string) {
+    setRepuestos(prev => prev.map(r => r._key === key ? { ...r, sumar_al_presupuesto: !r.sumar_al_presupuesto } : r))
   }
 
   // ── IMEI / SN ────────────────────────────────────────────────────────────
@@ -403,6 +422,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
           nombre: r.nombre,
           cantidad: r.cantidad,
           precio_costo: r.precio_costo,
+          precio_venta: r.precio_venta || 0,
           costo_envio: 0,
         }))
       )
@@ -993,7 +1013,8 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
           <h2 className="font-semibold text-gray-800">4. Repuestos <span className="text-gray-400 font-normal text-sm">(opcional)</span></h2>
           {repuestos.length > 0 && (
             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-              {repuestos.length} ítem(s) · {formatCLP(repuestos.reduce((s, r) => s + r.precio_costo * r.cantidad, 0))}
+              {repuestos.length} ítem(s) · costo {formatCLP(repuestos.reduce((s, r) => s + r.precio_costo * r.cantidad, 0))}
+              {repuestos.some(r => r.sumar_al_presupuesto) && ` · cobro ${formatCLP(repuestos.filter(r => r.sumar_al_presupuesto).reduce((s, r) => s + r.precio_venta * r.cantidad, 0))}`}
             </span>
           )}
         </div>
@@ -1010,9 +1031,12 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             <div className="absolute z-20 mt-1 w-full bg-white border rounded-xl shadow-lg max-h-48 overflow-y-auto">
               {prodResults.map(p => (
                 <button key={p.id} type="button" onClick={() => agregarProducto(p)}
-                  className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors text-sm border-b last:border-0 flex justify-between items-center">
+                  className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors text-sm border-b last:border-0 flex justify-between items-center gap-2">
                   <span className="font-medium text-gray-800 truncate">{p.nombre}</span>
-                  <span className="text-xs text-blue-600 shrink-0 ml-2">{formatCLP(p.precio_costo)}</span>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-blue-600">venta: {formatCLP(p.precio_venta || p.precio_costo)}</p>
+                    <p className="text-xs text-gray-400">costo: {formatCLP(p.precio_costo)}</p>
+                  </div>
                 </button>
               ))}
             </div>
@@ -1030,7 +1054,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             <Input placeholder="Nombre del repuesto" value={manualPart.nombre} autoFocus
               onChange={e => setManualPart(v => ({ ...v, nombre: e.target.value }))}
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), agregarManual())} />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Cantidad</Label>
                 <Input type="number" min={1} value={manualPart.cantidad}
@@ -1041,7 +1065,18 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                 <Input type="number" min={0} value={manualPart.precio_costo}
                   onChange={e => setManualPart(v => ({ ...v, precio_costo: e.target.value }))} />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Precio cobro (CLP)</Label>
+                <Input type="number" min={0} value={manualPart.precio_venta}
+                  onChange={e => setManualPart(v => ({ ...v, precio_venta: e.target.value }))} />
+              </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={manualPart.sumar_al_presupuesto}
+                onChange={e => setManualPart(v => ({ ...v, sumar_al_presupuesto: e.target.checked }))}
+                className="w-4 h-4 accent-blue-600" />
+              <span className="text-xs text-gray-700 font-medium">Sumar al presupuesto del cliente</span>
+            </label>
             <div className="flex gap-2">
               <Button type="button" size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={agregarManual}>Agregar</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setAddManual(false)}>Cancelar</Button>
@@ -1053,20 +1088,36 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         {repuestos.length > 0 && (
           <div className="space-y-2 pt-1">
             {repuestos.map(r => (
-              <div key={r._key} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{r.nombre}</p>
-                  <p className="text-xs text-gray-500">{formatCLP(r.precio_costo)} c/u · Total: {formatCLP(r.precio_costo * r.cantidad)}</p>
+              <div key={r._key} className={`border rounded-xl px-3 py-2.5 space-y-1.5 ${r.sumar_al_presupuesto ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{r.nombre}</p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      <p className="text-xs text-gray-400">Costo: {formatCLP(r.precio_costo)} c/u</p>
+                      {r.sumar_al_presupuesto && r.precio_venta > 0 && (
+                        <p className="text-xs text-blue-600 font-medium">Cobro: {formatCLP(r.precio_venta * r.cantidad)}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button type="button" onClick={() => updCant(r._key, -1)}
+                      className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold">−</button>
+                    <span className="w-6 text-center text-sm font-semibold text-gray-800">{r.cantidad}</span>
+                    <button type="button" onClick={() => updCant(r._key, 1)}
+                      className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold">+</button>
+                  </div>
+                  <button type="button" onClick={() => quitarRepuesto(r._key)}
+                    className="text-red-400 hover:text-red-600 w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 shrink-0">✕</button>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button type="button" onClick={() => updCant(r._key, -1)}
-                    className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold">−</button>
-                  <span className="w-6 text-center text-sm font-semibold text-gray-800">{r.cantidad}</span>
-                  <button type="button" onClick={() => updCant(r._key, 1)}
-                    className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold">+</button>
-                </div>
-                <button type="button" onClick={() => quitarRepuesto(r._key)}
-                  className="text-red-400 hover:text-red-600 w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 shrink-0">✕</button>
+                {/* Toggle sumar al presupuesto */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={r.sumar_al_presupuesto}
+                    onChange={() => toggleSumar(r._key)}
+                    className="w-3.5 h-3.5 accent-blue-600" />
+                  <span className={`text-xs font-medium ${r.sumar_al_presupuesto ? 'text-blue-700' : 'text-gray-400'}`}>
+                    {r.sumar_al_presupuesto ? '💰 Sumado al presupuesto' : 'Solo costo interno (no cobrar)'}
+                  </span>
+                </label>
               </div>
             ))}
           </div>
