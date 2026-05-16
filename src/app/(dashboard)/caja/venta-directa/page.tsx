@@ -68,6 +68,14 @@ export default async function VentaDirectaPage({
           comisionDebito={config?.comision_debito ?? 0}
           comisionCredito={config?.comision_credito ?? 0}
           otPreload={otPreload}
+          ticketConfig={{
+            nombre_local: config?.nombre_local ?? 'TechRepair Pro',
+            rut_local: config?.rut_local ?? null,
+            direccion: config?.direccion ?? null,
+            telefono: config?.telefono ?? null,
+            email: config?.email ?? null,
+            logo_url: config?.logo_url ?? null,
+          }}
         />
       )}
     </div>

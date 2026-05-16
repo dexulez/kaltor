@@ -28,7 +28,7 @@ export default async function CajaPage() {
     supabase.from('repair_orders').select('*, customers(nombre), equipment(marca, modelo)')
       .eq('estado', 'listo').order('updated_at', { ascending: false }).limit(10),
     supabase.from('user_profiles').select('permisos_modulos, roles(nombre)').eq('id', user!.id).single(),
-    supabase.from('system_config').select('pin_autorizacion, nombre_local, rut_local, direccion, telefono').maybeSingle()
+    supabase.from('system_config').select('pin_autorizacion, nombre_local, rut_local, direccion, telefono, email, logo_url').maybeSingle()
       .then(r => r.error ? { data: null } : r),
   ])
 
@@ -36,13 +36,15 @@ export default async function CajaPage() {
   const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
   const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
   const puedeAnular = tieneSubPermiso('caja.anular', rolNombre, permisos)
-  const cfgRaw = sysConfig as { pin_autorizacion?: string; nombre_local?: string; rut_local?: string; direccion?: string; telefono?: string } | null
+  const cfgRaw = sysConfig as { pin_autorizacion?: string; nombre_local?: string; rut_local?: string; direccion?: string; telefono?: string; email?: string; logo_url?: string } | null
   const pinAdmin = cfgRaw?.pin_autorizacion ?? null
   const ticketCfg = {
     nombre_local: cfgRaw?.nombre_local ?? 'TechRepair Pro',
     rut_local: cfgRaw?.rut_local ?? null,
     direccion: cfgRaw?.direccion ?? null,
     telefono: cfgRaw?.telefono ?? null,
+    email: cfgRaw?.email ?? null,
+    logo_url: cfgRaw?.logo_url ?? null,
   }
 
   const totalHoy = ventasHoy?.reduce((s, v) => s + v.total, 0) ?? 0
@@ -166,6 +168,8 @@ export default async function CajaPage() {
                             configRut={ticketCfg.rut_local}
                             configDireccion={ticketCfg.direccion}
                             configTelefono={ticketCfg.telefono}
+                            configEmail={ticketCfg.email}
+                            configLogo={ticketCfg.logo_url}
                           />
                           {!v.anulada && (
                             <AnularVentaBtn

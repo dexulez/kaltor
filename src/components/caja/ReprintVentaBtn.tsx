@@ -11,9 +11,11 @@ interface Props {
   configRut?: string | null
   configDireccion?: string | null
   configTelefono?: string | null
+  configEmail?: string | null
+  configLogo?: string | null
 }
 
-export default function ReprintVentaBtn({ ventaId, numeroVenta, configNombreLocal, configRut, configDireccion, configTelefono }: Props) {
+export default function ReprintVentaBtn({ ventaId, numeroVenta, configNombreLocal, configRut, configDireccion, configTelefono, configEmail, configLogo }: Props) {
   const supabase = createClient()
   const [open, setOpen] = useState(false)
   const [formato, setFormato] = useState<TicketFormato>('ticket80')
@@ -52,6 +54,8 @@ export default function ReprintVentaBtn({ ventaId, numeroVenta, configNombreLoca
       rut_local: configRut,
       direccion: configDireccion,
       telefono: configTelefono,
+      email: configEmail,
+      logo_url: configLogo,
     }, formato)
 
     setOpen(false)

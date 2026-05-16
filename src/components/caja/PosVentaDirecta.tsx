@@ -42,11 +42,12 @@ interface Props {
   comisionDebito: number
   comisionCredito: number
   otPreload?: ItemServicioOT | null
+  ticketConfig: import('@/lib/ticketPrint').TicketConfig
 }
 
 const METODO_LABELS = { efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia', debito: '💳 Débito', credito: '💳 Crédito' }
 
-export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisionDebito, comisionCredito, otPreload }: Props) {
+export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisionDebito, comisionCredito, otPreload, ticketConfig }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [clientesList, setClientesList] = useState(clientes)
@@ -430,7 +431,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
 
   // Panel post-venta
   if (ventaCompletada) {
-    const cfg = { nombre_local: 'TechRepair Pro' } // config básica disponible en client
+    const cfg = ticketConfig
     return (
       <div className="max-w-md mx-auto space-y-4">
         <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-6 text-center space-y-2">
