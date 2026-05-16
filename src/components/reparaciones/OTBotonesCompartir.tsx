@@ -166,6 +166,10 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     const accs = equipo?.accesorios?.length
       ? equipo.accesorios.map(a => `${a} <span class="acc-ok">&#10003;</span>`).join(' · ')
       : null
+    // Deduplicar condicion_visual ignorando mayúsculas/minúsculas (mantiene última versión = la capitalizada)
+    const condDedup = equipo?.condicion_visual?.length
+      ? [...new Map(equipo.condicion_visual.map(c => [c.toLowerCase(), c])).values()]
+      : []
     return `<div class="box" style="height:100%">
       <div class="box-hdr"><span>&#128241;</span> DETALLES DEL EQUIPO</div>
       <div class="box-body" style="word-break:break-word">
@@ -175,7 +179,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:7pt;word-break:break-all">IMEI 2: ${equipo.imei2}</div>` : ''}
         ${equipo?.numero_serie ? `<div style="font-family:monospace;font-size:7pt">S/N: ${equipo.numero_serie}</div>` : ''}
         ${accs ? `<div style="font-size:7.5pt;line-height:1.6">Acc: ${accs}</div>` : ''}
-        ${equipo?.condicion_visual?.length ? `<div style="font-size:7.5pt;line-height:1.6">Cond: ${equipo.condicion_visual.join(' · ')}</div>` : ''}
+        ${condDedup.length ? `<div style="font-size:7.5pt;line-height:1.6">Cond: ${condDedup.join(' · ')}</div>` : ''}
         ${equipo?.observaciones ? `<div style="font-size:7.5pt;margin-top:1mm"><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
       </div>
     </div>`

@@ -187,7 +187,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
             <p className="text-gray-500 text-xs mt-2">Accesorios: {equipo.accesorios.join(', ')}</p>
           )}
           {equipo?.condicion_visual?.length > 0 && (
-            <p className="text-gray-500 text-xs mt-1">Condición: {equipo.condicion_visual.join(', ')}</p>
+            <p className="text-gray-500 text-xs mt-1">Condición: {[...new Map(equipo.condicion_visual.map(c => [c.toLowerCase(), c])).values()].join(', ')}</p>
           )}
         </div>
 
