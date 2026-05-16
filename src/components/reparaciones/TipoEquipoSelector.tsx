@@ -12,7 +12,7 @@ export const TIPOS_EQUIPO = [
   { value: 'parlante',     label: '🔊 Parlante / Bocina' },
   { value: 'consola',      label: '🎮 Consola de videojuegos' },
   { value: 'tv',           label: '📺 TV / Televisor' },
-  { value: 'mando_tv',     label: '📡 Mando de TV / Control' },
+  { value: 'mando',        label: '🕹️ Mando' },
   { value: 'camara',       label: '📷 Cámara' },
   { value: 'impresora',    label: '🖨️ Impresora' },
   { value: 'accesorio',    label: '🔌 Accesorio' },
