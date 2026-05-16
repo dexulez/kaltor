@@ -39,7 +39,7 @@ export default async function CajaPage() {
   const cfgRaw = sysConfig as { pin_autorizacion?: string; nombre_local?: string; rut_local?: string; direccion?: string; telefono?: string; email?: string; logo_url?: string } | null
   const pinAdmin = cfgRaw?.pin_autorizacion ?? null
   const ticketCfg = {
-    nombre_local: cfgRaw?.nombre_local ?? 'TechRepair Pro',
+    nombre_local: cfgRaw?.nombre_local ?? '',
     rut_local: cfgRaw?.rut_local ?? null,
     direccion: cfgRaw?.direccion ?? null,
     telefono: cfgRaw?.telefono ?? null,

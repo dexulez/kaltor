@@ -24,7 +24,7 @@ export interface TicketConfig {
 export type TicketFormato = 'a4' | 'ticket80' | 'ticket57'
 
 export const TICKET_FORMATOS: { key: TicketFormato; label: string; desc: string; icon: string }[] = [
-  { key: 'a4',       label: 'A4',         desc: '210 × 297 mm',     icon: '🗒️' },
+  { key: 'a4',       label: 'A4',          desc: '210 × 297 mm',     icon: '🗒️' },
   { key: 'ticket80', label: 'Ticket 80mm', desc: 'Térmica estándar', icon: '🧾' },
   { key: 'ticket57', label: 'Ticket 57mm', desc: 'Térmica compacta', icon: '📜' },
 ]
@@ -55,122 +55,152 @@ export function imprimirTicketVenta(
   }
   const esPresupuesto = data.tipo_documento === 'presupuesto'
 
-  // Logo HTML
-  const logoHtml = config.logo_url
-    ? `<img src="${config.logo_url}" style="max-height:${isTicket ? '16mm' : '20mm'};max-width:${isTicket ? '40mm' : '60mm'};display:block;object-fit:contain;margin:0 auto ${isTicket ? '2mm' : '0'}">`
-    : `<div style="font-size:${isTicket ? '22pt' : '28pt'};text-align:${isTicket ? 'center' : 'left'}">🔧</div>`
+  // ── Cabecera empresa ────────────────────────────────────────────────────────
+  // Ticket térmico: centrado, logo arriba
+  function cabeceraTicket() {
+    return `
+      <div style="text-align:center;margin-bottom:4mm;padding-bottom:3mm;border-bottom:2px dashed #000">
+        ${config.logo_url
+          ? `<img src="${config.logo_url}" style="max-height:18mm;max-width:45mm;display:block;margin:0 auto 2.5mm;object-fit:contain">`
+          : ''}
+        ${config.nombre_local ? `<div style="font-size:14pt;font-weight:bold;line-height:1.2">${config.nombre_local}</div>` : ''}
+        ${config.rut_local    ? `<div style="font-size:10pt;margin-top:1mm">RUT: ${config.rut_local}</div>` : ''}
+        ${config.direccion    ? `<div style="font-size:9.5pt;margin-top:0.5mm">${config.direccion}</div>` : ''}
+        ${config.telefono     ? `<div style="font-size:9.5pt">Tel: ${config.telefono}</div>` : ''}
+        ${config.email        ? `<div style="font-size:9.5pt">${config.email}</div>` : ''}
+      </div>`
+  }
 
-  // Items
-  const itemsHtml = data.items.map(item =>
-    isTicket
-      ? `<div style="margin-bottom:3mm">
-           <div style="font-weight:600;font-size:10pt">${item.nombre}</div>
-           <div style="display:flex;justify-content:space-between;font-size:9.5pt;margin-top:0.5mm">
-             <span>${item.cantidad} × ${fmt(item.precio_unitario)}</span>
-             <span style="font-weight:bold">${fmt(item.subtotal)}</span>
-           </div>
-         </div>`
-      : `<tr style="border-bottom:1px solid #f0f0f0">
-           <td style="padding:2.5mm 2mm;font-size:10pt">${item.nombre}</td>
-           <td style="padding:2.5mm 2mm;text-align:center;font-size:10pt">${item.cantidad}</td>
-           <td style="padding:2.5mm 2mm;text-align:right;font-size:10pt">${fmt(item.precio_unitario)}</td>
-           <td style="padding:2.5mm 2mm;text-align:right;font-weight:bold;font-size:10pt">${fmt(item.subtotal)}</td>
-         </tr>`
-  ).join('')
+  // A4: logo + datos a la izquierda, badge de documento a la derecha
+  function cabeceraA4() {
+    const logoBlock = config.logo_url
+      ? `<img src="${config.logo_url}" style="max-height:22mm;max-width:60mm;display:block;object-fit:contain">`
+      : ''
+    const infoBlock = `
+      <div>
+        ${config.nombre_local ? `<div style="font-size:18pt;font-weight:bold;line-height:1.1">${config.nombre_local}</div>` : ''}
+        ${config.rut_local    ? `<div style="font-size:10pt;color:#444;margin-top:1.5mm">RUT: ${config.rut_local}</div>` : ''}
+        ${config.direccion    ? `<div style="font-size:10pt;color:#444">${config.direccion}</div>` : ''}
+        ${config.telefono     ? `<div style="font-size:10pt;color:#444">Tel: ${config.telefono}</div>` : ''}
+        ${config.email        ? `<div style="font-size:10pt;color:#444">${config.email}</div>` : ''}
+      </div>`
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e3a5f;padding-bottom:5mm;margin-bottom:6mm">
+        <div style="display:flex;align-items:center;gap:5mm">
+          ${logoBlock}
+          ${infoBlock}
+        </div>
+        <div style="text-align:right;background:#1e3a5f;color:#fff;padding:4mm 6mm;border-radius:8px;min-width:52mm;flex-shrink:0">
+          <div style="font-size:10pt;font-weight:bold;letter-spacing:1.5px;color:#93c5fd">
+            ${docLabel[data.tipo_documento] ?? data.tipo_documento.toUpperCase()}
+          </div>
+          <div style="font-family:monospace;font-size:15pt;color:#fbbf24;margin-top:1mm">${data.numero_venta}</div>
+          <div style="font-size:9pt;color:#bfdbfe;margin-top:1mm">${fechaHora}</div>
+          ${data.cliente_nombre ? `<div style="font-size:9pt;color:#e0f2fe;margin-top:1mm">${data.cliente_nombre}</div>` : ''}
+        </div>
+      </div>`
+  }
 
-  // Totales ticket
+  // ── Items ───────────────────────────────────────────────────────────────────
+  const itemsTicket = data.items.map(item => `
+    <div style="margin-bottom:3mm">
+      <div style="font-weight:600;font-size:10.5pt">${item.nombre}</div>
+      <div style="display:flex;justify-content:space-between;font-size:10pt;margin-top:0.5mm">
+        <span>${item.cantidad} × ${fmt(item.precio_unitario)}</span>
+        <span style="font-weight:bold">${fmt(item.subtotal)}</span>
+      </div>
+    </div>`).join('')
+
+  const itemsA4 = data.items.map(item => `
+    <tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:3mm 3mm;font-size:10.5pt">${item.nombre}</td>
+      <td style="padding:3mm;text-align:center;font-size:10.5pt">${item.cantidad}</td>
+      <td style="padding:3mm;text-align:right;font-size:10.5pt">${fmt(item.precio_unitario)}</td>
+      <td style="padding:3mm;text-align:right;font-weight:bold;font-size:10.5pt">${fmt(item.subtotal)}</td>
+    </tr>`).join('')
+
+  // ── Totales ─────────────────────────────────────────────────────────────────
   const totalesTicket = `
-    <div style="border-top:1px dashed #000;margin-top:3mm;padding-top:3mm">
-      ${data.descuento > 0 ? `<div style="display:flex;justify-content:space-between;color:#666;font-size:9.5pt;margin-bottom:1mm"><span>Descuento</span><span>-${fmt(data.descuento)}</span></div>` : ''}
+    <div style="border-top:2px dashed #000;margin-top:3mm;padding-top:3mm">
+      ${data.descuento > 0 ? `<div style="display:flex;justify-content:space-between;color:#666;font-size:9.5pt;margin-bottom:1mm"><span>Descuento</span><span>- ${fmt(data.descuento)}</span></div>` : ''}
       ${!esPresupuesto ? `
-        <div style="display:flex;justify-content:space-between;font-size:9.5pt;margin-bottom:1mm"><span>Neto</span><span>${fmt(data.subtotal)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:9.5pt;margin-bottom:1mm"><span>IVA (19%)</span><span>${fmt(data.iva)}</span></div>
-        ${data.ppm > 0 ? `<div style="display:flex;justify-content:space-between;font-size:9.5pt;margin-bottom:1mm"><span>PPM (3%)</span><span>${fmt(data.ppm)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:1mm"><span>Neto</span><span>${fmt(data.subtotal)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:1mm"><span>IVA (19%)</span><span>${fmt(data.iva)}</span></div>
+        ${data.ppm > 0 ? `<div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:1mm"><span>PPM (3%)</span><span>${fmt(data.ppm)}</span></div>` : ''}
       ` : ''}
-      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:15pt;border-top:2px solid #000;margin-top:2mm;padding-top:2mm">
+      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:16pt;border-top:2px solid #000;margin-top:2.5mm;padding-top:2.5mm">
         <span>TOTAL</span><span>${fmt(data.total)}</span>
       </div>
-      <div style="margin-top:2mm;font-size:10pt">Pago: <strong>${metodoLabel[data.metodo_pago] ?? data.metodo_pago}</strong></div>
+      <div style="margin-top:2mm;font-size:10.5pt">Pago: <strong>${metodoLabel[data.metodo_pago] ?? data.metodo_pago}</strong></div>
     </div>`
 
-  // Totales A4
   const totalesA4 = `
-    <div style="max-width:280px;margin-left:auto;margin-top:4mm;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
-      ${data.descuento > 0 ? `<div style="display:flex;justify-content:space-between;padding:2.5mm 4mm;font-size:10pt;color:#666;border-bottom:1px solid #f0f0f0"><span>Descuento</span><span>-${fmt(data.descuento)}</span></div>` : ''}
+    <div style="max-width:290px;margin-left:auto;margin-top:5mm;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+      ${data.descuento > 0 ? `<div style="display:flex;justify-content:space-between;padding:3mm 4mm;font-size:10.5pt;color:#666;border-bottom:1px solid #f0f0f0"><span>Descuento</span><span>- ${fmt(data.descuento)}</span></div>` : ''}
       ${!esPresupuesto ? `
-        <div style="display:flex;justify-content:space-between;padding:2.5mm 4mm;font-size:10pt;border-bottom:1px solid #f0f0f0"><span>Neto</span><span>${fmt(data.subtotal)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:2.5mm 4mm;font-size:10pt;border-bottom:1px solid #f0f0f0"><span>IVA (19%)</span><span>${fmt(data.iva)}</span></div>
-        ${data.ppm > 0 ? `<div style="display:flex;justify-content:space-between;padding:2.5mm 4mm;font-size:10pt;border-bottom:1px solid #f0f0f0"><span>PPM (3%)</span><span>${fmt(data.ppm)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;padding:3mm 4mm;font-size:10.5pt;border-bottom:1px solid #f0f0f0"><span>Neto</span><span>${fmt(data.subtotal)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3mm 4mm;font-size:10.5pt;border-bottom:1px solid #f0f0f0"><span>IVA (19%)</span><span>${fmt(data.iva)}</span></div>
+        ${data.ppm > 0 ? `<div style="display:flex;justify-content:space-between;padding:3mm 4mm;font-size:10.5pt;border-bottom:1px solid #f0f0f0"><span>PPM (3%)</span><span>${fmt(data.ppm)}</span></div>` : ''}
       ` : ''}
-      <div style="display:flex;justify-content:space-between;padding:3mm 4mm;font-weight:bold;font-size:16pt;background:#1e3a5f;color:#fff">
+      <div style="display:flex;justify-content:space-between;padding:4mm;font-weight:bold;font-size:17pt;background:#1e3a5f;color:#fff">
         <span>TOTAL</span><span>${fmt(data.total)}</span>
       </div>
-      <div style="padding:2.5mm 4mm;font-size:10pt;background:#f9fafb">
+      <div style="padding:3mm 4mm;font-size:10.5pt;background:#f8fafc">
         Método de pago: <strong>${metodoLabel[data.metodo_pago] ?? data.metodo_pago}</strong>
       </div>
     </div>`
 
+  // ── Pie de página ───────────────────────────────────────────────────────────
+  const pieTicket = `
+    <div style="text-align:center;margin-top:6mm;padding-top:3mm;border-top:1px dashed #000;font-size:10pt">
+      ¡Gracias por su preferencia!
+    </div>
+    <div style="height:14mm"></div>`
+
+  const pieA4 = `
+    <div style="text-align:center;margin-top:12mm;padding-top:4mm;border-top:1px solid #e2e8f0;font-size:10pt;color:#666">
+      ¡Gracias por su preferencia!
+    </div>`
+
+  // ── Cuerpo completo por formato ─────────────────────────────────────────────
   let body: string
 
   if (isTicket) {
-    body = `
-      <div style="text-align:center;margin-bottom:4mm">
-        ${logoHtml}
-        <div style="font-size:14pt;font-weight:bold;margin-top:${config.logo_url ? '2mm' : '0'}">${config.nombre_local}</div>
-        ${config.rut_local ? `<div style="font-size:10pt">RUT: ${config.rut_local}</div>` : ''}
-        ${config.direccion ? `<div style="font-size:9.5pt">${config.direccion}</div>` : ''}
-        ${config.telefono ? `<div style="font-size:9.5pt">Tel: ${config.telefono}</div>` : ''}
-        ${config.email ? `<div style="font-size:9.5pt">${config.email}</div>` : ''}
-      </div>
-      <div style="border-top:2px dashed #000;border-bottom:2px dashed #000;padding:2.5mm 0;margin:3mm 0;text-align:center">
+    // Datos del documento debajo de la cabecera empresa
+    const infoDocs = `
+      <div style="text-align:center;padding:2.5mm 0;margin-bottom:3mm;border-bottom:1px dashed #000">
         <div style="font-weight:bold;font-size:13pt">${docLabel[data.tipo_documento] ?? data.tipo_documento.toUpperCase()}</div>
         <div style="font-family:monospace;font-size:12pt;margin-top:1mm">${data.numero_venta}</div>
         <div style="font-size:10pt;margin-top:1mm">${fechaHora}</div>
         ${data.cliente_nombre ? `<div style="font-size:10pt;margin-top:1.5mm">Cliente: <strong>${data.cliente_nombre}</strong></div>` : ''}
-      </div>
-      <div style="margin:3mm 0;border-bottom:1px dashed #000;padding-bottom:3mm">${itemsHtml}</div>
-      ${totalesTicket}
-      <div style="text-align:center;margin-top:6mm;font-size:10pt;border-top:1px dashed #000;padding-top:3mm">
-        ¡Gracias por su preferencia!
-      </div>
-      <div style="height:14mm"></div>`
-  } else {
-    body = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1e3a5f;padding-bottom:5mm;margin-bottom:6mm">
-        <div style="display:flex;align-items:center;gap:4mm">
-          ${logoHtml}
-          <div>
-            <div style="font-size:17pt;font-weight:bold;line-height:1.1">${config.nombre_local}</div>
-            ${config.rut_local ? `<div style="font-size:10pt;color:#555;margin-top:1mm">RUT: ${config.rut_local}</div>` : ''}
-            ${config.direccion ? `<div style="font-size:10pt;color:#555">${config.direccion}</div>` : ''}
-            ${config.telefono ? `<div style="font-size:10pt;color:#555">Tel: ${config.telefono}</div>` : ''}
-            ${config.email ? `<div style="font-size:10pt;color:#555">${config.email}</div>` : ''}
-          </div>
-        </div>
-        <div style="text-align:right;background:#1e3a5f;color:#fff;padding:4mm 5mm;border-radius:6px;min-width:50mm">
-          <div style="font-size:11pt;font-weight:bold;letter-spacing:1px">${docLabel[data.tipo_documento] ?? data.tipo_documento.toUpperCase()}</div>
-          <div style="font-family:monospace;font-size:14pt;color:#fbbf24;margin-top:1mm">${data.numero_venta}</div>
-          <div style="font-size:9pt;color:#93c5fd;margin-top:1mm">${fechaHora}</div>
-        </div>
-      </div>
-      ${data.cliente_nombre ? `<p style="margin-bottom:4mm;font-size:11pt;padding:2mm 3mm;background:#f0f9ff;border-left:3px solid #1e3a5f;border-radius:2px">Cliente: <strong>${data.cliente_nombre}</strong></p>` : ''}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:4mm;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
-        <thead>
-          <tr style="background:#1e3a5f;color:#fff;font-size:10pt">
-            <th style="text-align:left;padding:3mm 3mm">Producto / Servicio</th>
-            <th style="text-align:center;padding:3mm">Cant.</th>
-            <th style="text-align:right;padding:3mm">P. Unit.</th>
-            <th style="text-align:right;padding:3mm">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>${itemsHtml}</tbody>
-      </table>
-      ${totalesA4}
-      <div style="margin-top:12mm;text-align:center;font-size:10pt;color:#666;border-top:1px solid #eee;padding-top:4mm">
-        ¡Gracias por su preferencia! — ${config.nombre_local}
       </div>`
+
+    body = cabeceraTicket() + infoDocs
+      + `<div style="margin:0 0 3mm;border-bottom:1px dashed #000;padding-bottom:3mm">${itemsTicket}</div>`
+      + totalesTicket + pieTicket
+  } else {
+    const clienteRow = data.cliente_nombre
+      ? `<p style="margin-bottom:4mm;font-size:10.5pt;padding:2.5mm 4mm;background:#f0f9ff;border-left:3px solid #1e3a5f;border-radius:3px">
+           Cliente: <strong>${data.cliente_nombre}</strong>
+         </p>`
+      : ''
+
+    body = cabeceraA4() + clienteRow
+      + `<table style="width:100%;border-collapse:collapse;margin-bottom:4mm;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+           <thead>
+             <tr style="background:#f8fafc;font-size:10pt;color:#555;border-bottom:2px solid #e2e8f0">
+               <th style="text-align:left;padding:3mm">Producto / Servicio</th>
+               <th style="text-align:center;padding:3mm">Cant.</th>
+               <th style="text-align:right;padding:3mm">P. Unit.</th>
+               <th style="text-align:right;padding:3mm">Subtotal</th>
+             </tr>
+           </thead>
+           <tbody>${itemsA4}</tbody>
+         </table>`
+      + totalesA4 + pieA4
   }
 
+  // ── Generar ventana de impresión ────────────────────────────────────────────
   const winW = formato === 'ticket57' ? '380' : formato === 'ticket80' ? '500' : '720'
   const win = window.open('', '_blank', `width=${winW},height=900`)
   if (!win) { alert('Activa las ventanas emergentes para imprimir'); return }
@@ -178,8 +208,9 @@ export function imprimirTicketVenta(
 <html lang="es"><head><meta charset="UTF-8"><title>${data.numero_venta}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;font-size:${isTicket ? '10pt' : '11pt'};color:#111;padding:${bodyPad}}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:${isTicket ? '10pt' : '11pt'};color:#111;padding:${bodyPad}}
   @page{size:${mm}${isTicket ? ' auto' : ''};margin:${margin}}
+  img{display:block}
 </style></head><body>${body}</body></html>`)
   win.document.close()
   setTimeout(() => { win.focus(); win.print() }, 400)

@@ -69,7 +69,7 @@ export default async function VentaDirectaPage({
           comisionCredito={config?.comision_credito ?? 0}
           otPreload={otPreload}
           ticketConfig={{
-            nombre_local: config?.nombre_local ?? 'TechRepair Pro',
+            nombre_local: config?.nombre_local ?? '',
             rut_local: config?.rut_local ?? null,
             direccion: config?.direccion ?? null,
             telefono: config?.telefono ?? null,
