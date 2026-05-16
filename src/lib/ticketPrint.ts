@@ -56,33 +56,38 @@ export function imprimirTicketVenta(
   const esPresupuesto = data.tipo_documento === 'presupuesto'
 
   // ── Cabecera empresa ────────────────────────────────────────────────────────
+  const nl   = config.nombre_local || ''
+  const rut  = config.rut_local    || ''
+  const dir  = config.direccion    || ''
+  const tel  = config.telefono     || ''
+  const mail = config.email        || ''
+  const logo = config.logo_url     || ''
+
   // Ticket térmico: centrado, logo arriba
   function cabeceraTicket() {
     return `
       <div style="text-align:center;margin-bottom:4mm;padding-bottom:3mm;border-bottom:2px dashed #000">
-        ${config.logo_url
-          ? `<img src="${config.logo_url}" style="max-height:18mm;max-width:45mm;display:block;margin:0 auto 2.5mm;object-fit:contain">`
-          : ''}
-        ${config.nombre_local ? `<div style="font-size:14pt;font-weight:bold;line-height:1.2">${config.nombre_local}</div>` : ''}
-        ${config.rut_local    ? `<div style="font-size:10pt;margin-top:1mm">RUT: ${config.rut_local}</div>` : ''}
-        ${config.direccion    ? `<div style="font-size:9.5pt;margin-top:0.5mm">${config.direccion}</div>` : ''}
-        ${config.telefono     ? `<div style="font-size:9.5pt">Tel: ${config.telefono}</div>` : ''}
-        ${config.email        ? `<div style="font-size:9.5pt">${config.email}</div>` : ''}
+        ${logo ? `<img src="${logo}" style="max-height:18mm;max-width:45mm;display:block;margin:0 auto 2.5mm;object-fit:contain">` : ''}
+        <div style="font-size:14pt;font-weight:bold;line-height:1.2">${nl}</div>
+        ${rut  ? `<div style="font-size:10pt;margin-top:1mm">RUT: ${rut}</div>` : ''}
+        ${dir  ? `<div style="font-size:9.5pt;margin-top:0.5mm">${dir}</div>` : ''}
+        ${tel  ? `<div style="font-size:9.5pt">Tel: ${tel}</div>` : ''}
+        ${mail ? `<div style="font-size:9.5pt">${mail}</div>` : ''}
       </div>`
   }
 
   // A4: logo + datos a la izquierda, badge de documento a la derecha
   function cabeceraA4() {
-    const logoBlock = config.logo_url
-      ? `<img src="${config.logo_url}" style="max-height:22mm;max-width:60mm;display:block;object-fit:contain">`
+    const logoBlock = logo
+      ? `<img src="${logo}" style="max-height:22mm;max-width:60mm;display:block;object-fit:contain">`
       : ''
     const infoBlock = `
       <div>
-        ${config.nombre_local ? `<div style="font-size:18pt;font-weight:bold;line-height:1.1">${config.nombre_local}</div>` : ''}
-        ${config.rut_local    ? `<div style="font-size:10pt;color:#444;margin-top:1.5mm">RUT: ${config.rut_local}</div>` : ''}
-        ${config.direccion    ? `<div style="font-size:10pt;color:#444">${config.direccion}</div>` : ''}
-        ${config.telefono     ? `<div style="font-size:10pt;color:#444">Tel: ${config.telefono}</div>` : ''}
-        ${config.email        ? `<div style="font-size:10pt;color:#444">${config.email}</div>` : ''}
+        <div style="font-size:18pt;font-weight:bold;line-height:1.1">${nl}</div>
+        ${rut  ? `<div style="font-size:10pt;color:#444;margin-top:1.5mm">RUT: ${rut}</div>` : ''}
+        ${dir  ? `<div style="font-size:10pt;color:#444">${dir}</div>` : ''}
+        ${tel  ? `<div style="font-size:10pt;color:#444">Tel: ${tel}</div>` : ''}
+        ${mail ? `<div style="font-size:10pt;color:#444">${mail}</div>` : ''}
       </div>`
     return `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e3a5f;padding-bottom:5mm;margin-bottom:6mm">

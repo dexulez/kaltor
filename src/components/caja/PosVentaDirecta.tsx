@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { formatCLP, calcularIva, calcularPpm, formatRut } from '@/lib/calculations'
-import { imprimirTicketVenta, TICKET_FORMATOS, TicketFormato, TicketVentaData } from '@/lib/ticketPrint'
+import { imprimirTicketVenta, TICKET_FORMATOS, TicketFormato, TicketVentaData, TicketConfig } from '@/lib/ticketPrint'
 import { Customer, Product } from '@/types'
 import QRScanner from '@/components/shared/QRScanner'
 import { parseProductoQR } from '@/components/shared/ProductoQRCode'
@@ -42,7 +42,7 @@ interface Props {
   comisionDebito: number
   comisionCredito: number
   otPreload?: ItemServicioOT | null
-  ticketConfig: import('@/lib/ticketPrint').TicketConfig
+  ticketConfig: TicketConfig
 }
 
 const METODO_LABELS = { efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia', debito: '💳 Débito', credito: '💳 Crédito' }
@@ -90,6 +90,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const [monto2Input, setMonto2Input] = useState('')
   // Post-venta
   const [ventaCompletada, setVentaCompletada] = useState<TicketVentaData | null>(null)
+  const [ventaConfig, setVentaConfig] = useState<TicketConfig>(ticketConfig)
   const [ticketFormato, setTicketFormato] = useState<TicketFormato>('ticket80')
 
   async function abrirModalNuevoProd() {
@@ -398,6 +399,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
         subtotal: ot.precio,
       })),
     ]
+    setVentaConfig(ticketConfig)
     setVentaCompletada({
       numero_venta: venta.numero_venta as string,
       created_at: venta.created_at as string,
@@ -431,7 +433,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
 
   // Panel post-venta
   if (ventaCompletada) {
-    const cfg = ticketConfig
+    const cfg = ventaConfig
     return (
       <div className="max-w-md mx-auto space-y-4">
         <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-6 text-center space-y-2">
