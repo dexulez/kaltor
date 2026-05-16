@@ -190,14 +190,14 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
             {otData.precio_servicio ? (
               <div>
                 <p className="text-xs text-gray-400">Precio del servicio</p>
-                <p className="font-bold text-green-700">
+                <p className="font-extrabold text-green-700" style={{ fontSize: '1.2em' }}>
                   {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(otData.precio_servicio)}
                 </p>
               </div>
             ) : otData.presupuesto_estimado ? (
               <div>
                 <p className="text-xs text-gray-400">Presupuesto estimado</p>
-                <p className="font-medium text-gray-700">
+                <p className="font-extrabold text-gray-800" style={{ fontSize: '1.2em' }}>
                   {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(otData.presupuesto_estimado)}
                 </p>
               </div>
