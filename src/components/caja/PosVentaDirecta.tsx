@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { formatCLP, calcularIva, calcularPpm, formatRut } from '@/lib/calculations'
+import { imprimirTicketVenta, TICKET_FORMATOS, TicketFormato, TicketVentaData } from '@/lib/ticketPrint'
 import { Customer, Product } from '@/types'
 import QRScanner from '@/components/shared/QRScanner'
 import { parseProductoQR } from '@/components/shared/ProductoQRCode'
@@ -86,6 +87,9 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const [cobromixto, setCobromixto] = useState(false)
   const [metodo2, setMetodo2] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
   const [monto2Input, setMonto2Input] = useState('')
+  // Post-venta
+  const [ventaCompletada, setVentaCompletada] = useState<TicketVentaData | null>(null)
+  const [ticketFormato, setTicketFormato] = useState<TicketFormato>('ticket80')
 
   async function abrirModalNuevoProd() {
     setNpNombre(busqueda.trim())
@@ -378,6 +382,35 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
 
     toast.success(`Venta ${venta.numero_venta} registrada — ${formatCLP(totalFinal)}`)
 
+    // Preparar datos del ticket antes de limpiar
+    const ticketItems = [
+      ...carrito.map(i => ({
+        nombre: i.product.nombre,
+        cantidad: i.cantidad,
+        precio_unitario: i.product.precio_venta,
+        subtotal: i.product.precio_venta * i.cantidad,
+      })),
+      ...serviciosOT.map(ot => ({
+        nombre: `Servicio técnico ${ot.numero_ot} — ${ot.equipo}`,
+        cantidad: 1,
+        precio_unitario: ot.precio,
+        subtotal: ot.precio,
+      })),
+    ]
+    setVentaCompletada({
+      numero_venta: venta.numero_venta as string,
+      created_at: venta.created_at as string,
+      tipo_documento: tipoDoc,
+      metodo_pago: metodo,
+      cliente_nombre: clienteSeleccionado?.nombre ?? null,
+      items: ticketItems,
+      subtotal: netoTotal,
+      iva: ivaTotal,
+      ppm: ppmTotal,
+      descuento: descuentoFinal,
+      total: totalFinal,
+    })
+
     // Limpiar todo el POS para la siguiente venta
     setCarrito([])
     setServiciosOT([])
@@ -393,6 +426,49 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
 
     router.refresh()
     setLoading(false)
+  }
+
+  // Panel post-venta
+  if (ventaCompletada) {
+    const cfg = { nombre_local: 'TechRepair Pro' } // config básica disponible en client
+    return (
+      <div className="max-w-md mx-auto space-y-4">
+        <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-6 text-center space-y-2">
+          <div className="text-4xl">✅</div>
+          <p className="font-bold text-green-800 text-lg">Venta registrada</p>
+          <p className="text-green-700 font-mono text-xl font-bold">{ventaCompletada.numero_venta}</p>
+          <p className="text-green-600">{formatCLP(ventaCompletada.total)}</p>
+        </div>
+
+        <div className="bg-white rounded-xl border p-4 space-y-3">
+          <p className="text-sm font-semibold text-gray-700">Formato del ticket</p>
+          <div className="grid grid-cols-3 gap-2">
+            {TICKET_FORMATOS.map(f => (
+              <button key={f.key} type="button" onClick={() => setTicketFormato(f.key)}
+                className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl border text-center transition-colors ${ticketFormato === f.key ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-300'}`}>
+                <span className="text-xl">{f.icon}</span>
+                <p className="text-xs font-semibold text-gray-800">{f.label}</p>
+                <p className="text-xs text-gray-400">{f.desc}</p>
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => imprimirTicketVenta(ventaCompletada, cfg, ticketFormato)}
+            className="w-full py-3 rounded-xl bg-gray-800 hover:bg-gray-900 text-white font-semibold text-sm transition-colors"
+          >
+            🖨️ Imprimir ticket
+          </button>
+
+          <button
+            onClick={() => setVentaCompletada(null)}
+            className="w-full py-2.5 rounded-xl border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors"
+          >
+            + Nueva venta
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (

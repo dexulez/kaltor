@@ -6,6 +6,7 @@ import { formatCLP } from '@/lib/calculations'
 import { Customer, Equipment, RepairOrder } from '@/types'
 import SesionCajaPanel from '@/components/caja/SesionCajaPanel'
 import AnularVentaBtn from '@/components/caja/AnularVentaBtn'
+import ReprintVentaBtn from '@/components/caja/ReprintVentaBtn'
 import { tieneSubPermiso } from '@/lib/modulos'
 
 type OtPendienteCaja = RepairOrder & {
@@ -27,7 +28,7 @@ export default async function CajaPage() {
     supabase.from('repair_orders').select('*, customers(nombre), equipment(marca, modelo)')
       .eq('estado', 'listo').order('updated_at', { ascending: false }).limit(10),
     supabase.from('user_profiles').select('permisos_modulos, roles(nombre)').eq('id', user!.id).single(),
-    supabase.from('system_config').select('pin_autorizacion').maybeSingle()
+    supabase.from('system_config').select('pin_autorizacion, nombre_local, rut_local, direccion, telefono').maybeSingle()
       .then(r => r.error ? { data: null } : r),
   ])
 
@@ -35,7 +36,14 @@ export default async function CajaPage() {
   const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
   const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
   const puedeAnular = tieneSubPermiso('caja.anular', rolNombre, permisos)
-  const pinAdmin = (sysConfig as { pin_autorizacion?: string } | null)?.pin_autorizacion ?? null
+  const cfgRaw = sysConfig as { pin_autorizacion?: string; nombre_local?: string; rut_local?: string; direccion?: string; telefono?: string } | null
+  const pinAdmin = cfgRaw?.pin_autorizacion ?? null
+  const ticketCfg = {
+    nombre_local: cfgRaw?.nombre_local ?? 'TechRepair Pro',
+    rut_local: cfgRaw?.rut_local ?? null,
+    direccion: cfgRaw?.direccion ?? null,
+    telefono: cfgRaw?.telefono ?? null,
+  }
 
   const totalHoy = ventasHoy?.reduce((s, v) => s + v.total, 0) ?? 0
   const ivaHoy = ventasHoy?.reduce((s, v) => s + (v.iva ?? 0), 0) ?? 0
@@ -150,15 +158,25 @@ export default async function CajaPage() {
                       </div>
                       <div className="text-right shrink-0 flex flex-col items-end gap-1">
                         <p className={`font-bold ${v.anulada ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{formatCLP(v.total)}</p>
-                        {!v.anulada && (
-                          <AnularVentaBtn
+                        <div className="flex items-center gap-1">
+                          <ReprintVentaBtn
                             ventaId={v.id}
                             numeroVenta={v.numero_venta}
-                            total={v.total}
-                            puedeAnular={puedeAnular}
-                            pinAdmin={pinAdmin}
+                            configNombreLocal={ticketCfg.nombre_local}
+                            configRut={ticketCfg.rut_local}
+                            configDireccion={ticketCfg.direccion}
+                            configTelefono={ticketCfg.telefono}
                           />
-                        )}
+                          {!v.anulada && (
+                            <AnularVentaBtn
+                              ventaId={v.id}
+                              numeroVenta={v.numero_venta}
+                              total={v.total}
+                              puedeAnular={puedeAnular}
+                              pinAdmin={pinAdmin}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   )
