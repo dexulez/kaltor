@@ -55,7 +55,7 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
   const [tiempoMin, setTiempoMin] = useState(String(servicio?.tiempo_estimado_min ?? 60))
   // Mano de obra
   const sExtra = servicio as unknown as Record<string, unknown>
-  const [manoObraTipo, setManoObraTipo] = useState<'porcentaje' | 'monto'>((sExtra?.mano_obra_tipo as 'porcentaje' | 'monto') ?? 'porcentaje')
+  const [manoObraTipo, setManoObraTipo] = useState<'porcentaje' | 'monto' | 'utilidad'>((sExtra?.mano_obra_tipo as 'porcentaje' | 'monto' | 'utilidad') ?? 'porcentaje')
   const [manoObraValor, setManoObraValor] = useState(String(sExtra?.mano_obra_valor ?? 0))
   const [activo, setActivo] = useState(servicio?.activo ?? true)
   const [repuestos, setRepuestos] = useState<Repuesto[]>(
@@ -75,9 +75,12 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
 
   const costoRepuestos = repuestos.reduce((s, r) => s + r.precio_costo * r.cantidad, 0)
   const precio = parseInt(precioBase) || 0
+  const utilidadBruta = precio - costoRepuestos   // base para % de utilidad
   const manoObraNum = manoObraTipo === 'monto'
     ? (parseFloat(manoObraValor) || 0)
-    : Math.round(precio * (parseFloat(manoObraValor) || 0) / 100)
+    : manoObraTipo === 'utilidad'
+      ? Math.round(Math.max(0, utilidadBruta) * (parseFloat(manoObraValor) || 0) / 100)
+      : Math.round(precio * (parseFloat(manoObraValor) || 0) / 100)
   const utilidadNeta = precio - costoRepuestos - manoObraNum
   const precioSugerido = costoRepuestos + manoObraNum
   const margen = costoRepuestos > 0 ? Math.round(((precio - costoRepuestos) / costoRepuestos) * 100) : 0
@@ -304,26 +307,35 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
         {/* Mano de obra */}
         <div className="border rounded-xl p-4 space-y-3 bg-blue-50 border-blue-200">
           <p className="text-sm font-semibold text-blue-800">🔧 Mano de obra del técnico</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
             <div className="space-y-1">
-              <Label className="text-xs">Tipo</Label>
-              <div className="flex gap-2">
-                {(['porcentaje', 'monto'] as const).map(t => (
-                  <button key={t} type="button" onClick={() => setManoObraTipo(t)}
-                    className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition-colors ${manoObraTipo === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'}`}>
-                    {t === 'porcentaje' ? '% del precio' : '$ monto fijo'}
+              <Label className="text-xs">Tipo de cálculo</Label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { key: 'porcentaje', label: '% del precio' },
+                  { key: 'utilidad',   label: '% utilidad'   },
+                  { key: 'monto',      label: '$ monto fijo' },
+                ] as const).map(({ key, label }) => (
+                  <button key={key} type="button" onClick={() => setManoObraTipo(key)}
+                    className={`py-2 rounded-lg border text-xs font-medium transition-colors ${manoObraTipo === key ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'}`}>
+                    {label}
                   </button>
                 ))}
               </div>
+              {manoObraTipo === 'utilidad' && (
+                <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-2 py-1">
+                  Base = precio − repuestos ({formatCLP(Math.max(0, utilidadBruta))})
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">
-                {manoObraTipo === 'porcentaje' ? '% del precio base' : 'Monto fijo (CLP)'}
+                {manoObraTipo === 'monto' ? 'Monto fijo (CLP)' : `Porcentaje (%) sobre ${manoObraTipo === 'utilidad' ? 'la utilidad bruta' : 'el precio base'}`}
               </Label>
               <div className="flex items-center gap-1">
-                <Input type="number" min={0} max={manoObraTipo === 'porcentaje' ? 100 : undefined}
+                <Input type="number" min={0} max={manoObraTipo !== 'monto' ? 100 : undefined}
                   value={manoObraValor} onChange={e => setManoObraValor(e.target.value)} placeholder="0" />
-                <span className="text-xs text-gray-500 shrink-0">{manoObraTipo === 'porcentaje' ? '%' : 'CLP'}</span>
+                <span className="text-xs text-gray-500 shrink-0">{manoObraTipo === 'monto' ? 'CLP' : '%'}</span>
               </div>
             </div>
           </div>
@@ -331,6 +343,7 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
             <p className="text-xs text-blue-700 font-medium">
               Mano de obra calculada: <strong>{formatCLP(manoObraNum)}</strong>
               {manoObraTipo === 'porcentaje' && precio > 0 && ` (${manoObraValor}% de ${formatCLP(precio)})`}
+              {manoObraTipo === 'utilidad'   && utilidadBruta > 0 && ` (${manoObraValor}% de ${formatCLP(utilidadBruta)} utilidad bruta)`}
             </p>
           )}
         </div>
