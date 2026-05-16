@@ -430,46 +430,91 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         </button>
 
         {/* Compartir */}
-        <div className="relative">
-          <button
-            onClick={() => setShowShareMenu(s => !s)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+        <button
+          onClick={() => setShowShareMenu(true)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+        >
+          📲 Enviar seguimiento
+        </button>
+
+        {/* Modal bottom-sheet — visible en cualquier tamaño de pantalla */}
+        {showShareMenu && (
+          <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
+            onClick={() => setShowShareMenu(false)}
           >
-            📲 Enviar seguimiento
-          </button>
-          {showShareMenu && (
-            <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 w-64 p-2 space-y-1">
-              <p className="text-xs text-gray-500 px-2 py-1 font-medium uppercase tracking-wide">Enviar por:</p>
-              {cliente?.telefono && (
-                <a href={getWhatsAppUrl('cliente')} target="_blank" rel="noopener noreferrer" onClick={() => setShowShareMenu(false)}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-green-50 text-gray-700">
-                  <span className="text-lg">📱</span>
-                  <div><p className="text-sm font-medium">WhatsApp al cliente</p><p className="text-xs text-gray-400">{cliente.telefono}</p></div>
-                </a>
-              )}
-              {config.whatsapp && (
-                <a href={getWhatsAppUrl('empresa')} target="_blank" rel="noopener noreferrer" onClick={() => setShowShareMenu(false)}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-green-50 text-gray-700">
-                  <span className="text-lg">🏪</span>
-                  <div><p className="text-sm font-medium">WhatsApp empresa</p><p className="text-xs text-gray-400">{config.whatsapp}</p></div>
-                </a>
-              )}
-              {cliente?.email && (
-                <a href={getEmailUrl()} onClick={() => setShowShareMenu(false)}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 text-gray-700">
-                  <span className="text-lg">📧</span>
-                  <div><p className="text-sm font-medium">Correo electrónico</p><p className="text-xs text-gray-400">{cliente.email}</p></div>
-                </a>
-              )}
-              <button onClick={() => { navigator.clipboard.writeText(trackingUrl).catch(() => {}); alert('Link copiado'); setShowShareMenu(false) }}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-gray-700 w-full text-left">
-                <span className="text-lg">🔗</span>
-                <div><p className="text-sm font-medium">Copiar link</p><p className="text-xs text-gray-400 truncate max-w-40">{trackingUrl}</p></div>
-              </button>
+            <div
+              className="bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <div>
+                  <p className="font-semibold text-gray-800">Enviar seguimiento</p>
+                  <p className="text-xs text-gray-400 font-mono mt-0.5">{ot.numero_ot}</p>
+                </div>
+                <button onClick={() => setShowShareMenu(false)}
+                  className="text-gray-400 hover:text-gray-600 text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">✕</button>
+              </div>
+
+              {/* Opciones */}
+              <div className="p-3 space-y-1">
+                {cliente?.telefono && (
+                  <a href={getWhatsAppUrl('cliente')} target="_blank" rel="noopener noreferrer"
+                    onClick={() => setShowShareMenu(false)}
+                    className="flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-green-50 text-gray-700 transition-colors">
+                    <span className="text-2xl">📱</span>
+                    <div>
+                      <p className="text-sm font-semibold">WhatsApp al cliente</p>
+                      <p className="text-xs text-gray-400">{cliente.telefono}</p>
+                    </div>
+                  </a>
+                )}
+                {config.whatsapp && (
+                  <a href={getWhatsAppUrl('empresa')} target="_blank" rel="noopener noreferrer"
+                    onClick={() => setShowShareMenu(false)}
+                    className="flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-green-50 text-gray-700 transition-colors">
+                    <span className="text-2xl">🏪</span>
+                    <div>
+                      <p className="text-sm font-semibold">WhatsApp empresa</p>
+                      <p className="text-xs text-gray-400">{config.whatsapp}</p>
+                    </div>
+                  </a>
+                )}
+                {cliente?.email && (
+                  <a href={getEmailUrl()} onClick={() => setShowShareMenu(false)}
+                    className="flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-blue-50 text-gray-700 transition-colors">
+                    <span className="text-2xl">📧</span>
+                    <div>
+                      <p className="text-sm font-semibold">Correo electrónico</p>
+                      <p className="text-xs text-gray-400">{cliente.email}</p>
+                    </div>
+                  </a>
+                )}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(trackingUrl).catch(() => {})
+                    alert('Link copiado')
+                    setShowShareMenu(false)
+                  }}
+                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-gray-50 text-gray-700 w-full text-left transition-colors">
+                  <span className="text-2xl">🔗</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">Copiar link de seguimiento</p>
+                    <p className="text-xs text-gray-400 truncate">{trackingUrl}</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="px-4 pb-5 pt-1">
+                <button onClick={() => setShowShareMenu(false)}
+                  className="w-full py-3 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+                  Cancelar
+                </button>
+              </div>
             </div>
-          )}
-          {showShareMenu && <div className="fixed inset-0 z-10" onClick={() => setShowShareMenu(false)} />}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── Modal configuración de impresión ──────────────────────────────── */}
