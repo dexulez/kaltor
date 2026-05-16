@@ -79,7 +79,6 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   }, [trackingUrl])
   const cliente = ot.customers
   const equipo = ot.equipment
-  const fecha = new Date(ot.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const fechaHoraRecibido = new Date(ot.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const fechaEntregaStr = ot.fecha_estimada_entrega
     ? new Date(ot.fecha_estimada_entrega + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -306,27 +305,95 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${tcHtml}`
     }
 
-    // Ticket 80mm térmico
-    const sT = (t: string) => `<div style="font-weight:bold;border-top:1px dashed #000;border-bottom:1px dashed #000;padding:0.5mm 0;margin:2mm 0;font-size:7.5pt;text-transform:uppercase;text-align:center">${t}</div>`
+    // ── Ticket 80mm — datos completos ──────────────────────────────────────
+    const sT = (t: string) => `<div style="font-weight:bold;border-top:1.5px dashed #000;border-bottom:1.5px dashed #000;padding:1mm 0;margin:2.5mm 0;font-size:8pt;text-transform:uppercase;text-align:center;letter-spacing:0.5px">${t}</div>`
+
+    // Deduplicar condición visual
+    const condDedup80 = equipo?.condicion_visual?.length
+      ? [...new Map(equipo.condicion_visual.map(c => [c.toLowerCase(), c])).values()]
+      : []
+    const accs80 = equipo?.accesorios?.length
+      ? equipo.accesorios.join(' ✓ · ') + ' ✓'
+      : null
+
+    const qrImg80 = qrDataUrl
+      ? `<img src="${qrDataUrl}" style="width:28mm;height:28mm;display:block;margin:0 auto 1.5mm">`
+      : ''
+
     return `
-      <div style="text-align:center;margin-bottom:2mm">${logoHtml}
-        <div style="font-size:9pt;font-weight:bold">${config.nombre_local}</div>
-        ${config.telefono ? `<div>${config.telefono}</div>` : ''}
+      <!-- Empresa -->
+      <div style="text-align:center;margin-bottom:3mm;padding-bottom:2.5mm;border-bottom:2px dashed #000">
+        ${config.logo_url ? `<img src="${config.logo_url}" style="max-height:18mm;max-width:55mm;display:block;margin:0 auto 2mm;object-fit:contain">` : ''}
+        <div style="font-size:11pt;font-weight:bold;line-height:1.2">${config.nombre_local}</div>
+        ${config.rut_local  ? `<div style="font-size:8.5pt">RUT: ${config.rut_local}</div>`       : ''}
+        ${config.direccion  ? `<div style="font-size:8.5pt">${config.direccion}</div>`             : ''}
+        ${config.telefono   ? `<div style="font-size:8.5pt">Tel: ${config.telefono}</div>`         : ''}
+        ${config.email      ? `<div style="font-size:8pt">${config.email}</div>`                   : ''}
       </div>
-      <div style="text-align:center;border-top:1px dashed #000;border-bottom:1px dashed #000;padding:1.5mm 0;margin:2mm 0">
-        <div style="font-size:9pt;font-weight:bold;font-family:monospace">${ot.numero_ot}</div>
-        <div>Fecha: ${fecha}</div>
+
+      <!-- OT info -->
+      <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:2mm;margin-bottom:2mm">
+        <div style="font-size:8pt;letter-spacing:1px;text-transform:uppercase">COMPROBANTE DE RECEPCIÓN</div>
+        <div style="font-size:13pt;font-weight:bold;font-family:monospace;margin:1mm 0">${ot.numero_ot}</div>
+        <div style="font-size:8.5pt">Recibido: ${fechaHoraRecibido}</div>
+        ${fechaEntregaStr ? `<div style="font-size:8.5pt">Entrega est.: ${fechaEntregaStr}</div>` : ''}
       </div>
-      ${sT('CLIENTE')}<div><strong>${cliente?.nombre ?? '—'}</strong><br>${cliente?.telefono ?? ''}${cliente?.rut ? `<br>RUT: ${cliente.rut}` : ''}</div>
-      ${sT('EQUIPO')}<div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong>${equipo?.imei ? `<br><span style="font-family:monospace;font-size:7pt">IMEI: ${equipo.imei}</span>` : ''}</div>
-      ${sT('FALLA')}<div>${equipo?.falla_reportada ?? '—'}</div>
-      ${ot.presupuesto_estimado ? `${sT('PRESUPUESTO')}<div style="font-size:9pt;font-weight:bold">${formatCLP(ot.presupuesto_estimado)}</div>` : ''}
-      ${ot.precio_servicio ? `${sT('TOTAL')}<div style="font-size:10pt;font-weight:bold;color:#16a34a">${formatCLP(ot.precio_servicio)}</div>` : ''}
-      <div style="border-top:1px dashed #000;margin:3mm 0;padding-top:1.5mm;font-size:7pt;text-align:center">Seguimiento: ${ot.codigo_seguimiento}</div>
-      <div style="height:15mm;border-bottom:1px solid #000;margin-bottom:1mm"></div>
-      <div style="text-align:center;font-size:7pt">Firma cliente</div>
-      <div style="height:15mm;border-bottom:1px solid #000;margin:3mm 0 1mm"></div>
-      <div style="text-align:center;font-size:7pt">Sello empresa</div>`
+
+      <!-- Cliente -->
+      ${sT('CLIENTE')}
+      <div style="font-size:9pt;line-height:1.5">
+        <div><strong>${cliente?.nombre ?? '—'}</strong></div>
+        <div>${cliente?.telefono ?? ''}</div>
+        ${cliente?.rut   ? `<div>RUT: ${cliente.rut}</div>`   : ''}
+        ${cliente?.email ? `<div>${cliente.email}</div>`       : ''}
+      </div>
+
+      <!-- Equipo -->
+      ${sT('EQUIPO')}
+      <div style="font-size:8.5pt;line-height:1.5">
+        <div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong></div>
+        ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</div>` : ''}
+        ${equipo?.imei  ? `<div style="font-family:monospace;font-size:8pt">IMEI 1: ${equipo.imei}</div>`  : ''}
+        ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:8pt">IMEI 2: ${equipo.imei2}</div>` : ''}
+        ${equipo?.numero_serie ? `<div style="font-family:monospace;font-size:8pt">S/N: ${equipo.numero_serie}</div>` : ''}
+        ${accs80  ? `<div style="font-size:8pt;margin-top:0.5mm">Acc: ${accs80}</div>`                            : ''}
+        ${condDedup80.length ? `<div style="font-size:8pt">Cond: ${condDedup80.join(' · ')}</div>`                : ''}
+        ${equipo?.observaciones ? `<div style="font-size:8pt"><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
+      </div>
+
+      <!-- Servicio -->
+      ${sT('SERVICIO')}
+      <div style="font-size:8.5pt;line-height:1.5">
+        ${ot.tipo_reparacion ? `<div>Tipo: <strong>${TIPO_LABELS[ot.tipo_reparacion] ?? ot.tipo_reparacion}</strong></div>` : ''}
+        ${mostrarTecnico && ot.user_profiles ? `<div>Técnico: ${ot.user_profiles.nombre_completo}</div>` : ''}
+        <div><strong>Falla:</strong> ${equipo?.falla_reportada ?? '—'}</div>
+        ${equipo?.observaciones ? `<div style="font-size:8pt"><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
+        ${ot.diagnostico_tecnico ? `<div style="font-size:8pt"><strong>Diagnóstico:</strong> ${ot.diagnostico_tecnico}</div>` : ''}
+      </div>
+
+      <!-- Cobro -->
+      ${(ot.presupuesto_estimado || ot.precio_servicio) ? `
+        ${sT('COBRO')}
+        <div style="font-size:9pt;line-height:1.6">
+          ${ot.presupuesto_estimado ? `<div>Presupuesto: <strong>${formatCLP(ot.presupuesto_estimado)}</strong></div>` : ''}
+          ${ot.precio_servicio ? `<div style="font-size:11pt;font-weight:bold">TOTAL: ${formatCLP(ot.precio_servicio)}</div>` : ''}
+        </div>` : ''}
+
+      <!-- QR + Seguimiento -->
+      <div style="text-align:center;margin:3mm 0;border-top:1px dashed #000;padding-top:2.5mm">
+        ${qrImg80}
+        <div style="font-size:8pt;margin-bottom:0.5mm">Escanea para ver el estado de tu reparación</div>
+        <div style="font-size:7.5pt;font-family:monospace;word-break:break-all;color:#1e3a5f">${trackingUrl}</div>
+      </div>
+
+      <!-- Firmas -->
+      <div style="margin-top:3mm">
+        <div style="height:14mm;border-bottom:1.5px solid #000;margin-bottom:1.5mm"></div>
+        <div style="text-align:center;font-size:8pt;color:#555">Firma y RUT cliente</div>
+        <div style="height:14mm;border-bottom:1.5px solid #000;margin:4mm 0 1.5mm"></div>
+        <div style="text-align:center;font-size:8pt;color:#555">Firma técnico / Sello empresa</div>
+      </div>
+      <div style="height:14mm"></div>`
   }
 
   // ── CSS por formato ────────────────────────────────────────────────────────
