@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import PosVentaDirecta from '@/components/caja/PosVentaDirecta'
+import AbrirCajaInline from '@/components/caja/AbrirCajaInline'
+
+const TZ = 'America/Santiago'
 
 export default async function VentaDirectaPage({
   searchParams,
@@ -10,11 +13,17 @@ export default async function VentaDirectaPage({
   const { ot: otId } = await searchParams
   const supabase = await createClient()
 
-  const [{ data: productos }, { data: config }, { data: clientes }] = await Promise.all([
+  const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
+
+  const [{ data: productos }, { data: config }, { data: clientes }, { data: sesion }] = await Promise.all([
     supabase.from('products').select('*, product_categories(*)').eq('activo', true).gt('stock_actual', 0).order('nombre'),
     supabase.from('system_config').select('*').single(),
     supabase.from('customers').select('id, nombre, telefono, rut').order('nombre'),
+    supabase.from('sesiones_caja').select('id, estado').eq('fecha', hoy).eq('estado', 'abierta').maybeSingle()
+      .then(r => r.error ? { data: null } : r),
   ])
+
+  const cajaAbierta = !!sesion
 
   // Si viene con ?ot=ID, precargar la OT en el carrito de servicios
   let otPreload = null
@@ -47,15 +56,20 @@ export default async function VentaDirectaPage({
         <Link href="/caja" className="text-sm text-blue-600 hover:underline">← Volver a Caja</Link>
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Venta directa</h1>
       </div>
-      <PosVentaDirecta
-        productos={productos ?? []}
-        clientes={clientes ?? []}
-        IVA={config?.iva ?? 19}
-        PPM={config?.ppm ?? 3}
-        comisionDebito={config?.comision_debito ?? 0}
-        comisionCredito={config?.comision_credito ?? 0}
-        otPreload={otPreload}
-      />
+
+      {!cajaAbierta ? (
+        <AbrirCajaInline />
+      ) : (
+        <PosVentaDirecta
+          productos={productos ?? []}
+          clientes={clientes ?? []}
+          IVA={config?.iva ?? 19}
+          PPM={config?.ppm ?? 3}
+          comisionDebito={config?.comision_debito ?? 0}
+          comisionCredito={config?.comision_credito ?? 0}
+          otPreload={otPreload}
+        />
+      )}
     </div>
   )
 }

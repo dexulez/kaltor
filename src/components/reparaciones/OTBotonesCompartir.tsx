@@ -224,6 +224,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${equipo?.numero_serie ? `<div style="font-family:monospace;font-size:7pt">S/N: ${equipo.numero_serie}</div>` : ''}
         ${accs ? `<div style="font-size:7.5pt">Acc: ${accs}</div>` : ''}
         ${equipo?.condicion_visual?.length ? `<div style="font-size:7.5pt">Cond: ${equipo.condicion_visual.join(' · ')}</div>` : ''}
+        ${equipo?.observaciones ? `<div style="font-size:7.5pt;margin-top:1mm"><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
       </div>
     </div>`
   }

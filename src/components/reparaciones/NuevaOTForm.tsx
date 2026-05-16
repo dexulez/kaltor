@@ -394,6 +394,22 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     router.refresh()
   }
 
+  function resetForm() {
+    clearDraft(DRAFT_KEY)
+    setClienteId(clienteIdInicial ?? '')
+    setBusqCliente('')
+    setEquipo({ tipo_equipo: '', marca: '', modelo: '', imei: '', color: '', capacidad: '', observaciones: '', falla_reportada: '' })
+    setOt({ tecnico_id: '', tipo_reparacion: '', presupuesto_estimado: '', fecha_estimada_entrega: '' })
+    setAcc({ cargador: false, cable: false, cajaCaraga: false, funda: false, bandejaSim: false, microsd: false, sim: false, simCantidad: 1, sim1Carrier: '', sim2Carrier: '' })
+    setCond({ sin_danos: false, equipo_apagado: false, carga: '', cargaVoltios: '', cargaAmperaje: '', rayones: [], golpes: [], pantalla_trizada: false, marco_doblado: false, humedad: [], quemaduras: [] })
+    setImeiCount(1)
+    setImei2('')
+    setNumeroSerie('')
+    setRepuestos([])
+    setProdSearch('')
+    setDraftRestored(false)
+  }
+
   const clienteSeleccionado = clientesList.find(c => c.id === clienteId)
   const tecnicoSeleccionado = tecnicos.find(t => t.id === ot.tecnico_id)
   const tecnicoValue = tecnicoSeleccionado ? ot.tecnico_id : ''
@@ -409,9 +425,9 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
           <p className="text-sm text-amber-800 font-medium">
             📋 Se restauró un borrador guardado. Continúa donde lo dejaste.
           </p>
-          <button type="button" onClick={() => { clearDraft(DRAFT_KEY); router.refresh() }}
+          <button type="button" onClick={resetForm}
             className="text-xs text-amber-600 hover:text-amber-800 underline shrink-0">
-            Descartar borrador
+            Descartar borrador y limpiar
           </button>
         </div>
       )}
@@ -746,7 +762,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                 <button type="button"
                   onClick={() => {
                     if (condAreas(tipo).length > 0) setCond(c => ({ ...c, [tipo]: [] }))
-                    else setCond(c => ({ ...c, [tipo]: ['pantalla'] }))
+                    else setCond(c => ({ ...c, [tipo]: ['Pantalla'] }))
                   }}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${condAreas(tipo).length > 0 ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'}`}>
                   {tipo === 'rayones' ? 'Rayones' : 'Golpes'}
