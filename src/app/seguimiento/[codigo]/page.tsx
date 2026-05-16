@@ -25,7 +25,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
       id, numero_ot, estado, created_at, precio_servicio, presupuesto_estimado,
       diagnostico_tecnico, codigo_seguimiento,
       customers(nombre, telefono),
-      equipment(marca, modelo, color, capacidad, falla_reportada, observaciones,
+      equipment(tipo_equipo, marca, modelo, color, capacidad, falla_reportada, observaciones,
                 imei, imei2, numero_serie, accesorios, condicion_visual)
     `)
     .eq('codigo_seguimiento', codigo)
@@ -62,7 +62,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
   type OTData = typeof ot & {
     customers: { nombre: string; telefono: string } | null
     equipment: {
-      marca: string; modelo: string; color?: string; capacidad?: string
+      tipo_equipo?: string | null; marca: string; modelo: string; color?: string; capacidad?: string
       falla_reportada: string; observaciones?: string
       imei?: string | null; imei2?: string | null; numero_serie?: string | null
       accesorios?: string[]; condicion_visual?: string[]
@@ -169,7 +169,14 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
 
         {/* Info del equipo */}
         <div className="bg-white rounded-xl border shadow-sm p-5 space-y-3">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Tu equipo</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Tu equipo</h2>
+            {equipo?.tipo_equipo && (
+              <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2.5 py-1 rounded-full capitalize">
+                {equipo.tipo_equipo}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-xs text-gray-400">Marca y modelo</p>

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatRut, formatCLP } from '@/lib/calculations'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
+import TipoEquipoSelector from '@/components/reparaciones/TipoEquipoSelector'
 import CrearServicioInline from '@/components/servicios/CrearServicioInline'
 import Link from 'next/link'
 const CAPACIDADES = ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
@@ -230,7 +231,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   })
 
   const [equipo, setEquipo] = useState({
-    marca: '', modelo: '', imei: '', color: '', capacidad: '',
+    tipo_equipo: '', marca: '', modelo: '', imei: '', color: '', capacidad: '',
     observaciones: '', falla_reportada: '',
   })
   const [ot, setOt] = useState({
@@ -318,6 +319,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     // Intentar con imei2/numero_serie (requiere SQL migración 14)
     const basePayload = {
       customer_id: clienteId,
+      tipo_equipo: equipo.tipo_equipo || null,
       marca: equipo.marca || 'Sin especificar',
       modelo: equipo.modelo || 'Sin especificar',
       imei: equipo.imei || null,
@@ -552,6 +554,15 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       {/* Equipo */}
       <div className="bg-white rounded-xl border p-5 space-y-5">
         <h2 className="font-semibold text-gray-800">2. Datos del equipo</h2>
+
+        {/* Tipo de equipo */}
+        <div className="space-y-1.5">
+          <Label className="font-semibold">Tipo de equipo <span className="text-red-500">*</span></Label>
+          <TipoEquipoSelector
+            value={equipo.tipo_equipo}
+            onChange={v => setEquipo(eq => ({ ...eq, tipo_equipo: v }))}
+          />
+        </div>
 
         {/* Marca / Modelo / Color / Capacidad */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
