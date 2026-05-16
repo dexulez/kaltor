@@ -69,11 +69,31 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   // ── Servicios disponibles ────────────────────────────────────────────────
   interface ServicioItem { id: string; nombre: string; tipo_reparacion: string; precio_base: number; descripcion: string | null }
   const [servicios, setServicios] = useState<ServicioItem[]>([])
+  const [serviciosSeleccionados, setServiciosSeleccionados] = useState<ServicioItem[]>([])
   useEffect(() => {
     supabase.from('repair_services').select('id, nombre, tipo_reparacion, precio_base, descripcion').eq('activo', true).order('nombre')
       .then(({ data }) => setServicios((data ?? []) as ServicioItem[]))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function agregarServicioOT(s: ServicioItem) {
+    setServiciosSeleccionados(prev => {
+      if (prev.find(x => x.id === s.id)) return prev
+      const nuevo = [...prev, s]
+      const suma = nuevo.reduce((t, x) => t + x.precio_base, 0)
+      setOt(o => ({ ...o, presupuesto_estimado: String(suma) }))
+      return nuevo
+    })
+  }
+
+  function quitarServicioOT(id: string) {
+    setServiciosSeleccionados(prev => {
+      const nuevo = prev.filter(x => x.id !== id)
+      const suma = nuevo.reduce((t, x) => t + x.precio_base, 0)
+      setOt(o => ({ ...o, presupuesto_estimado: nuevo.length > 0 ? String(suma) : '' }))
+      return nuevo
+    })
+  }
 
   // ── Repuestos a agregar en la recepción ──────────────────────────────────
   interface RepuestoLocal { _key: string; product_id: string | null; nombre: string; cantidad: number; precio_costo: number }
@@ -837,12 +857,13 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         {/* Servicios sugeridos */}
         <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-gray-700">🔩 Servicio</Label>
+              <Label className="text-sm font-semibold text-gray-700">🔩 Servicios</Label>
               <CrearServicioInline
                 nombreSugerido={equipo.falla_reportada.trim()}
                 onCreated={s => {
-                  setServicios(prev => [...prev, { ...s, descripcion: null }])
-                  setOt(o => ({ ...o, tipo_reparacion: s.tipo_reparacion, presupuesto_estimado: String(s.precio_base) }))
+                  const nuevo: ServicioItem = { ...s, descripcion: null }
+                  setServicios(prev => [...prev, nuevo])
+                  agregarServicioOT(nuevo)
                 }}
               />
             </div>
@@ -850,10 +871,31 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             {/* Buscador de servicio */}
             <BuscadorServicioOT
               servicios={servicios}
-              onSelect={s => setOt(o => ({ ...o, tipo_reparacion: s.tipo_reparacion, presupuesto_estimado: String(s.precio_base) }))}
-              selectedPrecio={ot.presupuesto_estimado}
-              selectedTipo={ot.tipo_reparacion}
+              onSelect={s => agregarServicioOT(s)}
             />
+
+            {/* Servicios seleccionados */}
+            {serviciosSeleccionados.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                  Servicios seleccionados ({serviciosSeleccionados.length}) — Total: {formatCLP(serviciosSeleccionados.reduce((s, x) => s + x.precio_base, 0))}
+                </p>
+                {serviciosSeleccionados.map(s => (
+                  <div key={s.id} className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-lg px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{s.nombre}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <p className="text-sm font-bold text-blue-700">{formatCLP(s.precio_base)}</p>
+                      <button type="button" onClick={() => quitarServicioOT(s.id)}
+                        className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Sugeridos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(equipo.falla_reportada.trim().length >= 3
                 ? servicios.filter(s => {
@@ -865,24 +907,24 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                     ))
                   }).slice(0, 6)
                 : servicios.slice(0, 6)
-              ).map(s => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setOt(o => ({
-                    ...o,
-                    tipo_reparacion: s.tipo_reparacion,
-                    presupuesto_estimado: String(s.precio_base),
-                  }))}
-                  className={`text-left p-3 rounded-xl border transition-all ${ot.presupuesto_estimado === String(s.precio_base) && ot.tipo_reparacion === s.tipo_reparacion ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
-                >
-                  <p className="text-sm font-semibold text-gray-800 leading-tight">{s.nombre}</p>
-                  <p className="text-xs text-blue-700 font-bold mt-0.5">
-                    ${s.precio_base.toLocaleString('es-CL')}
-                  </p>
-                  {s.descripcion && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{s.descripcion}</p>}
-                </button>
-              ))}
+              ).map(s => {
+                const seleccionado = !!serviciosSeleccionados.find(x => x.id === s.id)
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => seleccionado ? quitarServicioOT(s.id) : agregarServicioOT(s)}
+                    className={`text-left p-3 rounded-xl border transition-all relative ${seleccionado ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
+                  >
+                    {seleccionado && <span className="absolute top-2 right-2 text-blue-500 text-xs font-bold">✓</span>}
+                    <p className="text-sm font-semibold text-gray-800 leading-tight pr-4">{s.nombre}</p>
+                    <p className="text-xs text-blue-700 font-bold mt-0.5">
+                      {formatCLP(s.precio_base)}
+                    </p>
+                    {s.descripcion && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{s.descripcion}</p>}
+                  </button>
+                )
+              })}
             </div>
             {equipo.falla_reportada.trim().length >= 3 &&
               servicios.filter(s => {
@@ -927,10 +969,15 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Presupuesto estimado (CLP)</Label>
+            <Label>Presupuesto estimado / Total a cobrar (CLP)</Label>
             <Input type="number" placeholder="0" min={0}
               value={ot.presupuesto_estimado}
               onChange={e => setOt(o => ({ ...o, presupuesto_estimado: e.target.value }))} />
+            {serviciosSeleccionados.length > 0 && (
+              <p className="text-xs text-blue-600">
+                Auto-calculado desde {serviciosSeleccionados.length} servicio(s)
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Fecha tentativa de entrega</Label>
@@ -1040,13 +1087,9 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
 function BuscadorServicioOT({
   servicios,
   onSelect,
-  selectedPrecio,
-  selectedTipo,
 }: {
   servicios: { id: string; nombre: string; tipo_reparacion: string; precio_base: number; descripcion: string | null }[]
-  onSelect: (s: { tipo_reparacion: string; precio_base: number }) => void
-  selectedPrecio: string
-  selectedTipo: string
+  onSelect: (s: { id: string; nombre: string; tipo_reparacion: string; precio_base: number; descripcion: string | null }) => void
 }) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
@@ -1063,10 +1106,6 @@ function BuscadorServicioOT({
   const filtrados = q.trim().length >= 1
     ? servicios.filter(s => s.nombre.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
     : servicios.slice(0, 8)
-
-  const seleccionado = servicios.find(
-    s => s.tipo_reparacion === selectedTipo && String(s.precio_base) === selectedPrecio
-  )
 
   return (
     <div ref={ref} className="relative">
@@ -1089,30 +1128,18 @@ function BuscadorServicioOT({
         <div className="absolute z-20 mt-1 w-full bg-white border rounded-xl shadow-lg max-h-56 overflow-y-auto">
           {filtrados.length === 0 ? (
             <p className="text-center text-gray-400 text-sm py-4">Sin resultados</p>
-          ) : filtrados.map(s => {
-            const activo = s.tipo_reparacion === selectedTipo && String(s.precio_base) === selectedPrecio
-            return (
-              <button key={s.id} type="button"
-                onClick={() => { onSelect(s); setQ(s.nombre); setOpen(false) }}
-                className={`w-full text-left px-3 py-2.5 border-b last:border-0 hover:bg-blue-50 transition-colors flex justify-between items-center gap-2 ${activo ? 'bg-blue-50' : ''}`}>
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-800 text-sm truncate">{s.nombre}</p>
-                  {s.descripcion && <p className="text-xs text-gray-400 truncate">{s.descripcion}</p>}
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="font-bold text-blue-700 text-sm">${s.precio_base.toLocaleString('es-CL')}</p>
-                  {activo && <p className="text-xs text-blue-600">✓ seleccionado</p>}
-                </div>
-              </button>
-            )
-          })}
+          ) : filtrados.map(s => (
+            <button key={s.id} type="button"
+              onClick={() => { onSelect(s); setQ(''); setOpen(false) }}
+              className="w-full text-left px-3 py-2.5 border-b last:border-0 hover:bg-blue-50 transition-colors flex justify-between items-center gap-2">
+              <div className="min-w-0">
+                <p className="font-medium text-gray-800 text-sm truncate">{s.nombre}</p>
+                {s.descripcion && <p className="text-xs text-gray-400 truncate">{s.descripcion}</p>}
+              </div>
+              <p className="font-bold text-blue-700 text-sm shrink-0">{s.precio_base.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}</p>
+            </button>
+          ))}
         </div>
-      )}
-
-      {seleccionado && !open && (
-        <p className="text-xs text-blue-700 mt-1 font-medium">
-          ✓ Servicio seleccionado: <strong>{seleccionado.nombre}</strong> — ${seleccionado.precio_base.toLocaleString('es-CL')}
-        </p>
       )}
     </div>
   )

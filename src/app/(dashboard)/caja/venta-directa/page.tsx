@@ -30,13 +30,13 @@ export default async function VentaDirectaPage({
   if (otId) {
     const { data: otData } = await supabase
       .from('repair_orders')
-      .select('id, numero_ot, precio_servicio, customers(nombre), equipment(marca, modelo)')
+      .select('id, numero_ot, precio_servicio, presupuesto_estimado, customers(nombre), equipment(marca, modelo)')
       .eq('id', otId)
-      .eq('estado', 'listo')
+      .in('estado', ['listo', 'para_entrega'])
       .single()
     if (otData) {
       const ot = otData as unknown as {
-        id: string; numero_ot: string; precio_servicio: number | null
+        id: string; numero_ot: string; precio_servicio: number | null; presupuesto_estimado: number | null
         customers: { nombre: string } | null
         equipment: { marca: string; modelo: string } | null
       }
@@ -45,7 +45,7 @@ export default async function VentaDirectaPage({
         numero_ot: ot.numero_ot,
         cliente_nombre: ot.customers?.nombre ?? '—',
         equipo: `${ot.equipment?.marca ?? ''} ${ot.equipment?.modelo ?? ''}`.trim(),
-        precio: ot.precio_servicio ?? 0,
+        precio: ot.precio_servicio ?? ot.presupuesto_estimado ?? 0,
       }
     }
   }
