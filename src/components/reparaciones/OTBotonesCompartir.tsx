@@ -362,13 +362,59 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   // ── WhatsApp / Email ───────────────────────────────────────────────────────
   function getWhatsAppUrl(destino: 'cliente' | 'empresa') {
     const phone = (destino === 'cliente' ? (cliente?.telefono ?? '') : (config.whatsapp ?? '')).replace(/\D/g, '')
-    const msg = `Hola ${cliente?.nombre ?? 'cliente'}, te informamos sobre tu ${equipo?.marca ?? ''} ${equipo?.modelo ?? ''} en *${config.nombre_local}*.\n\nOT: *${ot.numero_ot}*\nEstado: ${ot.estado.replace(/_/g, ' ')}\n\nSeguimiento en línea:\n${trackingUrl}`
+
+    // Bloque de datos de la empresa
+    const firma: string[] = []
+    if (config.nombre_local) firma.push(`*${config.nombre_local}*`)
+    if (config.rut_local)    firma.push(`RUT: ${config.rut_local}`)
+    if (config.direccion)    firma.push(config.direccion)
+    if (config.telefono)     firma.push(`Tel: ${config.telefono}`)
+    if (config.email)        firma.push(config.email)
+
+    const estadoLabel: Record<string, string> = {
+      recibido: 'Recibido', en_diagnostico: 'En diagnóstico',
+      presupuestado: 'Presupuestando', aprobado: 'Aceptado', rechazado: 'Rechazado',
+      esperando_repuesto: 'Esperando repuesto', en_reparacion: 'En reparación',
+      listo: 'Listo para retirar', para_entrega: 'Para entrega',
+      entregado: 'Entregado', en_garantia: 'En garantía', cancelado: 'Cancelado',
+    }
+
+    const msg = [
+      `Hola ${cliente?.nombre ?? 'cliente'}, te informamos sobre el estado de tu *${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}*.`,
+      '',
+      firma.join('\n'),
+      '',
+      `OT: *${ot.numero_ot}*`,
+      `Estado: *${estadoLabel[ot.estado] ?? ot.estado.replace(/_/g, ' ')}*`,
+      '',
+      `Seguimiento en línea:\n${trackingUrl}`,
+    ].join('\n')
+
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
   }
 
   function getEmailUrl() {
-    const subject = `Tu reparación ${ot.numero_ot} — ${config.nombre_local}`
-    const body = `Hola ${cliente?.nombre ?? 'cliente'},\n\nTe informamos sobre el estado de tu ${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}.\n\nOT: ${ot.numero_ot}\nEstado: ${ot.estado.replace(/_/g, ' ')}\n\nSeguimiento en línea:\n${trackingUrl}\n\n${config.nombre_local}${config.telefono ? `\nTel: ${config.telefono}` : ''}`
+    const firma: string[] = []
+    if (config.nombre_local) firma.push(config.nombre_local)
+    if (config.rut_local)    firma.push(`RUT: ${config.rut_local}`)
+    if (config.direccion)    firma.push(config.direccion)
+    if (config.telefono)     firma.push(`Tel: ${config.telefono}`)
+    if (config.email)        firma.push(config.email)
+
+    const subject = `Estado de tu reparación ${ot.numero_ot}`
+    const body = [
+      `Hola ${cliente?.nombre ?? 'cliente'},`,
+      '',
+      `Te informamos sobre el estado de tu ${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}.`,
+      '',
+      `OT: ${ot.numero_ot}`,
+      `Estado: ${ot.estado.replace(/_/g, ' ')}`,
+      '',
+      `Seguimiento en línea:\n${trackingUrl}`,
+      '',
+      firma.join('\n'),
+    ].join('\n')
+
     return `mailto:${cliente?.email ?? ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 

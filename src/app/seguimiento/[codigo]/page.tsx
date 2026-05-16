@@ -1,5 +1,48 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ codigo: string }> }
+): Promise<Metadata> {
+  const { codigo } = await params
+  const supabase = createServiceClient()
+
+  const [{ data: ot }, { data: cfg }] = await Promise.all([
+    supabase.from('repair_orders')
+      .select('numero_ot, customers(nombre), equipment(marca, modelo)')
+      .eq('codigo_seguimiento', codigo)
+      .single(),
+    supabase.from('system_config')
+      .select('nombre_local, logo_url, telefono, direccion')
+      .maybeSingle(),
+  ])
+
+  const nombreLocal = (cfg as { nombre_local?: string } | null)?.nombre_local ?? ''
+  const logoUrl     = (cfg as { logo_url?: string | null } | null)?.logo_url ?? null
+  const eq = (ot as Record<string, unknown> | null)?.equipment as { marca: string; modelo: string } | null
+  const equipo = eq ? `${eq.marca} ${eq.modelo}` : 'equipo'
+  const otNum  = (ot as Record<string, unknown> | null)?.numero_ot as string ?? ''
+
+  const title = nombreLocal || 'Seguimiento de reparación'
+  const description = `Estado de ${equipo}${otNum ? ` — ${otNum}` : ''}`
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      ...(logoUrl ? { images: [{ url: logoUrl, width: 400, height: 400 }] } : {}),
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+      ...(logoUrl ? { images: [logoUrl] } : {}),
+    },
+  }
+}
 
 const ESTADO_INFO: Record<string, { label: string; color: string; bg: string; icono: string }> = {
   recibido:           { label: 'Recibido en taller',        color: 'text-gray-700',    bg: 'bg-gray-100',    icono: '📥' },
