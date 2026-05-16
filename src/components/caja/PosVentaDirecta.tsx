@@ -573,7 +573,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
         {/* Carrito */}
         <div className="bg-white rounded-xl border overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b">
-            <p className="font-semibold text-gray-800">Productos en venta ({carrito.length})</p>
+            <p className="font-semibold text-gray-800">Productos y/o Servicios a Cobrar ({carrito.length + serviciosOT.length})</p>
           </div>
           {carrito.length === 0 ? (
             <p className="text-center text-gray-400 py-10 text-sm">Busca y agrega productos...</p>
@@ -791,7 +791,16 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
 
             <div className="space-y-1.5">
               <Label>Documento</Label>
-              <Select value={tipoDoc} onValueChange={(v) => setTipoDoc(v as typeof tipoDoc)}>
+              {/* Presupuesto solo disponible para Efectivo y Transferencia */}
+              {(metodo === 'debito' || metodo === 'credito') && tipoDoc === 'presupuesto' && (() => { setTimeout(() => setTipoDoc('boleta'), 0); return null })()}
+              <Select
+                value={tipoDoc}
+                onValueChange={v => {
+                  const val = v as typeof tipoDoc
+                  if (val === 'presupuesto' && (metodo === 'debito' || metodo === 'credito')) return
+                  setTipoDoc(val)
+                }}
+              >
                 <SelectTrigger>
                   <span className="flex-1 text-left text-sm">
                     {tipoDoc === 'boleta' ? '🧾 Boleta' : tipoDoc === 'factura' ? '📄 Factura' : '📋 Presupuesto'}
@@ -800,12 +809,17 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
                 <SelectContent>
                   <SelectItem value="boleta">🧾 Boleta</SelectItem>
                   <SelectItem value="factura">📄 Factura</SelectItem>
-                  <SelectItem value="presupuesto">📋 Presupuesto (sin impuestos)</SelectItem>
+                  {(metodo === 'efectivo' || metodo === 'transferencia') && (
+                    <SelectItem value="presupuesto">📋 Presupuesto (sin IVA ni PPM)</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {(metodo === 'debito' || metodo === 'credito') && (
+                <p className="text-xs text-gray-400">Débito/Crédito solo admite Boleta o Factura</p>
+              )}
               {esPresupuesto && (
                 <p className="text-xs text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg">
-                  Solo descuenta stock. No registra IVA ni PPM. Útil para control interno o retiro de mercancía.
+                  📋 Descuenta stock y suma a ventas sin IVA ni PPM. Válido solo con Efectivo o Transferencia.
                 </p>
               )}
             </div>

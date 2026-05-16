@@ -118,7 +118,7 @@ export default async function CajaPage() {
                       <p className="text-sm text-gray-700">{ot.customers?.nombre}</p>
                       <p className="text-xs text-gray-400">{ot.equipment?.marca} {ot.equipment?.modelo}</p>
                     </div>
-                    <Link href={`/caja/cobrar-ot/${ot.id}`}>
+                    <Link href={`/caja/venta-directa?ot=${ot.id}`}>
                       <Button size="sm" className="bg-green-600 hover:bg-green-700 shrink-0">Cobrar</Button>
                     </Link>
                   </div>

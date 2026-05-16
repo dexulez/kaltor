@@ -112,7 +112,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         <div className="flex flex-col gap-2 items-end">
           {/* Botones de cobro */}
           {(otDetalle.estado === 'listo' || otDetalle.estado === 'para_entrega') && (
-            <Link href={`/caja/cobrar-ot/${otDetalle.id}`}>
+            <Link href={`/caja/venta-directa?ot=${otDetalle.id}`}>
               <Button className="bg-green-600 hover:bg-green-700 gap-1.5">
                 💰 Cobrar en caja →
               </Button>
