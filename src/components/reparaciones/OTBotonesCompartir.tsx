@@ -237,6 +237,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${ot.tipo_reparacion ? `<div><strong>Tipo:</strong> ${TIPO_LABELS[ot.tipo_reparacion] ?? ot.tipo_reparacion}</div>` : ''}
         ${mostrarTecnico && ot.user_profiles ? `<div><strong>Técnico:</strong> ${ot.user_profiles.nombre_completo}</div>` : ''}
         <div><strong>Falla:</strong> ${equipo?.falla_reportada ?? '—'}</div>
+        ${equipo?.observaciones ? `<div><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
         ${ot.diagnostico_tecnico ? `<div><strong>Diagnóstico:</strong> ${ot.diagnostico_tecnico}</div>` : ''}
       </div>
     </div>`

@@ -111,8 +111,8 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
 
         <div className="flex flex-col gap-2 items-end">
           {/* Botones de cobro */}
-          {otDetalle.estado === 'listo' && (
-            <Link href={`/caja/venta-directa?ot=${otDetalle.id}`}>
+          {(otDetalle.estado === 'listo' || otDetalle.estado === 'para_entrega') && (
+            <Link href={`/caja/cobrar-ot/${otDetalle.id}`}>
               <Button className="bg-green-600 hover:bg-green-700 gap-1.5">
                 💰 Cobrar en caja →
               </Button>
@@ -122,6 +122,11 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
           <Link href={`/servicios/nuevo?returnTo=/reparaciones/${otDetalle.id}`}>
             <Button variant="outline" size="sm" className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50">
               ➕ Crear servicio
+            </Button>
+          </Link>
+          <Link href={`/reparaciones/${otDetalle.id}/editar`}>
+            <Button variant="outline" size="sm" className="gap-1.5 text-gray-600 border-gray-300 hover:bg-gray-50">
+              ✏️ Editar OT
             </Button>
           </Link>
           <CambiarEstadoOT otId={otDetalle.id} estadoActual={otDetalle.estado} />

@@ -1,13 +1,14 @@
 export type RepairStatus =
   | 'recibido'
   | 'en_diagnostico'
-  | 'presupuestado'
-  | 'aprobado'
+  | 'presupuestado'   // "Presupuestando"
+  | 'aprobado'        // "Aceptado"
   | 'rechazado'
   | 'esperando_repuesto'
   | 'en_reparacion'
-  | 'listo'
-  | 'entregado'
+  | 'listo'           // resultado: exitosa (reparado) | no_exitosa (sin reparación)
+  | 'para_entrega'    // nuevo: equipo listo para retirar
+  | 'entregado'       // después del cobro
   | 'en_garantia'
   | 'cancelado'
 

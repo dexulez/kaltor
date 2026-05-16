@@ -12,22 +12,36 @@ import { RepairStatus } from '@/types'
 export const ESTADO_LABELS: Record<RepairStatus, string> = {
   recibido:           'Recibido',
   en_diagnostico:     'En diagnóstico',
-  presupuestado:      'Presupuestado',
-  aprobado:           'Aprobado',
+  presupuestado:      'Presupuestando',
+  aprobado:           'Aceptado',
   rechazado:          'Rechazado',
   esperando_repuesto: 'Esperando repuesto',
   en_reparacion:      'En reparación',
   listo:              'Listo',
+  para_entrega:       'Para entrega',
   entregado:          'Entregado',
   en_garantia:        'En garantía',
   cancelado:          'Cancelado',
 }
 
+// Flujo lógico de estados
 const TODOS_ESTADOS: RepairStatus[] = [
-  'recibido', 'en_diagnostico', 'presupuestado', 'aprobado',
-  'rechazado', 'esperando_repuesto', 'en_reparacion',
-  'listo', 'entregado', 'en_garantia', 'cancelado',
+  'recibido', 'en_diagnostico',
+  'presupuestado', 'aprobado', 'rechazado',
+  'esperando_repuesto', 'en_reparacion',
+  'listo', 'para_entrega', 'entregado',
+  'en_garantia', 'cancelado',
 ]
+
+// Descripción del estado para el técnico
+export const ESTADO_DESC: Partial<Record<RepairStatus, string>> = {
+  presupuestado:  'Enviando presupuesto al cliente',
+  aprobado:       'Cliente aceptó el presupuesto',
+  rechazado:      'Cliente rechazó el presupuesto',
+  listo:          'Reparación terminada (marcar resultado abajo)',
+  para_entrega:   'Equipo listo para retiro y pago',
+  en_garantia:    'El equipo regresó por garantía',
+}
 
 export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; estadoActual: RepairStatus }) {
   const router = useRouter()

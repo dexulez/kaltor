@@ -11,26 +11,36 @@ const ESTADOS: { value: RepairStatus | 'todas'; label: string; color: string }[]
   { value: 'todas',              label: 'Todas',              color: 'bg-gray-100 text-gray-700' },
   { value: 'recibido',           label: 'Recibido',           color: 'bg-gray-200 text-gray-700' },
   { value: 'en_diagnostico',     label: 'En diagnóstico',     color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'presupuestado',      label: 'Presupuestado',      color: 'bg-blue-100 text-blue-700' },
-  { value: 'aprobado',           label: 'Aprobado',           color: 'bg-indigo-100 text-indigo-700' },
+  { value: 'presupuestado',      label: 'Presupuestando',     color: 'bg-blue-100 text-blue-700' },
+  { value: 'aprobado',           label: 'Aceptado',           color: 'bg-indigo-100 text-indigo-700' },
   { value: 'esperando_repuesto', label: 'Esperando repuesto', color: 'bg-orange-100 text-orange-700' },
   { value: 'en_reparacion',      label: 'En reparación',      color: 'bg-purple-100 text-purple-700' },
   { value: 'listo',              label: 'Listo',              color: 'bg-green-100 text-green-700' },
+  { value: 'para_entrega',       label: 'Para entrega',       color: 'bg-cyan-100 text-cyan-700' },
   { value: 'entregado',          label: 'Entregado',          color: 'bg-emerald-100 text-emerald-700' },
 ]
 
-const ESTADO_COLOR: Partial<Record<RepairStatus, string>> = {
+export const ESTADO_COLOR: Partial<Record<RepairStatus, string>> = {
   recibido:           'bg-gray-200 text-gray-700',
   en_diagnostico:     'bg-yellow-100 text-yellow-700',
   presupuestado:      'bg-blue-100 text-blue-700',
   aprobado:           'bg-indigo-100 text-indigo-700',
+  rechazado:          'bg-red-100 text-red-600',
   esperando_repuesto: 'bg-orange-100 text-orange-700',
   en_reparacion:      'bg-purple-100 text-purple-700',
   listo:              'bg-green-100 text-green-700',
+  para_entrega:       'bg-cyan-100 text-cyan-700',
   entregado:          'bg-emerald-100 text-emerald-700',
   en_garantia:        'bg-teal-100 text-teal-700',
   cancelado:          'bg-gray-100 text-gray-400',
-  rechazado:          'bg-red-100 text-red-600',
+}
+
+export const ESTADO_LABEL_MAP: Partial<Record<RepairStatus, string>> = {
+  recibido: 'Recibido', en_diagnostico: 'En diagnóstico',
+  presupuestado: 'Presupuestando', aprobado: 'Aceptado', rechazado: 'Rechazado',
+  esperando_repuesto: 'Esperando repuesto', en_reparacion: 'En reparación',
+  listo: 'Listo', para_entrega: 'Para entrega',
+  entregado: 'Entregado', en_garantia: 'En garantía', cancelado: 'Cancelado',
 }
 
 type OTRow = RepairOrder & {
@@ -91,7 +101,7 @@ function OTTable({ ots, userId, puedeAdjudicar, puedeCobrar }: {
                     {puedeAdjudicar && !ot.tecnico_id && (
                       <AdjudicarOTButton otId={ot.id} userId={userId} />
                     )}
-                    {puedeCobrar && ot.estado === 'listo' && (
+                    {puedeCobrar && (ot.estado === 'listo' || ot.estado === 'para_entrega') && (
                       <Link href={`/caja/venta-directa?ot=${ot.id}`}>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs px-2">💰</Button>
                       </Link>
