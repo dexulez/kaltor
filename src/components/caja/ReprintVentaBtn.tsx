@@ -58,40 +58,68 @@ export default function ReprintVentaBtn({ ventaId, numeroVenta, configNombreLoca
   }
 
   return (
-    <div className="relative">
+    <>
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen(true)}
         className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
         title="Reimprimir ticket"
       >
         🖨️
       </button>
 
+      {/* Modal centrado fijo — funciona en cualquier tamaño de pantalla */}
       {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 bottom-full mb-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-3 w-52 space-y-2" onClick={e => e.stopPropagation()}>
-            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Reimprimir {numeroVenta}</p>
-            <div className="space-y-1">
-              {TICKET_FORMATOS.map(f => (
-                <button key={f.key} type="button" onClick={() => setFormato(f.key)}
-                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition-colors ${formato === f.key ? 'bg-blue-50 border border-blue-300 font-medium' : 'hover:bg-gray-50 border border-transparent'}`}>
-                  <span>{f.icon}</span>
-                  <span>{f.label}</span>
-                  <span className="text-xs text-gray-400 ml-auto">{f.desc}</span>
-                </button>
-              ))}
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl p-5 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-bold text-gray-800">Reimprimir ticket</p>
+                <p className="text-xs text-gray-500 font-mono">{numeroVenta}</p>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">✕</button>
             </div>
-            <button
-              onClick={reimprimir}
-              disabled={loading}
-              className="w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-900 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Cargando...' : '🖨️ Imprimir'}
-            </button>
+
+            {/* Selector de formato */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-600">Formato de impresión</p>
+              <div className="grid grid-cols-3 gap-2">
+                {TICKET_FORMATOS.map(f => (
+                  <button key={f.key} type="button" onClick={() => setFormato(f.key)}
+                    className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl border text-center transition-colors ${formato === f.key ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-300'}`}>
+                    <span className="text-2xl">{f.icon}</span>
+                    <p className="text-xs font-semibold text-gray-800 leading-tight">{f.label}</p>
+                    <p className="text-xs text-gray-400 leading-tight">{f.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setOpen(false)}
+                className="flex-1 py-3 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={reimprimir}
+                disabled={loading}
+                className="flex-1 py-3 rounded-xl bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Cargando...' : '🖨️ Imprimir'}
+              </button>
+            </div>
           </div>
-        </>
+        </div>
       )}
-    </div>
+    </>
   )
 }
