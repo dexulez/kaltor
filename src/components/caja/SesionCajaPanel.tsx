@@ -47,7 +47,7 @@ export default function SesionCajaPanel() {
   const [ventas, setVentas] = useState<VentasDia>({ efectivo: 0, transbank: 0, transferencia: 0, otros: 0, total: 0 })
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'panel' | 'apertura' | 'arqueo' | 'cierre'>('panel')
+  const [view, setView] = useState<'panel' | 'apertura' | 'arqueo' | 'cierre' | 'cierre_ok'>('panel')
 
   // Apertura
   const [aperturaEfectivo, setAperturaEfectivo] = useState('0')
@@ -66,6 +66,13 @@ export default function SesionCajaPanel() {
   const [cierreCuentas, setCierreCuentas] = useState<string[]>([])
   const [cierreObs, setCierreObs] = useState('')
   const [saving, setSaving] = useState(false)
+  type TicketFormato = 'a4' | 'ticket80' | 'ticket57'
+  const [formatoTicket, setFormatoTicket] = useState<TicketFormato>('a4')
+  const [cierreData, setCierreData] = useState<{
+    fecha: string; apertura: string; fondoApertura: number
+    ventas: VentasDia; ef: number; tb: number; tr: number; ot: number
+    difEf: number; cuentas: CuentaBancaria[]; cierreObs: string
+  } | null>(null)
 
   const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
 
@@ -155,95 +162,188 @@ export default function SesionCajaPanel() {
     if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
     toast.success('Caja cerrada correctamente')
 
-    // Imprimir informe de cierre
-    imprimirCierreCaja({
+    const datos = {
       fecha: hoy, apertura: sesion.apertura_at,
       fondoApertura: sesion.efectivo_apertura,
       ventas, ef, tb, tr, ot,
       difEf, cuentas, cierreObs,
-    })
-
-    setView('panel')
+    }
+    setCierreData(datos)
+    setView('cierre_ok')
     setSaving(false)
     await cargar()
   }
 
   function imprimirCierreCaja(d: {
     fecha: string; apertura: string; fondoApertura: number
-    ventas: typeof ventas; ef: number; tb: number; tr: number; ot: number
+    ventas: VentasDia; ef: number; tb: number; tr: number; ot: number
     difEf: number; cuentas: CuentaBancaria[]; cierreObs: string
-  }) {
+  }, formato: TicketFormato = 'a4') {
     const fmt = (n: number) => n.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })
     const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-CL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
     const totalCierre = d.ef + d.tb + d.tr + d.ot
     const totalEsperado = d.fondoApertura + d.ventas.total
+    const difColor = d.difEf === 0 ? '#166534' : '#991b1b'
+    const difTxt = d.difEf === 0 ? '✓ Cuadra' : `${d.difEf > 0 ? '+' : ''}${fmt(d.difEf)}`
 
-    const win = window.open('', '_blank', 'width=620,height=900')
+    const isTicket = formato === 'ticket80' || formato === 'ticket57'
+    const mm = formato === 'ticket57' ? '57mm' : formato === 'ticket80' ? '80mm' : 'A4'
+    const margin = isTicket ? '2mm' : '10mm'
+    const bodyPad = isTicket ? '2mm' : '8mm'
+    const fs = isTicket ? '8pt' : '9pt'
+
+    function section(title: string, content: string) {
+      if (isTicket) return `<div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:0.5mm 0;margin:2mm 0;font-size:7.5pt;font-weight:bold;text-align:center;text-transform:uppercase">${title}</div>${content}`
+      return `<h2 style="font-size:10pt;font-weight:bold;background:#374151;color:#fff;padding:1.5mm 3mm;margin:4mm 0 2mm">${title}</h2>${content}`
+    }
+
+    function row(label: string, value: string, bold = false) {
+      return `<div style="display:flex;justify-content:space-between;padding:1mm 0;border-bottom:1px solid #eee;${bold ? 'font-weight:bold;border-top:2px solid #111;margin-top:1mm;padding-top:2mm;border-bottom:none' : ''}"><span>${label}</span><span>${value}</span></div>`
+    }
+
+    const ventasHtml = [
+      row('Efectivo', fmt(d.ventas.efectivo)),
+      row('Transbank', fmt(d.ventas.transbank)),
+      row('Transferencia', fmt(d.ventas.transferencia)),
+      d.ventas.otros ? row('Otros', fmt(d.ventas.otros)) : '',
+      row('TOTAL VENTAS', fmt(d.ventas.total), true),
+    ].join('')
+
+    const cierreHtml = [
+      row('Efectivo (c/fondo)', fmt(d.ef)),
+      row('Transbank', fmt(d.tb)),
+      row('Transferencia', fmt(d.tr)),
+      d.ot ? row('Otros', fmt(d.ot)) : '',
+      row('TOTAL CIERRE', fmt(totalCierre), true),
+    ].join('')
+
+    const cuadreHtml = [
+      row('Esperado', fmt(totalEsperado)),
+      row('Contado', fmt(totalCierre)),
+      `<div style="display:flex;justify-content:space-between;font-weight:bold;border-top:2px solid #111;margin-top:1mm;padding-top:2mm;color:${difColor}"><span>Diferencia</span><span>${difTxt}</span></div>`,
+    ].join('')
+
+    const headerA4 = `
+      <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:3mm;margin-bottom:4mm">
+        <div style="font-size:14pt;font-weight:bold">🔒 Cierre de Caja</div>
+        <div style="font-size:9pt;color:#555">${d.fecha} · Apertura: ${hora(d.apertura)} · Fondo: ${fmt(d.fondoApertura)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-bottom:4mm">
+        <div style="border:1px solid #ccc;border-radius:2mm;padding:3mm">
+          <div style="font-size:8pt;color:#555;text-transform:uppercase;margin-bottom:2mm">Apertura</div>
+          <div>${hora(d.apertura)}</div>
+          <div>Fondo: <strong>${fmt(d.fondoApertura)}</strong></div>
+        </div>
+        <div style="border:1px solid #ccc;border-radius:2mm;padding:3mm">
+          <div style="font-size:8pt;color:#555;text-transform:uppercase;margin-bottom:2mm">Total ingresos del día</div>
+          <div style="font-size:16pt;font-weight:bold">${fmt(d.ventas.total)}</div>
+        </div>
+      </div>`
+
+    const headerTicket = `
+      <div style="text-align:center;margin-bottom:2mm">
+        <div style="font-size:10pt;font-weight:bold">CIERRE DE CAJA</div>
+        <div>${d.fecha}</div>
+        <div>Apertura: ${hora(d.apertura)}</div>
+        <div>Fondo: ${fmt(d.fondoApertura)}</div>
+      </div>`
+
+    const firmasA4 = `<div style="margin-top:8mm;display:flex;gap:8mm">
+      <div style="flex:1;border-top:1px solid #111;padding-top:2mm;text-align:center;font-size:8pt">Firma encargado</div>
+      <div style="flex:1;border-top:1px solid #111;padding-top:2mm;text-align:center;font-size:8pt">V°B° administrador</div>
+    </div>`
+
+    const firmasTicket = `
+      <div style="margin-top:4mm;border-top:1px dashed #000;padding-top:2mm;text-align:center;font-size:7pt">Firma encargado</div>
+      <div style="height:12mm"></div>`
+
+    const obs = d.cierreObs
+      ? section('Observaciones', `<p style="padding:2mm;background:#f9f9f9;border:1px solid #eee;border-radius:2mm">${d.cierreObs}</p>`)
+      : ''
+
+    const cuentasHtml = d.cuentas.length
+      ? section('Cuentas transferencias', `<table style="width:100%;border-collapse:collapse;margin-bottom:3mm">
+          ${d.cuentas.map(c => `<tr><td>${c.banco}</td><td style="text-align:right">···${c.numero.slice(-4)}</td></tr>`).join('')}
+        </table>`)
+      : ''
+
+    const body = isTicket
+      ? `${headerTicket}
+         ${section('Ventas del día', ventasHtml)}
+         ${section('Cierre físico', cierreHtml)}
+         ${section('Cuadre', cuadreHtml)}
+         ${cuentasHtml}${obs}${firmasTicket}`
+      : `${headerA4}
+         ${section('Ventas del día', ventasHtml)}
+         ${section('Cierre físico', cierreHtml)}
+         ${section('Cuadre', cuadreHtml)}
+         ${cuentasHtml}${obs}${firmasA4}`
+
+    const winW = formato === 'ticket57' ? '400' : formato === 'ticket80' ? '500' : '700'
+    const win = window.open('', '_blank', `width=${winW},height=900`)
     if (!win) { alert('Activa las ventanas emergentes para imprimir'); return }
     win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>Cierre de caja ${d.fecha}</title>
+<title>Cierre ${d.fecha}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;font-size:9pt;color:#111;padding:8mm}
-  @page{size:A4;margin:10mm}
-  h1{font-size:14pt;text-align:center;border-bottom:2px solid #111;padding-bottom:3mm;margin-bottom:4mm}
-  h2{font-size:10pt;font-weight:bold;background:#374151;color:#fff;padding:1.5mm 3mm;margin:4mm 0 2mm}
-  table{width:100%;border-collapse:collapse;margin-bottom:3mm}
-  td{padding:1.5mm 2mm;vertical-align:top}
-  .r{text-align:right}
-  .row{display:flex;justify-content:space-between;padding:1mm 0;border-bottom:1px solid #eee}
-  .row.total{border-top:2px solid #111;font-weight:bold;font-size:11pt;padding-top:2mm;margin-top:1mm}
-  .ok{color:#166534;font-weight:bold}
-  .bad{color:#991b1b;font-weight:bold}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
-  .box{border:1px solid #ccc;border-radius:2mm;padding:3mm}
-  .box h3{font-size:8pt;color:#555;text-transform:uppercase;margin-bottom:2mm}
-  .big{font-size:16pt;font-weight:bold}
-</style></head><body>
-<h1>🔒 Cierre de Caja — ${d.fecha}</h1>
-<div class="grid2" style="margin-bottom:4mm">
-  <div class="box"><h3>Apertura</h3><div>${hora(d.apertura)}</div><div>Fondo: <strong>${fmt(d.fondoApertura)}</strong></div></div>
-  <div class="box"><h3>Total ingresos del día</h3><div class="big">${fmt(d.ventas.total)}</div></div>
-</div>
-
-<h2>💰 Ventas del día</h2>
-<div class="row"><span>Efectivo vendido</span><span>${fmt(d.ventas.efectivo)}</span></div>
-<div class="row"><span>Transbank (déb/cred)</span><span>${fmt(d.ventas.transbank)}</span></div>
-<div class="row"><span>Transferencias</span><span>${fmt(d.ventas.transferencia)}</span></div>
-<div class="row"><span>Otros</span><span>${fmt(d.ventas.otros)}</span></div>
-<div class="row total"><span>TOTAL VENTAS</span><span>${fmt(d.ventas.total)}</span></div>
-
-<h2>🔢 Cierre físico</h2>
-<div class="row"><span>💵 Efectivo contado (incluye fondo)</span><span>${fmt(d.ef)}</span></div>
-<div class="row"><span>💳 Transbank (reporte Z)</span><span>${fmt(d.tb)}</span></div>
-<div class="row"><span>🏦 Transferencias recibidas</span><span>${fmt(d.tr)}</span></div>
-<div class="row"><span>📦 Otros</span><span>${fmt(d.ot)}</span></div>
-<div class="row total"><span>TOTAL CIERRE</span><span>${fmt(totalCierre)}</span></div>
-
-<h2>⚖️ Cuadre</h2>
-<div class="row"><span>Total esperado (fondo + ventas)</span><span>${fmt(totalEsperado)}</span></div>
-<div class="row"><span>Total contado</span><span>${fmt(totalCierre)}</span></div>
-<div class="row total"><span>Diferencia efectivo</span>
-  <span class="${d.difEf === 0 ? 'ok' : 'bad'}">${d.difEf === 0 ? '✓ Cuadra' : (d.difEf > 0 ? '+' : '') + fmt(d.difEf)}</span>
-</div>
-
-${d.cuentas.length ? `<h2>🏦 Cuentas destino transferencias</h2><table>
-${d.cuentas.map(c => `<tr><td>${c.banco}</td><td>${c.tipo_cuenta}</td><td class="r">···${c.numero.slice(-4)}</td></tr>`).join('')}
-</table>` : ''}
-
-${d.cierreObs ? `<h2>📝 Observaciones</h2><p style="padding:2mm;background:#f9f9f9;border:1px solid #eee;border-radius:2mm">${d.cierreObs}</p>` : ''}
-
-<div style="margin-top:8mm;display:flex;gap:8mm">
-  <div style="flex:1;border-top:1px solid #111;padding-top:2mm;text-align:center;font-size:8pt">Firma encargado</div>
-  <div style="flex:1;border-top:1px solid #111;padding-top:2mm;text-align:center;font-size:8pt">V°B° administrador</div>
-</div>
-</body></html>`)
+  body{font-family:Arial,sans-serif;font-size:${fs};color:#111;padding:${bodyPad}}
+  @page{size:${mm}${isTicket?' auto':''};margin:${margin}}
+</style></head><body>${body}</body></html>`)
     win.document.close()
     setTimeout(() => { win.focus(); win.print() }, 400)
   }
 
   if (loading || sesion === undefined) {
     return <div className="bg-white rounded-xl border p-4 animate-pulse h-16" />
+  }
+
+  // ── Vista cierre exitoso → seleccionar formato e imprimir ──────────────────
+  if (view === 'cierre_ok' && cierreData) {
+    const FORMATOS: { key: TicketFormato; label: string; desc: string; icon: string }[] = [
+      { key: 'a4',       label: 'A4',        desc: '210 × 297 mm · hoja completa', icon: '🗒️' },
+      { key: 'ticket80', label: 'Ticket 80mm', desc: 'Impresora térmica 80 mm',     icon: '🧾' },
+      { key: 'ticket57', label: 'Ticket 57mm', desc: 'Impresora térmica 57 mm',     icon: '📜' },
+    ]
+    return (
+      <div className="bg-white rounded-xl border p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">✅</span>
+          <div>
+            <p className="font-bold text-gray-800">Caja cerrada correctamente</p>
+            <p className="text-xs text-gray-500">Selecciona el formato del ticket de cierre e imprímelo cuando quieras</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-gray-700">Formato de impresión</p>
+          <div className="grid grid-cols-3 gap-2">
+            {FORMATOS.map(f => (
+              <button key={f.key} type="button" onClick={() => setFormatoTicket(f.key)}
+                className={`flex flex-col items-center gap-1 px-3 py-3 rounded-xl border text-center transition-colors ${formatoTicket === f.key ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-300'}`}>
+                <span className="text-xl">{f.icon}</span>
+                <p className="text-sm font-semibold text-gray-800">{f.label}</p>
+                <p className="text-xs text-gray-400">{f.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => imprimirCierreCaja(cierreData, formatoTicket)}
+            className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold transition-colors"
+          >
+            🖨️ Imprimir ticket de cierre
+          </button>
+          <button
+            onClick={() => { setView('panel'); setCierreData(null) }}
+            className="px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Finalizar sin imprimir
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // ── Formulario apertura ────────────────────────────────────────────────────
