@@ -229,9 +229,10 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   }
 
   function boxServicio() {
+    // 20% más grande: font-size 9.6pt, padding 3mm
     return `<div class="box">
       <div class="box-hdr"><span>&#128295;</span> INFORMACIÓN DEL SERVICIO</div>
-      <div class="box-body">
+      <div class="box-body" style="font-size:9.6pt;padding:3mm 3.5mm;line-height:1.6">
         ${ot.tipo_reparacion ? `<div><strong>Tipo:</strong> ${TIPO_LABELS[ot.tipo_reparacion] ?? ot.tipo_reparacion}</div>` : ''}
         ${mostrarTecnico && ot.user_profiles ? `<div><strong>Técnico:</strong> ${ot.user_profiles.nombre_completo}</div>` : ''}
         <div><strong>Falla:</strong> ${equipo?.falla_reportada ?? '—'}</div>
@@ -241,16 +242,17 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   }
 
   function boxCobro() {
+    // Compensación: 20% más pequeño (6.5pt, padding 2mm)
     const rows = [
-      ot.presupuesto_estimado ? `<tr><td>Presupuesto est.</td><td>${formatCLP(ot.presupuesto_estimado)}</td></tr>` : '',
+      ot.presupuesto_estimado ? `<tr><td>Presupuesto est.</td><td style="font-weight:bold">${formatCLP(ot.presupuesto_estimado)}</td></tr>` : '',
       ot.precio_servicio ? `<tr class="cobro-total"><td>Total</td><td style="color:#16a34a">${formatCLP(ot.precio_servicio)}</td></tr>` : '',
     ].filter(Boolean).join('')
     return `<div class="box">
       <div class="box-hdr"><span>&#36;</span> DETALLES DE COBRO</div>
-      <div class="box-body">
+      <div class="box-body" style="font-size:6.5pt;padding:2mm 3mm;line-height:1.4">
         <table class="cobro-tbl">
-          <thead><tr style="border-bottom:1px solid #e5e7eb;font-size:7.5pt;color:#6b7280"><td>Concepto</td><td style="text-align:right">Monto</td></tr></thead>
-          <tbody>${rows || '<tr><td colspan="2" style="color:#9ca3af;font-size:7.5pt">Sin precio asignado</td></tr>'}</tbody>
+          <thead><tr style="border-bottom:1px solid #e5e7eb;font-size:6pt;color:#6b7280"><td>Concepto</td><td style="text-align:right">Monto</td></tr></thead>
+          <tbody>${rows || '<tr><td colspan="2" style="color:#9ca3af;font-size:6pt">Sin precio asignado</td></tr>'}</tbody>
         </table>
       </div>
     </div>`
@@ -285,8 +287,8 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       const unaHoja = `
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">
-          ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:2mm">${boxCliente()}${boxServicio()}</div><div style="display:flex;flex-direction:column;gap:2mm">${boxEquipo()}${boxCobro()}</div>
         </div>
         <div style="display:flex;align-items:center;gap:3mm;margin-top:2mm">
           ${qrDataUrl ? `<img src="${qrDataUrl}" style="width:18mm;height:18mm;display:block;flex-shrink:0">` : ''}
@@ -307,8 +309,8 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       const copia2 = `
         <hr class="separator">
         ${cabeceraHtml()}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">
-          ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:2mm">${boxCliente()}${boxServicio()}</div><div style="display:flex;flex-direction:column;gap:2mm">${boxEquipo()}${boxCobro()}</div>
         </div>
         <div style="display:flex;gap:8mm;margin-top:2mm">
           <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma y RUT cliente</div></div>
@@ -322,11 +324,11 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       const una = `
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">
-          ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:2mm">${boxCliente()}${boxServicio()}</div><div style="display:flex;flex-direction:column;gap:2mm">${boxEquipo()}${boxCobro()}</div>
         </div>
         ${trackHtml()}${firmasHtml()}`
-      const copia2 = copias === 2 ? `<hr class="separator">${cabeceraHtml()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">${boxCliente()}${boxEquipo()}</div>${firmasHtml()}` : ''
+      const copia2 = copias === 2 ? `<hr class="separator">${cabeceraHtml()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm;align-items:start">${boxCliente()}${boxEquipo()}</div>${firmasHtml()}` : ''
       return una + copia2 + tcHtml
     }
 
@@ -335,7 +337,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:3mm">
-          ${boxCliente()}${boxEquipo()}${boxServicio()}${boxCobro()}
+          <div style="display:flex;flex-direction:column;gap:2mm">${boxCliente()}${boxServicio()}</div><div style="display:flex;flex-direction:column;gap:2mm">${boxEquipo()}${boxCobro()}</div>
         </div>
         ${trackHtml()}${firmasHtml()}
         <hr class="separator">
