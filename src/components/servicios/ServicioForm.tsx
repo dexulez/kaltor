@@ -52,8 +52,11 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
   const [descripcion, setDescripcion] = useState(servicio?.descripcion ?? '')
   const [tipo, setTipo] = useState(servicio?.tipo_reparacion ?? 'otro')
   const [precioBase, setPrecioBase] = useState(String(servicio?.precio_base ?? 0))
-  const [manoObra, setManoObra] = useState('0')
   const [tiempoMin, setTiempoMin] = useState(String(servicio?.tiempo_estimado_min ?? 60))
+  // Mano de obra
+  const sExtra = servicio as unknown as Record<string, unknown>
+  const [manoObraTipo, setManoObraTipo] = useState<'porcentaje' | 'monto'>((sExtra?.mano_obra_tipo as 'porcentaje' | 'monto') ?? 'porcentaje')
+  const [manoObraValor, setManoObraValor] = useState(String(sExtra?.mano_obra_valor ?? 0))
   const [activo, setActivo] = useState(servicio?.activo ?? true)
   const [repuestos, setRepuestos] = useState<Repuesto[]>(
     (servicio?.repair_service_items ?? []).map(r => ({ ...r, esNuevo: false }))
@@ -71,9 +74,12 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
   }, [])
 
   const costoRepuestos = repuestos.reduce((s, r) => s + r.precio_costo * r.cantidad, 0)
-  const manoObraNum = parseInt(manoObra) || 0
-  const precioSugerido = costoRepuestos + manoObraNum
   const precio = parseInt(precioBase) || 0
+  const manoObraNum = manoObraTipo === 'monto'
+    ? (parseFloat(manoObraValor) || 0)
+    : Math.round(precio * (parseFloat(manoObraValor) || 0) / 100)
+  const utilidadNeta = precio - costoRepuestos - manoObraNum
+  const precioSugerido = costoRepuestos + manoObraNum
   const margen = costoRepuestos > 0 ? Math.round(((precio - costoRepuestos) / costoRepuestos) * 100) : 0
 
   const filtProd = busqProd.trim()
@@ -122,6 +128,8 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
       precio_base: parseInt(precioBase) || 0,
       tiempo_estimado_min: parseInt(tiempoMin) || null,
       activo,
+      mano_obra_tipo: manoObraTipo,
+      mano_obra_valor: parseFloat(manoObraValor) || 0,
       updated_at: new Date().toISOString(),
     }
 
@@ -273,44 +281,86 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
 
       {/* Precio */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
-        <h2 className="font-semibold text-gray-800">Precio del servicio</h2>
+        <h2 className="font-semibold text-gray-800">Precio y mano de obra</h2>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label>Mano de obra (CLP)</Label>
-            <Input type="number" min={0} value={manoObra} onChange={e => setManoObra(e.target.value)} placeholder="0" />
-            <p className="text-xs text-gray-400">Monto por trabajo técnico</p>
-          </div>
           <div className="space-y-1.5">
             <Label>Precio base del servicio (CLP) <span className="text-red-500">*</span></Label>
             <Input type="number" min={0} value={precioBase} onChange={e => setPrecioBase(e.target.value)}
               placeholder="0" required />
-            <p className="text-xs text-gray-400">Lo que se cobra al cliente</p>
+            <p className="text-xs text-gray-400">Lo que paga el cliente</p>
           </div>
+          <div className="space-y-1.5">
+            <Label>Precio costo del servicio (CLP)</Label>
+            <Input type="number" min={0}
+              value={String((servicio as unknown as Record<string,unknown>)?.precio_costo ?? 0)}
+              readOnly
+              className="bg-gray-50 text-gray-500"
+              placeholder="0" />
+            <p className="text-xs text-gray-400">Se calcula en el módulo de Servicios</p>
+          </div>
+        </div>
+
+        {/* Mano de obra */}
+        <div className="border rounded-xl p-4 space-y-3 bg-blue-50 border-blue-200">
+          <p className="text-sm font-semibold text-blue-800">🔧 Mano de obra del técnico</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Tipo</Label>
+              <div className="flex gap-2">
+                {(['porcentaje', 'monto'] as const).map(t => (
+                  <button key={t} type="button" onClick={() => setManoObraTipo(t)}
+                    className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition-colors ${manoObraTipo === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'}`}>
+                    {t === 'porcentaje' ? '% del precio' : '$ monto fijo'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">
+                {manoObraTipo === 'porcentaje' ? '% del precio base' : 'Monto fijo (CLP)'}
+              </Label>
+              <div className="flex items-center gap-1">
+                <Input type="number" min={0} max={manoObraTipo === 'porcentaje' ? 100 : undefined}
+                  value={manoObraValor} onChange={e => setManoObraValor(e.target.value)} placeholder="0" />
+                <span className="text-xs text-gray-500 shrink-0">{manoObraTipo === 'porcentaje' ? '%' : 'CLP'}</span>
+              </div>
+            </div>
+          </div>
+          {manoObraNum > 0 && (
+            <p className="text-xs text-blue-700 font-medium">
+              Mano de obra calculada: <strong>{formatCLP(manoObraNum)}</strong>
+              {manoObraTipo === 'porcentaje' && precio > 0 && ` (${manoObraValor}% de ${formatCLP(precio)})`}
+            </p>
+          )}
         </div>
 
         {/* Resumen financiero */}
         <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between text-gray-600">
-            <span>Costo repuestos</span><span>{formatCLP(costoRepuestos)}</span>
+            <span>Costo repuestos</span><span>−{formatCLP(costoRepuestos)}</span>
           </div>
           <div className="flex justify-between text-gray-600">
-            <span>Mano de obra</span><span>{formatCLP(manoObraNum)}</span>
+            <span>Mano de obra</span><span>−{formatCLP(manoObraNum)}</span>
           </div>
-          <div className="flex justify-between text-gray-500 border-t pt-2">
-            <span>Precio sugerido</span><span className="font-medium">{formatCLP(precioSugerido)}</span>
+          <div className={`flex justify-between font-semibold border-t pt-2 ${utilidadNeta >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+            <span>Utilidad neta del servicio</span><span>{formatCLP(utilidadNeta)}</span>
           </div>
           <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
             <span>Precio a cobrar</span><span className="text-blue-700">{formatCLP(precio)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Margen s/repuestos</span>
-            <span className={`font-semibold ${margen >= 50 ? 'text-green-700' : margen >= 20 ? 'text-amber-600' : 'text-red-500'}`}>
-              {margen}%
-            </span>
+            <span className={`font-semibold ${margen >= 50 ? 'text-green-700' : margen >= 20 ? 'text-amber-600' : 'text-red-500'}`}>{margen}%</span>
           </div>
-          {precio > 0 && precio < precioSugerido && (
+          {precio > 0 && utilidadNeta < 0 && (
+            <p className="text-xs text-red-600 bg-red-50 px-3 py-1.5 rounded-lg">
+              ⚠️ La utilidad es negativa — el precio no cubre repuestos + mano de obra
+            </p>
+          )}
+          {precio > 0 && precio < precioSugerido && utilidadNeta >= 0 && (
             <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
-              ⚠️ El precio está por debajo del costo estimado ({formatCLP(precioSugerido)})
+              ⚠️ El precio está por debajo del costo + mano de obra ({formatCLP(precioSugerido)})
             </p>
           )}
         </div>

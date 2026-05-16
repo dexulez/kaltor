@@ -44,6 +44,17 @@ function buildInitialPermisos(usuario: UsuarioDetalle, roles: RolOption[]): Reco
   return defaults
 }
 
+const TIPOS_COMISION = [
+  { key: 'comision_base',      label: 'Base (cualquier tipo)' },
+  { key: 'comision_pantalla',  label: 'Pantalla' },
+  { key: 'comision_bateria',   label: 'Batería' },
+  { key: 'comision_placa',     label: 'Placa madre' },
+  { key: 'comision_software',  label: 'Software' },
+  { key: 'comision_camara',    label: 'Cámara' },
+  { key: 'comision_conector',  label: 'Conector' },
+  { key: 'comision_otro',      label: 'Otro' },
+]
+
 export default function UsuarioForm({ usuario, roles }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -54,6 +65,26 @@ export default function UsuarioForm({ usuario, roles }: Props) {
     rol_id: usuario.rol_id ?? 'none',
     activo: usuario.activo,
   })
+
+  // Comisiones (solo editable por admin)
+  const usuarioExtra = usuario as unknown as Record<string, unknown>
+  const [comisiones, setComisiones] = useState({
+    comision_base:              Number(usuarioExtra.comision_base ?? 0),
+    comision_pantalla:          Number(usuarioExtra.comision_pantalla ?? 0),
+    comision_bateria:           Number(usuarioExtra.comision_bateria ?? 0),
+    comision_placa:             Number(usuarioExtra.comision_placa ?? 0),
+    comision_software:          Number(usuarioExtra.comision_software ?? 0),
+    comision_camara:            Number(usuarioExtra.comision_camara ?? 0),
+    comision_conector:          Number(usuarioExtra.comision_conector ?? 0),
+    comision_otro:              Number(usuarioExtra.comision_otro ?? 0),
+    gana_comision_repuestos:    Boolean(usuarioExtra.gana_comision_repuestos ?? false),
+    comision_repuestos_pct:     Number(usuarioExtra.comision_repuestos_pct ?? 0),
+    comision_efectivo_add:      Number(usuarioExtra.comision_efectivo_add ?? 0),
+    comision_transferencia_add: Number(usuarioExtra.comision_transferencia_add ?? 0),
+  })
+  function setCom(k: keyof typeof comisiones, v: number | boolean) {
+    setComisiones(prev => ({ ...prev, [k]: v }))
+  }
   const [permisos, setPermisos] = useState<Record<string, boolean>>(
     () => buildInitialPermisos(usuario, roles)
   )
@@ -87,6 +118,7 @@ export default function UsuarioForm({ usuario, roles }: Props) {
       rol_id: form.rol_id === 'none' ? null : form.rol_id,
       activo: form.activo,
       permisos_modulos: permisos,
+      ...comisiones,
     }).eq('id', usuario.id)
 
     if (error) { toast.error('Error al actualizar: ' + error.message); setLoading(false); return }
@@ -205,6 +237,88 @@ export default function UsuarioForm({ usuario, roles }: Props) {
               </div>
             )
           })}
+        </div>
+      </div>
+
+      {/* ── Comisiones del técnico (solo administrador) ─────────────────── */}
+      <div className="bg-white rounded-xl border p-5 space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800">💰 Comisiones del técnico</h2>
+          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">Solo administrador</span>
+        </div>
+        <p className="text-xs text-gray-500">
+          La comisión se calcula sobre la <strong>utilidad neta</strong> del servicio:<br/>
+          <code className="bg-gray-100 px-1 rounded text-xs">Utilidad = Precio base − Costo repuestos − Mano de obra del servicio</code>
+        </p>
+
+        {/* % por tipo de reparación */}
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-2">% de comisión por tipo de reparación</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {TIPOS_COMISION.map(t => (
+              <div key={t.key} className="space-y-0.5">
+                <label className="text-xs text-gray-500">{t.label}</label>
+                <div className="flex items-center gap-1">
+                  <input type="number" min={0} max={100} step={0.5}
+                    value={comisiones[t.key as keyof typeof comisiones] as number}
+                    onChange={e => setCom(t.key as keyof typeof comisiones, parseFloat(e.target.value) || 0)}
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  <span className="text-xs text-gray-400 shrink-0">%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Comisión por repuestos */}
+        <div className="border-t pt-4 space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={comisiones.gana_comision_repuestos}
+              onChange={e => setCom('gana_comision_repuestos', e.target.checked)}
+              className="w-4 h-4 rounded" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">¿Gana comisión por utilidad de repuestos?</p>
+              <p className="text-xs text-gray-400">Aplica sobre (precio venta repuesto − precio costo) × cantidad</p>
+            </div>
+          </label>
+          {comisiones.gana_comision_repuestos && (
+            <div className="flex items-center gap-2 ml-7">
+              <input type="number" min={0} max={100} step={0.5}
+                value={comisiones.comision_repuestos_pct}
+                onChange={e => setCom('comision_repuestos_pct', parseFloat(e.target.value) || 0)}
+                className="w-24 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              <span className="text-sm text-gray-500">% sobre utilidad de repuestos</span>
+            </div>
+          )}
+        </div>
+
+        {/* Ajuste por método de pago */}
+        <div className="border-t pt-4 space-y-2">
+          <p className="text-sm font-medium text-gray-700">Ajuste adicional por método de pago</p>
+          <p className="text-xs text-gray-400">Se suma (o resta si es negativo) al % base según el método de cobro</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-0.5">
+              <label className="text-xs text-gray-500">Efectivo / Presupuesto</label>
+              <div className="flex items-center gap-1">
+                <input type="number" min={-100} max={100} step={0.5}
+                  value={comisiones.comision_efectivo_add}
+                  onChange={e => setCom('comision_efectivo_add', parseFloat(e.target.value) || 0)}
+                  className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <span className="text-xs text-gray-400 shrink-0">%</span>
+              </div>
+            </div>
+            <div className="space-y-0.5">
+              <label className="text-xs text-gray-500">Transferencia</label>
+              <div className="flex items-center gap-1">
+                <input type="number" min={-100} max={100} step={0.5}
+                  value={comisiones.comision_transferencia_add}
+                  onChange={e => setCom('comision_transferencia_add', parseFloat(e.target.value) || 0)}
+                  className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <span className="text-xs text-gray-400 shrink-0">%</span>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 italic">Débito y Crédito usan el % base sin ajuste (ya tienen costo de comisión bancaria)</p>
         </div>
       </div>
 
