@@ -9,6 +9,7 @@ import {
   GraficoArea,
 } from '@/components/informes/Charts'
 import InformesExportActions from '@/components/informes/InformesExportActions'
+import ImprimirInformeTecnico from '@/components/informes/ImprimirInformeTecnico'
 import { tieneSubPermiso } from '@/lib/modulos'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -128,6 +129,14 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
   const topProdRows = Object.values(topProd).sort((a, b) => b.total - a.total).slice(0, 10)
     .map(p => [p.nombre, p.qty, formatCLP(p.total)])
 
+  // ── Taller vs Venta directa ─────────────────────────────────────────────
+  const reparaciones = activas.filter(v => v.tipo === 'reparacion')
+  const directas     = activas.filter(v => v.tipo === 'directa')
+  const totRep = reparaciones.reduce((s, v) => s + v.total, 0)
+  const totDir = directas.reduce((s, v) => s + v.total, 0)
+  const netoRep = Math.round(totRep / 1.19); const ivaRep = totRep - netoRep; const ppmRep = Math.round(netoRep * 0.03)
+  const netoDir = Math.round(totDir / 1.19); const ivaDir = totDir - netoDir; const ppmDir = Math.round(netoDir * 0.03)
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
@@ -164,6 +173,44 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
           * El IVA ya está excluido del Ingreso Neto. La Utilidad Neta es <strong>estimada</strong> — no descuenta costos operacionales ni el impuesto a la renta (25–27% anual).
         </p>
       </div>
+      {/* Taller vs Venta Directa */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gray-50 border-b px-4 py-3 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800 text-sm">🔧 Taller (reparaciones) vs 🛒 Venta directa</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                {['Canal', 'Transacciones', 'Bruto cobrado', 'Neto (sin IVA)', 'IVA 19%', 'PPM 3%', 'Util. estimada'].map((h, i) => (
+                  <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {[
+                { label: '🔧 Taller / Reparaciones', count: reparaciones.length, bruto: totRep, neto: netoRep, iva: ivaRep, ppm: ppmRep, util: netoRep - ppmRep },
+                { label: '🛒 Venta directa',         count: directas.length,     bruto: totDir, neto: netoDir, iva: ivaDir, ppm: ppmDir, util: netoDir - ppmDir },
+                { label: 'TOTAL',                    count: activas.length,      bruto: totalBruto, neto, iva, ppm, util: neto - ppm },
+              ].map((row, i) => (
+                <tr key={i} className={i === 2 ? 'bg-gray-50 font-semibold border-t-2 border-gray-300' : 'hover:bg-gray-50'}>
+                  <td className="px-3 py-2">{row.label}</td>
+                  <td className="px-3 py-2 text-right">{row.count}</td>
+                  <td className="px-3 py-2 text-right font-medium text-gray-900">{formatCLP(row.bruto)}</td>
+                  <td className="px-3 py-2 text-right text-blue-700">{formatCLP(row.neto)}</td>
+                  <td className="px-3 py-2 text-right text-red-600">{formatCLP(row.iva)}</td>
+                  <td className="px-3 py-2 text-right text-orange-600">{formatCLP(row.ppm)}</td>
+                  <td className="px-3 py-2 text-right text-green-700 font-bold">{formatCLP(row.util)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-4 py-2 border-t bg-blue-50 text-xs text-blue-700">
+          Util. estimada = Neto − PPM · No descuenta costos de repuestos ni comisiones.
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
           <Section title="Ventas diarias"><GraficoArea data={areaData} dataKey="total" nameKey="fecha" height={220} /></Section>
@@ -445,12 +492,14 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
 
   if (soloUserId) otsQuery = otsQuery.eq('tecnico_id', soloUserId)
 
-  const [{ data: otsRaw }, { data: itemsRaw }, { data: confRaw }] = await Promise.all([
+  const [{ data: otsRaw }, { data: itemsRaw }, { data: confRaw }, { data: sysNombre }] = await Promise.all([
     otsQuery,
     supabase.from('repair_items')
       .select('repair_order_id, cantidad, precio_costo, costo_envio'),
     supabase.from('system_config').select('iva, comision_debito, comision_credito, comision_transferencia, costo_insumos_promedio').single(),
+    supabase.from('system_config').select('nombre_local').maybeSingle(),
   ])
+  const nombreLocal = (sysNombre as { nombre_local?: string } | null)?.nombre_local ?? ''
 
   const conf: SysConf = (confRaw as SysConf | null) ?? { iva: 19, comision_debito: 1.5, comision_credito: 2.5, comision_transferencia: 0 }
   const costoInsumosProm = conf.costo_insumos_promedio ?? 0
@@ -534,6 +583,27 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
   })
   const tecList = Object.values(porTec).sort((a, b) => b.comisionTotal - a.comisionTotal)
 
+  // Datos para el componente de impresión
+  const tecParaImprimir = tecList.map(t => {
+    const ivaRate = (conf.iva ?? 19) / 100
+    const netoTotal = Math.round(t.ingresosBruto / (1 + ivaRate))
+    const ivaTotal  = t.ingresosBruto - netoTotal
+    const ppm       = Math.round(netoTotal * 0.03)
+    return {
+      nombre:         t.nombre,
+      ots:            t.ots,
+      ingresosBruto:  t.ingresosBruto,
+      netoTotal,
+      ivaTotal,
+      ppm,
+      costoRep:       t.costoRep,
+      comBanco:       t.comBanco,
+      comisionTotal:  t.comisionTotal,
+      insumos:        lista.filter(o => o.tecnicoId === Object.keys(porTec).find(k => porTec[k].nombre === t.nombre)).reduce((s, o) => s + o.costoInsumos, 0),
+      gananciaGen:    t.gananciaGen,
+    }
+  })
+
   // ── Gráficos ─────────────────────────────────────────────────────────────────
   const porDia: Record<string, { ganancia: number; comision: number }> = {}
   lista.forEach(o => {
@@ -568,6 +638,16 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
           <span>Mostrando <strong>solo tus OTs entregadas</strong> en el período seleccionado.</span>
         </div>
       )}
+
+      {/* Botón imprimir */}
+      <div className="flex justify-end">
+        <ImprimirInformeTecnico
+          tecnicos={tecParaImprimir}
+          desde={desde}
+          hasta={hasta}
+          nombreLocal={nombreLocal}
+        />
+      </div>
 
       {/* KPIs globales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -648,6 +728,43 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
           <GraficoBarrasCLP data={barTec} dataKey="comision" nameKey="name" color="#8b5cf6" height={220} />
         </Section>
       </div>
+
+      {/* Detalle desglose por técnico */}
+      {tecParaImprimir.filter(t => t.ots > 0).map((t, i) => (
+        <div key={i} className="bg-white rounded-xl border overflow-hidden">
+          <div className="bg-indigo-700 text-white px-4 py-3">
+            <p className="font-bold text-sm">👤 {t.nombre}</p>
+            <p className="text-xs text-indigo-200">{t.ots} OT{t.ots !== 1 ? 's' : ''} entregada{t.ots !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-y sm:divide-y-0">
+            {[
+              { label: 'Bruto cobrado',      value: formatCLP(t.ingresosBruto), color: 'text-gray-900' },
+              { label: 'Neto (sin IVA 19%)', value: formatCLP(t.netoTotal),     color: 'text-blue-700' },
+              { label: 'IVA a reservar',     value: formatCLP(t.ivaTotal),      color: 'text-red-600'  },
+              { label: 'PPM 3% (SII)',       value: formatCLP(t.ppm),           color: 'text-orange-600' },
+              { label: 'Utilidad neta est.', value: formatCLP(t.netoTotal - t.ppm - t.costoRep - t.comBanco - t.comisionTotal - t.insumos), color: 'text-green-700 font-bold' },
+            ].map((cell, j) => (
+              <div key={j} className="px-4 py-3 text-center">
+                <p className="text-xs text-gray-500 mb-1">{cell.label}</p>
+                <p className={`text-base font-bold ${cell.color}`}>{cell.value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x border-t bg-gray-50">
+            {[
+              { label: 'Costo repuestos',    value: formatCLP(t.costoRep),      color: 'text-red-600'    },
+              { label: 'Com. bancaria',      value: formatCLP(t.comBanco),      color: 'text-orange-600' },
+              { label: 'Comisión técnico',   value: formatCLP(t.comisionTotal), color: 'text-purple-700' },
+              { label: 'Insumos',            value: formatCLP(t.insumos),       color: 'text-orange-500' },
+            ].map((cell, j) => (
+              <div key={j} className="px-4 py-2.5 text-center">
+                <p className="text-xs text-gray-400 mb-0.5">{cell.label}</p>
+                <p className={`text-sm font-semibold ${cell.color}`}>{cell.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
 
       {/* Detalle OT a OT */}
       <Section title={`Detalle de cada OT entregada (${lista.length} en total)`}>
