@@ -186,7 +186,7 @@ export default async function ClienteDetallePage({
                   return (
                     <tr key={ot.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono font-medium text-blue-700">{ot.numero_ot}</td>
-                      <td className="px-4 py-3 text-gray-700">{[ot.equipment?.tipo_equipo, ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</td>
+                      <td className="px-4 py-3 text-gray-700">{[ot.equipment?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.color}`}>{estado.label}</span>
                       </td>

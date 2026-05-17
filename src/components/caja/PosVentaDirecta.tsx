@@ -37,7 +37,9 @@ interface OTListaItem {
 }
 
 function descEquipo(eq: OTListaItem['equipment']): string {
-  return [eq?.tipo_equipo, eq?.marca, eq?.modelo].filter(Boolean).join(' ')
+  const tipo = eq?.tipo_equipo
+  const tipoCapit = tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1) : ''
+  return [tipoCapit, eq?.marca, eq?.modelo].filter(Boolean).join(' ')
 }
 
 interface Props {

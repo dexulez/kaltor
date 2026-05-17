@@ -86,7 +86,7 @@ function OTTable({ ots, userId, puedeAdjudicar, puedeCobrar }: {
                   <p className="font-medium text-gray-900">{ot.customers?.nombre}</p>
                   <p className="text-gray-400 text-xs">{ot.customers?.telefono}</p>
                 </td>
-                <td className="px-4 py-3 text-gray-700">{[ot.equipment?.tipo_equipo, ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</td>
+                <td className="px-4 py-3 text-gray-700">{[ot.equipment?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</td>
                 <td className="px-4 py-3 text-gray-500 text-xs">
                   {ot.user_profiles?.nombre_completo ?? <span className="text-amber-600 font-medium">Sin asignar</span>}
                 </td>

@@ -165,7 +165,7 @@ export default async function CajaPage() {
                     <div>
                       <p className="font-mono font-bold text-blue-700 text-sm">{ot.numero_ot}</p>
                       <p className="text-sm text-gray-700">{ot.customers?.nombre}</p>
-                      <p className="text-xs text-gray-400">{[ot.equipment?.tipo_equipo, ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
+                      <p className="text-xs text-gray-400">{[ot.equipment?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
                     </div>
                     <Link href={`/caja/venta-directa?ot=${ot.id}`}>
                       <Button size="sm" className="bg-green-600 hover:bg-green-700 shrink-0">Cobrar</Button>
@@ -192,7 +192,7 @@ export default async function CajaPage() {
                   // Preview inline de lo que se vendió
                   const ot = v.repair_orders
                   const eq = ot?.equipment
-                  const equipoDesc = eq ? [eq.tipo_equipo, eq.marca, eq.modelo].filter(Boolean).join(' ') : null
+                  const equipoDesc = eq ? [eq.tipo_equipo?.replace(/^./, c => c.toUpperCase()), eq.marca, eq.modelo].filter(Boolean).join(' ') : null
                   const items = v.sale_items ?? []
                   const preview = v.tipo === 'reparacion' && equipoDesc
                     ? `${ot?.numero_ot ?? ''} · ${equipoDesc}`

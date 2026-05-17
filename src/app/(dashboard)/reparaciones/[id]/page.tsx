@@ -31,9 +31,8 @@ type OTDetalle = RepairOrder & {
   user_profiles: Pick<UserProfile, 'nombre_completo'> | null
 }
 
-function descEquipo(eq: OTDetalle['equipment']): string {
-  return [eq?.tipo_equipo, eq?.marca, eq?.modelo].filter(Boolean).join(' ')
-}
+const descEquipo = (eq: OTDetalle['equipment']) =>
+  [eq?.tipo_equipo ? eq.tipo_equipo.charAt(0).toUpperCase() + eq.tipo_equipo.slice(1) : '', eq?.marca, eq?.modelo].filter(Boolean).join(' ')
 
 type HistorialItem = RepairStatusHistory & {
   user_profiles: Pick<UserProfile, 'nombre_completo'> | null

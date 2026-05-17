@@ -67,3 +67,15 @@ export function validarRut(rut: string): boolean {
   const dvExp = exp === 11 ? '0' : exp === 10 ? 'K' : String(exp)
   return dv === dvExp
 }
+
+// ── Descripción de equipo con ortografía correcta ─────────────────────────────
+// Capitaliza el tipo de equipo y concatena marca + modelo
+export function formatEquipoDesc(eq: {
+  tipo_equipo?: string | null
+  marca?: string | null
+  modelo?: string | null
+} | null | undefined): string {
+  const tipo = eq?.tipo_equipo
+  const tipoCapit = tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1) : ''
+  return [tipoCapit, eq?.marca, eq?.modelo].filter(Boolean).join(' ')
+}

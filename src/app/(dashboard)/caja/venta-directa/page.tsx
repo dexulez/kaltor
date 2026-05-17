@@ -44,7 +44,7 @@ export default async function VentaDirectaPage({
         id: ot.id,
         numero_ot: ot.numero_ot,
         cliente_nombre: ot.customers?.nombre ?? '—',
-        equipo: [ot.equipment?.tipo_equipo, ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' '),
+        equipo: [ot.equipment?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' '),
         precio: ot.precio_servicio ?? ot.presupuesto_estimado ?? 0,
       }
     }
