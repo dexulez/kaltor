@@ -337,6 +337,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     setLoading(true)
 
     const tipoVenta = serviciosOT.length > 0 && carrito.length === 0 ? 'reparacion' : 'directa'
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
     const { data: venta, error: ve } = await supabase.from('sales').insert({
       tipo: tipoVenta,
       customer_id: clienteId || null,
@@ -350,6 +351,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       monto_pago_2: cobromixto && monto2 > 0 ? monto2 : null,
       comision_bancaria: comisionBancaria,
       tipo_documento: tipoDoc,
+      usuario_id: currentUser?.id ?? null,
     }).select().single()
 
     if (ve) { toast.error('Error al crear venta: ' + ve.message); setLoading(false); return }

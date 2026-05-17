@@ -1033,99 +1033,216 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
 
-  const [{ data: logs }, { data: ventasUsuario }, { data: otsTecnico }] = await Promise.all([
-    supabase.from('audit_logs')
-      .select('*').gte('created_at', desdeIso).lte('created_at', hastaIso)
+  const [
+    { data: salesData },
+    { data: historialData },
+    { data: sesionesData },
+    { data: stockData },
+    { data: otsData },
+  ] = await Promise.all([
+    // Ventas con usuario
+    supabase.from('sales')
+      .select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, usuario_id, customers(nombre), usuario:user_profiles!sales_usuario_id_fkey(nombre_completo, email)')
+      .gte('created_at', desdeIso).lte('created_at', hastaIso)
+      .order('created_at', { ascending: false }).limit(300),
+    // Cambios de estado OT
+    supabase.from('repair_status_history')
+      .select('id, estado_anterior, estado_nuevo, comentario, created_at, repair_order_id, usuario_id, repair_orders(numero_ot, customers(nombre)), usuario:user_profiles!repair_status_history_usuario_id_fkey(nombre_completo, email)')
+      .gte('created_at', desdeIso).lte('created_at', hastaIso)
+      .order('created_at', { ascending: false }).limit(300),
+    // Sesiones de caja
+    supabase.from('sesiones_caja')
+      .select('id, fecha, estado, apertura_at, cierre_at, efectivo_apertura, efectivo_cierre, transbank_cierre, transferencia_cierre')
+      .or(`apertura_at.gte.${desdeIso},cierre_at.gte.${desdeIso}`)
+      .order('apertura_at', { ascending: false }).limit(60),
+    // Movimientos de stock
+    supabase.from('stock_movements')
+      .select('id, tipo, cantidad, stock_anterior, stock_nuevo, razon, created_at, usuario_id, products(nombre), usuario:user_profiles!stock_movements_usuario_id_fkey(nombre_completo, email)')
+      .gte('created_at', desdeIso).lte('created_at', hastaIso)
       .order('created_at', { ascending: false }).limit(200),
-    supabase.from('sales').select('created_by, total, anulada').gte('created_at', desdeIso).lte('created_at', hastaIso),
+    // OTs creadas (recibido = creación)
     supabase.from('repair_orders')
-      .select(`tecnico_id, estado, precio_servicio, tecnico:user_profiles(nombre_completo)`)
-      .gte('created_at', desdeIso).lte('created_at', hastaIso),
+      .select('id, numero_ot, created_at, tecnico_id, equipment(tipo_equipo, marca, modelo), customers(nombre), tecnico:user_profiles!repair_orders_tecnico_id_fkey(nombre_completo)')
+      .gte('created_at', desdeIso).lte('created_at', hastaIso)
+      .order('created_at', { ascending: false }).limit(100),
   ])
 
-  const porVendedor: Record<string, { total: number; cantidad: number; anuladas: number }> = {}
-  ;(ventasUsuario ?? []).forEach(v => {
-    const k = v.created_by ?? 'sin_usuario'
-    if (!porVendedor[k]) porVendedor[k] = { total: 0, cantidad: 0, anuladas: 0 }
-    if (!v.anulada) { porVendedor[k].total += v.total; porVendedor[k].cantidad++ }
-    else porVendedor[k].anuladas++
+  type LogEntry = { fecha: string; usuario: string; modulo: string; accion: string; detalle: string; monto?: number; color: string }
+
+  const norm = (v: unknown): { nombre_completo?: string; email?: string } | null => {
+    if (!v) return null
+    return (Array.isArray(v) ? v[0] : v) as { nombre_completo?: string; email?: string }
+  }
+  const normRel = (v: unknown): Record<string, unknown> | null => {
+    if (!v) return null
+    return (Array.isArray(v) ? v[0] : v) as Record<string, unknown>
+  }
+  const usuarioNombre = (u: unknown) => {
+    const p = norm(u)
+    return p?.nombre_completo ?? p?.email ?? '—'
+  }
+
+  const entries: LogEntry[] = []
+
+  // Ventas
+  ;(salesData ?? []).forEach(v => {
+    const u = norm((v as Record<string, unknown>).usuario)
+    const cliente = normRel((v as Record<string, unknown>).customers)
+    entries.push({
+      fecha: v.created_at as string,
+      usuario: u?.nombre_completo ?? u?.email ?? 'Sin registro',
+      modulo: '💰 Caja',
+      accion: (v as Record<string, unknown>).anulada ? 'Venta anulada' : 'Venta registrada',
+      detalle: `${(v as Record<string, unknown>).numero_venta} · ${(cliente?.nombre as string) ?? 'Sin cliente'} · ${(v as Record<string, unknown>).metodo_pago} · ${(v as Record<string, unknown>).tipo_documento}`,
+      monto: (v as Record<string, unknown>).total as number,
+      color: (v as Record<string, unknown>).anulada ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
+    })
   })
 
-  type OTAudit = {
-    tecnico_id: string | null; estado: string
-    precio_servicio: number | null
-    tecnico: { nombre_completo: string } | null
-  }
-  const porTecAudit: Record<string, { nombre: string; total: number; entregadas: number; ingresos: number }> = {}
-  ;((otsTecnico ?? []) as unknown as OTAudit[]).forEach(o => {
-    const k = o.tecnico_id ?? 'sin_asignar'
-    const nombre = o.tecnico?.nombre_completo ?? 'Sin asignar'
-    if (!porTecAudit[k]) porTecAudit[k] = { nombre, total: 0, entregadas: 0, ingresos: 0 }
-    porTecAudit[k].total++
-    if (o.estado === 'entregado') { porTecAudit[k].entregadas++; porTecAudit[k].ingresos += o.precio_servicio ?? 0 }
+  // Cambios de estado OT
+  ;(historialData ?? []).forEach(h => {
+    const hr = h as Record<string, unknown>
+    const u = norm(hr.usuario)
+    const ot = normRel(hr.repair_orders)
+    const cliente = ot ? normRel(ot.customers as unknown) : null
+    entries.push({
+      fecha: hr.created_at as string,
+      usuario: u?.nombre_completo ?? u?.email ?? 'Sistema',
+      modulo: '🔧 Reparaciones',
+      accion: `Estado → ${hr.estado_nuevo}`,
+      detalle: `${(ot?.numero_ot as string) ?? ''} · ${(cliente?.nombre as string) ?? ''}${hr.comentario ? ' · ' + hr.comentario : ''}`,
+      color: hr.estado_nuevo === 'entregado' ? 'bg-emerald-100 text-emerald-700' : hr.estado_nuevo === 'cancelado' ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700',
+    })
   })
 
-  const logsData = logs ?? []
+  // Sesiones caja
+  ;(sesionesData ?? []).forEach(s => {
+    const sr = s as Record<string, unknown>
+    if (sr.apertura_at && (sr.apertura_at as string) >= desdeIso && (sr.apertura_at as string) <= hastaIso) {
+      entries.push({ fecha: sr.apertura_at as string, usuario: 'Caja', modulo: '🔓 Caja', accion: 'Apertura de caja', detalle: `Fondo apertura: ${formatCLP(sr.efectivo_apertura as number)}`, color: 'bg-yellow-100 text-yellow-700' })
+    }
+    if (sr.cierre_at && (sr.cierre_at as string) >= desdeIso && (sr.cierre_at as string) <= hastaIso) {
+      const total = ((sr.efectivo_cierre as number) ?? 0) + ((sr.transbank_cierre as number) ?? 0) + ((sr.transferencia_cierre as number) ?? 0)
+      entries.push({ fecha: sr.cierre_at as string, usuario: 'Caja', modulo: '🔒 Caja', accion: 'Cierre de caja', detalle: `Total recaudado: ${formatCLP(total)}`, monto: total, color: 'bg-gray-100 text-gray-700' })
+    }
+  })
 
-  const ACCION_COLOR: Record<string, string> = {
-    venta_creada: 'bg-green-100 text-green-700',
-    venta_anulada: 'bg-red-100 text-red-700',
-    ot_pagada: 'bg-blue-100 text-blue-700',
-    ot_creada: 'bg-cyan-100 text-cyan-700',
-    ot_estado_cambio: 'bg-purple-100 text-purple-700',
-    stock_ajustado: 'bg-orange-100 text-orange-700',
-    precio_modificado: 'bg-yellow-100 text-yellow-700',
-    usuario_modificado: 'bg-gray-100 text-gray-700',
-  }
+  // Movimientos de stock
+  ;(stockData ?? []).forEach(m => {
+    const mr = m as Record<string, unknown>
+    const u = norm(mr.usuario)
+    const prod = normRel(mr.products)
+    entries.push({
+      fecha: mr.created_at as string,
+      usuario: u?.nombre_completo ?? u?.email ?? 'Sistema',
+      modulo: '📦 Inventario',
+      accion: `Stock ${mr.tipo}`,
+      detalle: `${(prod?.nombre as string) ?? '—'} · ${mr.tipo}: ${mr.cantidad} unid. · ${mr.razon}`,
+      color: mr.tipo === 'entrada' ? 'bg-blue-100 text-blue-700' : mr.tipo === 'salida' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700',
+    })
+  })
+
+  // OTs creadas
+  ;(otsData ?? []).forEach(o => {
+    const or2 = o as Record<string, unknown>
+    const u = norm(or2.tecnico)
+    const cliente = normRel(or2.customers)
+    const eq = normRel(or2.equipment)
+    const equipoDesc = eq ? [eq.tipo_equipo, eq.marca, eq.modelo].filter(Boolean).join(' ') : '—'
+    entries.push({
+      fecha: or2.created_at as string,
+      usuario: u?.nombre_completo ?? 'Recepcionista',
+      modulo: '🔧 Reparaciones',
+      accion: 'OT creada',
+      detalle: `${or2.numero_ot} · ${(cliente?.nombre as string) ?? '—'} · ${equipoDesc}`,
+      color: 'bg-cyan-100 text-cyan-700',
+    })
+  })
+
+  // Ordenar por fecha desc
+  entries.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+
+  // Resumen por usuario
+  const porUsuario: Record<string, { ventas: number; totalVentas: number; anuladas: number; otsCreadas: number; cambiosEstado: number; stockMovs: number }> = {}
+  entries.forEach(e => {
+    const k = e.usuario
+    if (!porUsuario[k]) porUsuario[k] = { ventas: 0, totalVentas: 0, anuladas: 0, otsCreadas: 0, cambiosEstado: 0, stockMovs: 0 }
+    if (e.accion === 'Venta registrada') { porUsuario[k].ventas++; porUsuario[k].totalVentas += e.monto ?? 0 }
+    if (e.accion === 'Venta anulada')    porUsuario[k].anuladas++
+    if (e.accion === 'OT creada')        porUsuario[k].otsCreadas++
+    if (e.accion.startsWith('Estado →')) porUsuario[k].cambiosEstado++
+    if (e.accion.startsWith('Stock'))    porUsuario[k].stockMovs++
+  })
+
+  const TZ_CL = 'America/Santiago'
+  const fmtFecha = (iso: string) => new Date(iso).toLocaleString('es-CL', { timeZone: TZ_CL, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Section title="Ventas por usuario">
-          <Tabla
-            headers={['Usuario (ID)', 'Ventas', 'Anuladas', 'Total']}
-            rows={Object.entries(porVendedor).sort((a, b) => b[1].total - a[1].total)
-              .map(([k, v]) => [`${k.slice(0, 8)}...`, v.cantidad, v.anuladas, formatCLP(v.total)])}
-          />
-        </Section>
-        <Section title="OTs por técnico">
-          <Tabla
-            headers={['Técnico', 'Asignadas', 'Entregadas', 'Ingresos']}
-            rows={Object.values(porTecAudit).sort((a, b) => b.entregadas - a.entregadas)
-              .map(t => [t.nombre, t.total, t.entregadas, formatCLP(t.ingresos)])}
-          />
-        </Section>
-      </div>
-      <Section title={`Log de auditoría — últimas ${Math.min(logsData.length, 50)} acciones`}>
+      {/* Resumen por usuario */}
+      <Section title="Resumen de actividad por usuario">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {['Fecha', 'Usuario', 'Módulo', 'Acción', 'Detalle'].map((h, i) => (
-                  <th key={i} className="px-3 py-2 text-gray-500 font-medium text-left">{h}</th>
+                {['Usuario', 'Ventas', 'Total vendido', 'Anuladas', 'OTs creadas', 'Cambios estado', 'Mov. stock'].map((h, i) => (
+                  <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y">
-              {logsData.length === 0 ? (
-                <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">Sin registros en el período</td></tr>
-              ) : logsData.slice(0, 50).map((l, i) => (
+              {Object.keys(porUsuario).length === 0 ? (
+                <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400 text-xs">Sin actividad en el período</td></tr>
+              ) : Object.entries(porUsuario).sort((a, b) => b[1].totalVentas - a[1].totalVentas).map(([usuario, v], i) => (
                 <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{l.created_at.replace('T', ' ').slice(0, 16)}</td>
-                  <td className="px-3 py-2 font-medium">{l.usuario_nombre ?? '—'}</td>
-                  <td className="px-3 py-2 capitalize">{l.modulo}</td>
-                  <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ACCION_COLOR[l.accion] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {l.accion.replaceAll('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-gray-500">{l.entidad_desc ?? '—'}</td>
+                  <td className="px-3 py-2 font-medium">{usuario}</td>
+                  <td className="px-3 py-2 text-right">{v.ventas}</td>
+                  <td className="px-3 py-2 text-right text-green-700 font-semibold">{formatCLP(v.totalVentas)}</td>
+                  <td className="px-3 py-2 text-right text-red-600">{v.anuladas || '—'}</td>
+                  <td className="px-3 py-2 text-right">{v.otsCreadas || '—'}</td>
+                  <td className="px-3 py-2 text-right">{v.cambiosEstado || '—'}</td>
+                  <td className="px-3 py-2 text-right">{v.stockMovs || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </Section>
+
+      {/* Timeline completo */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gray-50 border-b px-4 py-3 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800 text-sm">📋 Log completo de actividad ({entries.length} eventos)</h2>
+          <p className="text-xs text-gray-400">Ventas · Cambios OT · Caja · Inventario</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                {['Fecha / Hora', 'Usuario', 'Módulo', 'Acción', 'Detalle', 'Monto'].map((h, i) => (
+                  <th key={i} className={`px-3 py-2.5 text-gray-500 font-medium ${i === 0 || i === 1 || i === 4 ? 'text-left' : 'text-center'} ${i === 5 ? 'text-right' : ''}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {entries.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">Sin actividad registrada en el período seleccionado</td></tr>
+              ) : entries.map((e, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtFecha(e.fecha)}</td>
+                  <td className="px-3 py-2 font-medium text-gray-800 whitespace-nowrap">{e.usuario}</td>
+                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{e.modulo}</td>
+                  <td className="px-3 py-2">
+                    <span className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${e.color}`}>{e.accion}</span>
+                  </td>
+                  <td className="px-3 py-2 text-gray-500 max-w-xs truncate">{e.detalle}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-gray-800">{e.monto ? formatCLP(e.monto) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
