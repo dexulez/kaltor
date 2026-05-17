@@ -27,8 +27,12 @@ const ESTADO_INFO: Record<string, { label: string; color: string }> = {
 type OTDetalle = RepairOrder & {
   fecha_estimada_entrega?: string | null
   customers: Customer | null
-  equipment: (Equipment & { imei2?: string | null; numero_serie?: string | null }) | null
+  equipment: (Equipment & { tipo_equipo?: string | null; imei2?: string | null; numero_serie?: string | null }) | null
   user_profiles: Pick<UserProfile, 'nombre_completo'> | null
+}
+
+function descEquipo(eq: OTDetalle['equipment']): string {
+  return [eq?.tipo_equipo, eq?.marca, eq?.modelo].filter(Boolean).join(' ')
 }
 
 type HistorialItem = RepairStatusHistory & {
@@ -140,7 +144,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
           className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm text-indigo-700 hover:bg-indigo-100 transition-colors w-fit"
         >
           <span className="text-lg">🧠</span>
-          <span>Ver manuales y fallas para <strong>{equipo.marca} {equipo.modelo}</strong></span>
+          <span>Ver manuales y fallas para <strong>{descEquipo(equipo)}</strong></span>
           <span className="text-xs text-indigo-400 ml-1">→</span>
         </Link>
       )}
@@ -180,7 +184,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         {/* Equipo */}
         <div className="bg-white rounded-xl border p-5">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Equipo</h2>
-          <p className="font-semibold text-gray-900">{equipo?.marca} {equipo?.modelo}</p>
+          <p className="font-semibold text-gray-900">{descEquipo(equipo)}</p>
           {equipo?.color && <p className="text-gray-500 text-sm">{equipo.color}{equipo?.capacidad ? ` · ${equipo.capacidad}` : ''}</p>}
           {equipo?.imei && <p className="text-gray-400 text-xs mt-1">IMEI: {equipo.imei}</p>}
           {equipo?.accesorios?.length > 0 && (

@@ -23,7 +23,7 @@ interface OTParaCompartir {
   fecha_estimada_entrega?: string | null
   customers?: { nombre: string; telefono: string; rut?: string | null; email?: string | null } | null
   equipment?: {
-    marca: string; modelo: string; color?: string | null; capacidad?: string | null
+    tipo_equipo?: string | null; marca: string; modelo: string; color?: string | null; capacidad?: string | null
     imei?: string | null; imei2?: string | null; numero_serie?: string | null
     accesorios?: string[]; condicion_visual?: string[]
     falla_reportada: string; observaciones?: string | null
@@ -172,7 +172,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     return `<div class="box" style="height:100%">
       <div class="box-hdr"><span>&#128241;</span> DETALLES DEL EQUIPO</div>
       <div class="box-body" style="word-break:break-word">
-        <div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong></div>
+        <div><strong>${[equipo?.tipo_equipo, equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}</strong></div>
         ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</div>` : ''}
         ${equipo?.imei ? `<div style="font-family:monospace;font-size:7pt;word-break:break-all">IMEI 1: ${equipo.imei}</div>` : ''}
         ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:7pt;word-break:break-all">IMEI 2: ${equipo.imei2}</div>` : ''}
@@ -351,7 +351,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       <!-- Equipo -->
       ${sT('EQUIPO')}
       <div style="font-size:8.5pt;line-height:1.5">
-        <div><strong>${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}</strong></div>
+        <div><strong>${[equipo?.tipo_equipo, equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}</strong></div>
         ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</div>` : ''}
         ${equipo?.imei  ? `<div style="font-family:monospace;font-size:8pt">IMEI 1: ${equipo.imei}</div>`  : ''}
         ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:8pt">IMEI 2: ${equipo.imei2}</div>` : ''}
@@ -447,7 +447,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     }
 
     const msg = [
-      `Hola ${cliente?.nombre ?? 'cliente'}, te informamos sobre el estado de tu *${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}*.`,
+      `Hola ${cliente?.nombre ?? 'cliente'}, te informamos sobre el estado de tu *${[equipo?.tipo_equipo, equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}*.`,
       '',
       firma.join('\n'),
       '',
@@ -472,7 +472,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     const body = [
       `Hola ${cliente?.nombre ?? 'cliente'},`,
       '',
-      `Te informamos sobre el estado de tu ${equipo?.marca ?? ''} ${equipo?.modelo ?? ''}.`,
+      `Te informamos sobre el estado de tu ${[equipo?.tipo_equipo, equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}.`,
       '',
       `OT: ${ot.numero_ot}`,
       `Estado: ${ot.estado.replace(/_/g, ' ')}`,
