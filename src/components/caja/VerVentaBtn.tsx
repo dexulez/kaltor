@@ -82,7 +82,10 @@ export default function VerVentaBtn({ ventaId, numeroVenta }: Props) {
     setLoading(false)
   }
 
-  const margenTotal = venta ? venta.items.reduce((s, it) => s + (it.subtotal - it.precio_costo * it.cantidad), 0) : 0
+  // Margen = suma(precio_venta - costo) por ítem, menos el descuento aplicado
+  const margenTotal = venta
+    ? Math.max(0, venta.items.reduce((s, it) => s + (it.subtotal - it.precio_costo * it.cantidad), 0) - (venta.descuento ?? 0))
+    : 0
 
   return (
     <>

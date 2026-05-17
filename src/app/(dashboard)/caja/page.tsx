@@ -36,8 +36,12 @@ export default async function CajaPage() {
   const [{ data: ventasHoy }, { data: ultimasVentas }, { data: otsPendientes }, { data: perfil }, { data: sysConfig }] = await Promise.all([
     supabase.from('sales').select('total, metodo_pago, iva, ppm')
       .gte('created_at', desdeSession).eq('anulada', false),
-    supabase.from('sales').select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, repair_order_id, customers(nombre)')
-      .gte('created_at', desdeSession)
+    supabase.from('sales').select(`
+      id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, repair_order_id,
+      customers(nombre),
+      repair_orders(numero_ot, equipment(tipo_equipo, marca, modelo)),
+      sale_items(nombre, cantidad, precio_unitario)
+    `).gte('created_at', desdeSession)
       .order('created_at', { ascending: false }).limit(50),
     supabase.from('repair_orders').select('*, customers(nombre), equipment(tipo_equipo, marca, modelo)')
       .eq('estado', 'listo').order('updated_at', { ascending: false }).limit(10),
@@ -65,7 +69,14 @@ export default async function CajaPage() {
   const ivaHoy = ventasHoy?.reduce((s, v) => s + (v.iva ?? 0), 0) ?? 0
   const ppmHoy = ventasHoy?.reduce((s, v) => s + (v.ppm ?? 0), 0) ?? 0
   const netoHoy = totalHoy - ivaHoy - ppmHoy
-  type VentaRow = { id: string; numero_venta: string; tipo: string; total: number; metodo_pago: string; tipo_documento: string; created_at: string; anulada: boolean; repair_order_id: string | null; customers: { nombre: string } | { nombre: string }[] | null }
+  type VentaRow = {
+    id: string; numero_venta: string; tipo: string; total: number
+    metodo_pago: string; tipo_documento: string; created_at: string
+    anulada: boolean; repair_order_id: string | null
+    customers: { nombre: string } | { nombre: string }[] | null
+    repair_orders: { numero_ot: string; equipment: { tipo_equipo?: string | null; marca: string; modelo: string } | null } | null
+    sale_items: { nombre: string; cantidad: number; precio_unitario: number }[]
+  }
   const ultimasVentasList = (ultimasVentas ?? []) as unknown as VentaRow[]
   const otsPendientesList: OtPendienteCaja[] = (otsPendientes ?? []) as OtPendienteCaja[]
 
@@ -178,6 +189,16 @@ export default async function CajaPage() {
               <div className="divide-y">
                 {ultimasVentasList.map((v) => {
                   const nombreCliente = Array.isArray(v.customers) ? v.customers[0]?.nombre : v.customers?.nombre
+                  // Preview inline de lo que se vendió
+                  const ot = v.repair_orders
+                  const eq = ot?.equipment
+                  const equipoDesc = eq ? [eq.tipo_equipo, eq.marca, eq.modelo].filter(Boolean).join(' ') : null
+                  const items = v.sale_items ?? []
+                  const preview = v.tipo === 'reparacion' && equipoDesc
+                    ? `${ot?.numero_ot ?? ''} · ${equipoDesc}`
+                    : items.length >= 1
+                      ? `${items[0].nombre}${items.length > 1 ? ` + ${items.length - 1} más` : ''}`
+                      : null
                   return (
                     <div key={v.id} className={`px-4 py-3 ${v.anulada ? 'opacity-50 bg-red-50' : ''}`}>
                       <div className="flex items-start justify-between gap-2">
@@ -192,6 +213,10 @@ export default async function CajaPage() {
                           </div>
                           {/* Cliente */}
                           <p className="text-sm font-medium text-gray-800 truncate mt-0.5">{nombreCliente ?? 'Sin cliente'}</p>
+                          {/* Preview de productos / equipo */}
+                          {preview && (
+                            <p className="text-xs text-blue-700 font-medium truncate mt-0.5 bg-blue-50 rounded px-1.5 py-0.5 inline-block max-w-full">{preview}</p>
+                          )}
                           {/* Método y documento */}
                           <p className="text-xs text-gray-400 capitalize mt-0.5">{v.metodo_pago} · {v.tipo_documento}</p>
                         </div>
