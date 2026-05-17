@@ -181,7 +181,7 @@ export function MarcaSelector({ value, onChange }: { value: string; onChange: (v
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const todasMarcas = [...MARCAS_BASE, ...extraMarcas]
+  const todasMarcas = [...new Set([...MARCAS_BASE, ...extraMarcas])].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
   const filtradas = busq.trim()
     ? todasMarcas.filter(m => m.toLowerCase().includes(busq.toLowerCase()))
     : todasMarcas
@@ -292,7 +292,7 @@ export function ModeloSelector({ marca, value, onChange }: { marca: string; valu
 
   const baseParaMarca = MODELOS_BASE[marca] ?? []
   const extraParaMarca = extraModelos[marca] ?? []
-  const todosModelos = [...baseParaMarca, ...extraParaMarca]
+  const todosModelos = [...new Set([...baseParaMarca, ...extraParaMarca])].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
   const filtrados = value.trim()
     ? todosModelos.filter(m => m.toLowerCase().includes(value.toLowerCase()))
     : todosModelos

@@ -7,6 +7,7 @@ import { Customer, Equipment, RepairOrder } from '@/types'
 import SesionCajaPanel from '@/components/caja/SesionCajaPanel'
 import AnularVentaBtn from '@/components/caja/AnularVentaBtn'
 import ReprintVentaBtn from '@/components/caja/ReprintVentaBtn'
+import VerVentaBtn from '@/components/caja/VerVentaBtn'
 import { tieneSubPermiso } from '@/lib/modulos'
 import MisComisionesHoy from '@/components/caja/MisComisionesHoy'
 
@@ -35,7 +36,7 @@ export default async function CajaPage() {
   const [{ data: ventasHoy }, { data: ultimasVentas }, { data: otsPendientes }, { data: perfil }, { data: sysConfig }] = await Promise.all([
     supabase.from('sales').select('total, metodo_pago, iva, ppm')
       .gte('created_at', desdeSession).eq('anulada', false),
-    supabase.from('sales').select('id, numero_venta, total, metodo_pago, tipo_documento, created_at, anulada, customers(nombre)')
+    supabase.from('sales').select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, repair_order_id, customers(nombre)')
       .gte('created_at', desdeSession)
       .order('created_at', { ascending: false }).limit(50),
     supabase.from('repair_orders').select('*, customers(nombre), equipment(tipo_equipo, marca, modelo)')
@@ -64,7 +65,7 @@ export default async function CajaPage() {
   const ivaHoy = ventasHoy?.reduce((s, v) => s + (v.iva ?? 0), 0) ?? 0
   const ppmHoy = ventasHoy?.reduce((s, v) => s + (v.ppm ?? 0), 0) ?? 0
   const netoHoy = totalHoy - ivaHoy - ppmHoy
-  type VentaRow = { id: string; numero_venta: string; total: number; metodo_pago: string; tipo_documento: string; created_at: string; anulada: boolean; customers: { nombre: string } | { nombre: string }[] | null }
+  type VentaRow = { id: string; numero_venta: string; tipo: string; total: number; metodo_pago: string; tipo_documento: string; created_at: string; anulada: boolean; repair_order_id: string | null; customers: { nombre: string } | { nombre: string }[] | null }
   const ultimasVentasList = (ultimasVentas ?? []) as unknown as VentaRow[]
   const otsPendientesList: OtPendienteCaja[] = (otsPendientes ?? []) as OtPendienteCaja[]
 
@@ -178,37 +179,47 @@ export default async function CajaPage() {
                 {ultimasVentasList.map((v) => {
                   const nombreCliente = Array.isArray(v.customers) ? v.customers[0]?.nombre : v.customers?.nombre
                   return (
-                    <div key={v.id} className={`px-4 py-3 flex items-center justify-between gap-2 ${v.anulada ? 'opacity-50 bg-red-50' : ''}`}>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-mono text-xs text-gray-400">{v.numero_venta}</p>
-                          {v.anulada && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">Anulada</span>}
+                    <div key={v.id} className={`px-4 py-3 ${v.anulada ? 'opacity-50 bg-red-50' : ''}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          {/* Header de la tarjeta */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-mono text-xs font-semibold text-gray-600">{v.numero_venta}</p>
+                            {v.anulada && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">Anulada</span>}
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${v.tipo === 'reparacion' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {v.tipo === 'reparacion' ? '🔧 OT' : '🛒 Directa'}
+                            </span>
+                          </div>
+                          {/* Cliente */}
+                          <p className="text-sm font-medium text-gray-800 truncate mt-0.5">{nombreCliente ?? 'Sin cliente'}</p>
+                          {/* Método y documento */}
+                          <p className="text-xs text-gray-400 capitalize mt-0.5">{v.metodo_pago} · {v.tipo_documento}</p>
                         </div>
-                        <p className="text-sm font-medium text-gray-800 truncate">{nombreCliente ?? 'Sin cliente'}</p>
-                        <p className="text-xs text-gray-500 capitalize">{v.metodo_pago} · {v.tipo_documento}</p>
-                      </div>
-                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                        <p className={`font-bold ${v.anulada ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{formatCLP(v.total)}</p>
-                        <div className="flex items-center gap-1">
-                          <ReprintVentaBtn
-                            ventaId={v.id}
-                            numeroVenta={v.numero_venta}
-                            configNombreLocal={ticketCfg.nombre_local}
-                            configRut={ticketCfg.rut_local}
-                            configDireccion={ticketCfg.direccion}
-                            configTelefono={ticketCfg.telefono}
-                            configEmail={ticketCfg.email}
-                            configLogo={ticketCfg.logo_url}
-                          />
-                          {!v.anulada && (
-                            <AnularVentaBtn
+                        {/* Total y acciones */}
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                          <p className={`font-bold text-base ${v.anulada ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{formatCLP(v.total)}</p>
+                          <div className="flex items-center gap-1">
+                            <VerVentaBtn ventaId={v.id} numeroVenta={v.numero_venta} />
+                            <ReprintVentaBtn
                               ventaId={v.id}
                               numeroVenta={v.numero_venta}
-                              total={v.total}
-                              puedeAnular={puedeAnular}
-                              pinAdmin={pinAdmin}
+                              configNombreLocal={ticketCfg.nombre_local}
+                              configRut={ticketCfg.rut_local}
+                              configDireccion={ticketCfg.direccion}
+                              configTelefono={ticketCfg.telefono}
+                              configEmail={ticketCfg.email}
+                              configLogo={ticketCfg.logo_url}
                             />
-                          )}
+                            {!v.anulada && (
+                              <AnularVentaBtn
+                                ventaId={v.id}
+                                numeroVenta={v.numero_venta}
+                                total={v.total}
+                                puedeAnular={puedeAnular}
+                                pinAdmin={pinAdmin}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
