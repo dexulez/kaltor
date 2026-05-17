@@ -366,12 +366,13 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       }))
       await supabase.from('sale_items').insert(otItems)
 
-      // Marcar cada OT como entregada
+      // Marcar cada OT como entregada y guardar precio cobrado
       for (const ot of serviciosOT) {
         await supabase.from('repair_orders').update({
           estado: 'entregado',
           metodo_pago: metodo,
           fecha_entrega: new Date().toISOString(),
+          precio_servicio: ot.precio,   // precio efectivamente cobrado → alimenta informes
         }).eq('id', ot.id)
         await supabase.from('repair_status_history').insert({
           repair_order_id: ot.id,

@@ -231,7 +231,10 @@ async function TabTaller({ desde, hasta }: { desde: string; hasta: string }) {
     const nombre = o.tecnico?.nombre_completo ?? 'Sin asignar'
     if (!porTec[k]) porTec[k] = { nombre, total: 0, entregadas: 0, ingresos: 0 }
     porTec[k].total++
-    if (o.estado === 'entregado') { porTec[k].entregadas++; porTec[k].ingresos += o.precio_servicio ?? 0 }
+    if (o.estado === 'entregado' || o.estado === 'para_entrega') {
+      porTec[k].entregadas++
+      porTec[k].ingresos += o.precio_servicio ?? 0
+    }
   })
   const tecRows = Object.values(porTec).sort((a, b) => b.entregadas - a.entregadas)
     .map(t => [t.nombre, t.total, t.entregadas, formatCLP(t.ingresos)])
