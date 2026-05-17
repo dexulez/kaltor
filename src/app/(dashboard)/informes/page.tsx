@@ -97,7 +97,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
   const iva = Math.round(totalBruto - totalBruto / 1.19)
   const neto = totalBruto - iva
   const ppm = Math.round(neto * 0.03)
-  const utilidadNeta = neto - ppm
+  // utilidadNeta calculada más abajo como utilRealTotal
   const ticket = activas.length ? Math.round(totalBruto / activas.length) : 0
 
   // Costos de productos por venta (para venta directa)
@@ -157,17 +157,43 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
 
   // Costos reales taller: repuestos + comisión bancaria
   const costoRepTaller = reparaciones.reduce((s: number, v: Record<string, unknown>) => s + (costoRepPorOT[v.repair_order_id as string] ?? 0), 0)
-  const comBancoTaller = reparaciones.reduce((s: number, v: Record<string, unknown>) => s + (v.comision_bancaria as number ?? 0), 0)
+  const comBancoTaller = reparaciones.reduce((s: number, v: Record<string, unknown>) => s + ((v.comision_bancaria as number) ?? 0), 0)
   const utilRealTaller = netoRep - ppmRep - costoRepTaller - comBancoTaller
 
   // Costos reales venta directa: costo producto + comisión bancaria
   const costoProdDir = directas.reduce((s: number, v: Record<string, unknown>) => s + (costoPorVenta[v.id as string] ?? 0), 0)
-  const comBancoDir  = directas.reduce((s: number, v: Record<string, unknown>) => s + (v.comision_bancaria as number ?? 0), 0)
+  const comBancoDir  = directas.reduce((s: number, v: Record<string, unknown>) => s + ((v.comision_bancaria as number) ?? 0), 0)
   const utilRealDir  = netoDir - ppmDir - costoProdDir - comBancoDir
 
   const comBancoTotal = comBancoTaller + comBancoDir
   const costoTotal    = costoRepTaller + costoProdDir
   const utilRealTotal = neto - ppm - costoTotal - comBancoTotal
+
+  // ── Por método de pago × canal ───────────────────────────────────────────
+  const METODO_LABEL: Record<string, string> = {
+    efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia',
+    debito: '💳 Débito', credito: '💳 Crédito',
+  }
+  type CanalNum = { taller: number; tallerN: number; directa: number; directaN: number }
+  const porMetodoCanal: Record<string, CanalNum> = {}
+  activas.forEach((v: Record<string, unknown>) => {
+    const m = (v.metodo_pago as string) ?? 'otro'
+    if (!porMetodoCanal[m]) porMetodoCanal[m] = { taller: 0, tallerN: 0, directa: 0, directaN: 0 }
+    if (v.tipo === 'reparacion') { porMetodoCanal[m].taller += v.total as number; porMetodoCanal[m].tallerN++ }
+    else { porMetodoCanal[m].directa += v.total as number; porMetodoCanal[m].directaN++ }
+  })
+
+  // ── Por tipo de documento × canal ────────────────────────────────────────
+  const DOC_LABEL: Record<string, string> = {
+    boleta: '🧾 Boleta', factura: '📄 Factura', presupuesto: '📋 Presupuesto',
+  }
+  const porDocCanal: Record<string, CanalNum> = {}
+  activas.forEach((v: Record<string, unknown>) => {
+    const d = (v.tipo_documento as string) ?? 'boleta'
+    if (!porDocCanal[d]) porDocCanal[d] = { taller: 0, tallerN: 0, directa: 0, directaN: 0 }
+    if (v.tipo === 'reparacion') { porDocCanal[d].taller += v.total as number; porDocCanal[d].tallerN++ }
+    else { porDocCanal[d].directa += v.total as number; porDocCanal[d].directaN++ }
+  })
 
   return (
     <div className="space-y-5">
@@ -244,7 +270,89 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
         </div>
         <div className="px-4 py-2.5 border-t bg-amber-50 text-xs text-amber-800">
           <strong>Utilidad real</strong> = Neto − PPM − Costo (repuestos/productos) − Comisión bancaria.
-          No incluye comisiones de técnicos (ver pestaña Rentabilidad) ni gastos operacionales.
+          No incluye comisiones de técnicos (ver Rentabilidad) ni gastos operacionales.
+        </div>
+      </div>
+
+      {/* Desglose por método de pago × canal */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="bg-gray-50 border-b px-4 py-3">
+            <h2 className="font-semibold text-gray-800 text-sm">💳 Por método de pago</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  {['Método', 'Taller (N)', 'Venta directa (N)', 'Total'].map((h, i) => (
+                    <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {Object.entries(porMetodoCanal).sort((a, b) => (b[1].taller + b[1].directa) - (a[1].taller + a[1].directa)).map(([m, v]) => (
+                  <tr key={m} className="hover:bg-gray-50">
+                    <td className="px-3 py-2">{METODO_LABEL[m] ?? m}</td>
+                    <td className="px-3 py-2 text-right">
+                      <span className="font-medium">{formatCLP(v.taller)}</span>
+                      {v.tallerN > 0 && <span className="text-xs text-gray-400 ml-1">({v.tallerN})</span>}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <span className="font-medium">{formatCLP(v.directa)}</span>
+                      {v.directaN > 0 && <span className="text-xs text-gray-400 ml-1">({v.directaN})</span>}
+                    </td>
+                    <td className="px-3 py-2 text-right font-bold text-blue-700">{formatCLP(v.taller + v.directa)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-semibold border-t-2">
+                  <td className="px-3 py-2">TOTAL</td>
+                  <td className="px-3 py-2 text-right">{formatCLP(totRep)}</td>
+                  <td className="px-3 py-2 text-right">{formatCLP(totDir)}</td>
+                  <td className="px-3 py-2 text-right text-blue-700">{formatCLP(totalBruto)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Desglose por tipo de documento × canal */}
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="bg-gray-50 border-b px-4 py-3">
+            <h2 className="font-semibold text-gray-800 text-sm">🧾 Por tipo de documento</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  {['Tipo', 'Taller (N)', 'Venta directa (N)', 'Total'].map((h, i) => (
+                    <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {Object.entries(porDocCanal).sort((a, b) => (b[1].taller + b[1].directa) - (a[1].taller + a[1].directa)).map(([d, v]) => (
+                  <tr key={d} className="hover:bg-gray-50">
+                    <td className="px-3 py-2">{DOC_LABEL[d] ?? d}</td>
+                    <td className="px-3 py-2 text-right">
+                      <span className="font-medium">{formatCLP(v.taller)}</span>
+                      {v.tallerN > 0 && <span className="text-xs text-gray-400 ml-1">({v.tallerN})</span>}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <span className="font-medium">{formatCLP(v.directa)}</span>
+                      {v.directaN > 0 && <span className="text-xs text-gray-400 ml-1">({v.directaN})</span>}
+                    </td>
+                    <td className="px-3 py-2 text-right font-bold text-blue-700">{formatCLP(v.taller + v.directa)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-semibold border-t-2">
+                  <td className="px-3 py-2">TOTAL</td>
+                  <td className="px-3 py-2 text-right">{formatCLP(totRep)}</td>
+                  <td className="px-3 py-2 text-right">{formatCLP(totDir)}</td>
+                  <td className="px-3 py-2 text-right text-blue-700">{formatCLP(totalBruto)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
