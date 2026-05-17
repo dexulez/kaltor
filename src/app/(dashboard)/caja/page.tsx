@@ -8,6 +8,7 @@ import SesionCajaPanel from '@/components/caja/SesionCajaPanel'
 import AnularVentaBtn from '@/components/caja/AnularVentaBtn'
 import ReprintVentaBtn from '@/components/caja/ReprintVentaBtn'
 import { tieneSubPermiso } from '@/lib/modulos'
+import MisComisionesHoy from '@/components/caja/MisComisionesHoy'
 
 type OtPendienteCaja = RepairOrder & {
   customers: Pick<Customer, 'nombre'> | null
@@ -40,7 +41,7 @@ export default async function CajaPage() {
     supabase.from('repair_orders').select('*, customers(nombre), equipment(marca, modelo)')
       .eq('estado', 'listo').order('updated_at', { ascending: false }).limit(10),
     supabase.from('user_profiles').select('permisos_modulos, roles(nombre)').eq('id', user!.id).single(),
-    supabase.from('system_config').select('pin_autorizacion, nombre_local, rut_local, direccion, telefono, email, logo_url').maybeSingle()
+    supabase.from('system_config').select('pin_autorizacion, nombre_local, rut_local, direccion, telefono, email, logo_url, iva, comision_debito, comision_credito').maybeSingle()
       .then(r => r.error ? { data: null } : r),
   ])
 
@@ -48,7 +49,7 @@ export default async function CajaPage() {
   const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
   const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
   const puedeAnular = tieneSubPermiso('caja.anular', rolNombre, permisos)
-  const cfgRaw = sysConfig as { pin_autorizacion?: string; nombre_local?: string; rut_local?: string; direccion?: string; telefono?: string; email?: string; logo_url?: string } | null
+  const cfgRaw = sysConfig as { pin_autorizacion?: string; nombre_local?: string; rut_local?: string; direccion?: string; telefono?: string; email?: string; logo_url?: string; iva?: number; comision_debito?: number; comision_credito?: number } | null
   const pinAdmin = cfgRaw?.pin_autorizacion ?? null
   const ticketCfg = {
     nombre_local: cfgRaw?.nombre_local ?? '',
@@ -93,6 +94,14 @@ export default async function CajaPage() {
       </div>
 
       <SesionCajaPanel />
+
+      {/* Comisiones del técnico logueado */}
+      <MisComisionesHoy
+        userId={user!.id}
+        ivaRate={cfgRaw?.iva ?? 19}
+        comisionDebito={cfgRaw?.comision_debito ?? 1.5}
+        comisionCredito={cfgRaw?.comision_credito ?? 2.5}
+      />
 
       {/* Resumen de la sesión */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

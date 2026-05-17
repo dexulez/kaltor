@@ -68,6 +68,13 @@ export default function SesionCajaPanel() {
   const [saving, setSaving] = useState(false)
   type TicketFormato = 'a4' | 'ticket80' | 'ticket57'
   const [formatoTicket, setFormatoTicket] = useState<TicketFormato>('a4')
+
+  interface ComisionTec {
+    nombre: string; ots: number
+    ingresosBruto: number; costoRep: number; comBanco: number
+    baseCalculo: number; pctPromedio: number; comisionTotal: number; ganancia: number
+  }
+  const [comisionData, setComisionData] = useState<ComisionTec[]>([])
   const [cierreData, setCierreData] = useState<{
     fecha: string; apertura: string; fondoApertura: number
     ventas: VentasDia; ef: number; tb: number; tr: number; ot: number
@@ -162,6 +169,72 @@ export default function SesionCajaPanel() {
     if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
     toast.success('Caja cerrada correctamente')
 
+    // ── Calcular comisiones de técnicos de esta sesión ─────────────────────
+    const cierreIso = new Date().toISOString()
+    const [{ data: otsRaw }, { data: sysConf }] = await Promise.all([
+      supabase.from('repair_orders')
+        .select(`id, precio_servicio, tipo_reparacion, metodo_pago, iva_aplicado, tecnico_id,
+          tecnico:user_profiles(nombre_completo, comision_base, comision_pantalla, comision_bateria,
+            comision_placa, comision_software, comision_camara, comision_conector, comision_otro)`)
+        .eq('estado', 'entregado')
+        .gte('fecha_entrega', sesion.apertura_at)
+        .lte('fecha_entrega', cierreIso),
+      supabase.from('system_config')
+        .select('iva, comision_debito, comision_credito, comision_transferencia').single(),
+    ])
+
+    const otIds = (otsRaw ?? []).map((o: Record<string, unknown>) => o.id as string)
+    let costosPorOT: Record<string, number> = {}
+    if (otIds.length > 0) {
+      const { data: items } = await supabase.from('repair_items')
+        .select('repair_order_id, cantidad, precio_costo, costo_envio').in('repair_order_id', otIds)
+      ;(items ?? []).forEach(it => {
+        costosPorOT[it.repair_order_id] = (costosPorOT[it.repair_order_id] ?? 0) + (it.cantidad ?? 1) * (it.precio_costo ?? 0) + (it.costo_envio ?? 0)
+      })
+    }
+
+    type TecProfile = { nombre_completo: string; comision_base: number; comision_pantalla: number; comision_bateria: number; comision_placa: number; comision_software: number; comision_camara: number; comision_conector: number; comision_otro: number }
+    const confIva = (sysConf as { iva?: number; comision_debito?: number; comision_credito?: number; comision_transferencia?: number } | null)?.iva ?? 19
+    const confDeb = (sysConf as { comision_debito?: number } | null)?.comision_debito ?? 1.5
+    const confCred = (sysConf as { comision_credito?: number } | null)?.comision_credito ?? 2.5
+    const confTrans = (sysConf as { comision_transferencia?: number } | null)?.comision_transferencia ?? 0
+
+    const porTec: Record<string, ComisionTec> = {}
+    ;(otsRaw ?? []).forEach((o: Record<string, unknown>) => {
+      const tec = o.tecnico as TecProfile | null
+      const k = (o.tecnico_id as string) ?? 'sin_asignar'
+      const nombre = tec?.nombre_completo ?? 'Sin asignar'
+      const bruto = (o.precio_servicio as number) ?? 0
+      const neto = Math.round(bruto / (1 + confIva / 100))
+      const costoRep = costosPorOT[o.id as string] ?? 0
+      const metodo = (o.metodo_pago as string) ?? ''
+      const pctBco = metodo === 'credito' ? confCred : metodo === 'debito' ? confDeb : metodo === 'transferencia' ? confTrans : 0
+      const comBanco = Math.round(bruto * pctBco / 100)
+      const base = Math.max(0, neto - costoRep - comBanco)
+      const tipo = (o.tipo_reparacion as string) ?? ''
+      let pct = tec?.comision_base ?? 0
+      if (tec) {
+        const pctTipo: Record<string, number> = { pantalla: tec.comision_pantalla, bateria: tec.comision_bateria, placa: tec.comision_placa, software: tec.comision_software, camara: tec.comision_camara, conector: tec.comision_conector }
+        if (pctTipo[tipo] > 0) pct = pctTipo[tipo]
+      }
+      const com = Math.round(base * pct / 100)
+      const gan = base - com
+
+      if (!porTec[k]) porTec[k] = { nombre, ots: 0, ingresosBruto: 0, costoRep: 0, comBanco: 0, baseCalculo: 0, pctPromedio: pct, comisionTotal: 0, ganancia: 0 }
+      porTec[k].ots++
+      porTec[k].ingresosBruto += bruto
+      porTec[k].costoRep      += costoRep
+      porTec[k].comBanco      += comBanco
+      porTec[k].baseCalculo   += base
+      porTec[k].comisionTotal += com
+      porTec[k].ganancia      += gan
+    })
+    Object.values(porTec).forEach(t => {
+      t.pctPromedio = t.baseCalculo > 0 ? Math.round(t.comisionTotal * 100 / t.baseCalculo) : 0
+    })
+    setComisionData(Object.values(porTec).sort((a, b) => b.comisionTotal - a.comisionTotal))
+    // ─────────────────────────────────────────────────────────────────────────
+
     const datos = {
       fecha: hoy, apertura: sesion.apertura_at,
       fondoApertura: sesion.efectivo_apertura,
@@ -178,7 +251,7 @@ export default function SesionCajaPanel() {
     fecha: string; apertura: string; fondoApertura: number
     ventas: VentasDia; ef: number; tb: number; tr: number; ot: number
     difEf: number; cuentas: CuentaBancaria[]; cierreObs: string
-  }, formato: TicketFormato = 'a4') {
+  }, formato: TicketFormato = 'a4', comisiones: ComisionTec[] = []) {
     const fmt = (n: number) => n.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })
     const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-CL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
     const totalCierre = d.ef + d.tb + d.tr + d.ot
@@ -267,17 +340,70 @@ export default function SesionCajaPanel() {
         </table>`)
       : ''
 
+    // Sección comisiones técnicos
+    const comisionesHtml = comisiones.length > 0 ? (() => {
+      const totalCom = comisiones.reduce((s, t) => s + t.comisionTotal, 0)
+      if (isTicket) {
+        return section('Comisiones técnicos', comisiones.map(t =>
+          `<div style="margin-bottom:2mm">
+             <div style="font-weight:bold">${t.nombre}</div>
+             <div style="display:flex;justify-content:space-between;font-size:8pt">
+               <span>${t.ots} OTs · ${t.pctPromedio}% sobre ${fmt(t.baseCalculo)}</span>
+               <span style="font-weight:bold;color:#6d28d9">${fmt(t.comisionTotal)}</span>
+             </div>
+           </div>`).join('') +
+          `<div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #000;margin-top:1mm;padding-top:1mm"><span>TOTAL COMISIONES</span><span style="color:#6d28d9">${fmt(totalCom)}</span></div>`)
+      }
+      const filas = comisiones.map(t => `
+        <tr style="border-bottom:1px solid #eee">
+          <td style="padding:1.5mm 2mm">${t.nombre}</td>
+          <td style="padding:1.5mm 2mm;text-align:right">${t.ots}</td>
+          <td style="padding:1.5mm 2mm;text-align:right">${fmt(t.ingresosBruto)}</td>
+          <td style="padding:1.5mm 2mm;text-align:right;color:#dc2626">-${fmt(t.costoRep)}</td>
+          <td style="padding:1.5mm 2mm;text-align:right;color:#ea580c">-${fmt(t.comBanco)}</td>
+          <td style="padding:1.5mm 2mm;text-align:right">${fmt(t.baseCalculo)}</td>
+          <td style="padding:1.5mm 2mm;text-align:right">${t.pctPromedio}%</td>
+          <td style="padding:1.5mm 2mm;text-align:right;font-weight:bold;color:#6d28d9">${fmt(t.comisionTotal)}</td>
+          <td style="padding:1.5mm 2mm;text-align:right;color:#16a34a">${fmt(t.ganancia)}</td>
+        </tr>`).join('')
+      return section('💼 Comisiones técnicos', `
+        <table style="width:100%;font-size:8pt;border-collapse:collapse">
+          <thead style="background:#f5f3ff">
+            <tr>
+              <th style="text-align:left;padding:1.5mm 2mm">Técnico</th>
+              <th style="text-align:right;padding:1.5mm 2mm">OTs</th>
+              <th style="text-align:right;padding:1.5mm 2mm">Bruto</th>
+              <th style="text-align:right;padding:1.5mm 2mm">Repuestos</th>
+              <th style="text-align:right;padding:1.5mm 2mm">Com.banco</th>
+              <th style="text-align:right;padding:1.5mm 2mm">Base</th>
+              <th style="text-align:right;padding:1.5mm 2mm">%</th>
+              <th style="text-align:right;padding:1.5mm 2mm">Comisión</th>
+              <th style="text-align:right;padding:1.5mm 2mm">Ganancia neg.</th>
+            </tr>
+          </thead>
+          <tbody>${filas}</tbody>
+          <tfoot style="background:#f5f3ff;font-weight:bold">
+            <tr>
+              <td colspan="7" style="padding:1.5mm 2mm">TOTAL COMISIONES</td>
+              <td style="padding:1.5mm 2mm;text-align:right;color:#6d28d9">${fmt(totalCom)}</td>
+              <td style="padding:1.5mm 2mm;text-align:right;color:#16a34a">${fmt(comisiones.reduce((s,t)=>s+t.ganancia,0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+        <p style="font-size:7pt;color:#666;margin-top:2mm">Base = Neto − Repuestos − Com.banco · Comisión = Base × % por tipo</p>`)
+    })() : ''
+
     const body = isTicket
       ? `${headerTicket}
          ${section('Ventas del día', ventasHtml)}
          ${section('Cierre físico', cierreHtml)}
          ${section('Cuadre', cuadreHtml)}
-         ${cuentasHtml}${obs}${firmasTicket}`
+         ${cuentasHtml}${comisionesHtml}${obs}${firmasTicket}`
       : `${headerA4}
          ${section('Ventas del día', ventasHtml)}
          ${section('Cierre físico', cierreHtml)}
          ${section('Cuadre', cuadreHtml)}
-         ${cuentasHtml}${obs}${firmasA4}`
+         ${cuentasHtml}${comisionesHtml}${obs}${firmasA4}`
 
     const winW = formato === 'ticket57' ? '400' : formato === 'ticket80' ? '500' : '700'
     const win = window.open('', '_blank', `width=${winW},height=900`)
@@ -300,22 +426,66 @@ export default function SesionCajaPanel() {
   // ── Vista cierre exitoso → seleccionar formato e imprimir ──────────────────
   if (view === 'cierre_ok' && cierreData) {
     const FORMATOS: { key: TicketFormato; label: string; desc: string; icon: string }[] = [
-      { key: 'a4',       label: 'A4',        desc: '210 × 297 mm · hoja completa', icon: '🗒️' },
-      { key: 'ticket80', label: 'Ticket 80mm', desc: 'Impresora térmica 80 mm',     icon: '🧾' },
-      { key: 'ticket57', label: 'Ticket 57mm', desc: 'Impresora térmica 57 mm',     icon: '📜' },
+      { key: 'a4',       label: 'A4',          desc: '210 × 297 mm', icon: '🗒️' },
+      { key: 'ticket80', label: 'Ticket 80mm',  desc: 'Térmica 80mm', icon: '🧾' },
+      { key: 'ticket57', label: 'Ticket 57mm',  desc: 'Térmica 57mm', icon: '📜' },
     ]
+    const totalComisiones = comisionData.reduce((s, t) => s + t.comisionTotal, 0)
+
     return (
       <div className="bg-white rounded-xl border p-5 space-y-4">
         <div className="flex items-center gap-3">
           <span className="text-3xl">✅</span>
           <div>
             <p className="font-bold text-gray-800">Caja cerrada correctamente</p>
-            <p className="text-xs text-gray-500">Selecciona el formato del ticket de cierre e imprímelo cuando quieras</p>
+            <p className="text-xs text-gray-500">Período: {new Date(cierreData.apertura).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})} → {new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}</p>
           </div>
         </div>
 
+        {/* Resumen comisiones */}
+        {comisionData.length > 0 && (
+          <div className="border border-purple-200 rounded-xl overflow-hidden">
+            <div className="bg-purple-700 text-white px-4 py-2.5 flex items-center justify-between">
+              <p className="font-semibold text-sm">💼 Comisiones de técnicos — esta sesión</p>
+              <p className="font-bold">{formatCLP(totalComisiones)}</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-purple-50 border-b border-purple-100">
+                  <tr>
+                    {['Técnico','OTs','Ingreso bruto','Repuestos','Com. banco','Base','% com.','Comisión','Ganancia neg.'].map((h,i) => (
+                      <th key={i} className={`px-2.5 py-2 font-semibold text-purple-700 ${i===0?'text-left':'text-right'}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {comisionData.map((t, i) => (
+                    <tr key={i} className="hover:bg-purple-50">
+                      <td className="px-2.5 py-2 font-medium">{t.nombre}</td>
+                      <td className="px-2.5 py-2 text-right">{t.ots}</td>
+                      <td className="px-2.5 py-2 text-right">{formatCLP(t.ingresosBruto)}</td>
+                      <td className="px-2.5 py-2 text-right text-red-600">-{formatCLP(t.costoRep)}</td>
+                      <td className="px-2.5 py-2 text-right text-orange-600">-{formatCLP(t.comBanco)}</td>
+                      <td className="px-2.5 py-2 text-right text-gray-600">{formatCLP(t.baseCalculo)}</td>
+                      <td className="px-2.5 py-2 text-right">{t.pctPromedio}%</td>
+                      <td className="px-2.5 py-2 text-right font-bold text-purple-700">{formatCLP(t.comisionTotal)}</td>
+                      <td className="px-2.5 py-2 text-right text-green-700 font-semibold">{formatCLP(t.ganancia)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="bg-purple-50 px-4 py-2 text-xs text-purple-700 border-t border-purple-100">
+              Base = Neto − Repuestos − Comisión banco · Comisión = Base × % por tipo de reparación
+            </div>
+          </div>
+        )}
+        {comisionData.length === 0 && (
+          <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-400 text-center">Sin OTs entregadas en esta sesión</div>
+        )}
+
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-gray-700">Formato de impresión</p>
+          <p className="text-sm font-semibold text-gray-700">Formato ticket de cierre</p>
           <div className="grid grid-cols-3 gap-2">
             {FORMATOS.map(f => (
               <button key={f.key} type="button" onClick={() => setFormatoTicket(f.key)}
@@ -330,13 +500,13 @@ export default function SesionCajaPanel() {
 
         <div className="flex gap-2">
           <button
-            onClick={() => imprimirCierreCaja(cierreData, formatoTicket)}
+            onClick={() => imprimirCierreCaja(cierreData, formatoTicket, comisionData)}
             className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold transition-colors"
           >
             🖨️ Imprimir ticket de cierre
           </button>
           <button
-            onClick={() => { setView('panel'); setCierreData(null) }}
+            onClick={() => { setView('panel'); setCierreData(null); setComisionData([]) }}
             className="px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
           >
             Finalizar sin imprimir
