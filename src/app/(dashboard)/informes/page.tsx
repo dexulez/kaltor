@@ -86,56 +86,88 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
 
-  const [{ data: ventas }, { data: items }] = await Promise.all([
-    supabase.from('sales').select('*').gte('created_at', desdeIso).lte('created_at', hastaIso),
-    supabase.from('sale_items')
-      .select('*, sales!inner(created_at, anulada)')
-      .gte('sales.created_at', desdeIso)
-      .lte('sales.created_at', hastaIso),
+  const [{ data: ventas }, { data: saleItemsRaw }] = await Promise.all([
+    supabase.from('sales').select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, repair_order_id, comision_bancaria, customers(nombre)').gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('sale_items').select('sale_id, nombre, cantidad, precio_unitario, precio_costo, subtotal').gte('created_at', desdeIso).lte('created_at', hastaIso),
   ])
 
-  const activas = (ventas ?? []).filter(v => !v.anulada)
-  const anuladas = (ventas ?? []).filter(v => v.anulada)
-  const totalBruto = activas.reduce((s, v) => s + v.total, 0)
+  const activas = (ventas ?? []).filter((v: Record<string, unknown>) => !v.anulada)
+  const anuladas = (ventas ?? []).filter((v: Record<string, unknown>) => v.anulada)
+  const totalBruto = activas.reduce((s: number, v: Record<string, unknown>) => s + (v.total as number), 0)
   const iva = Math.round(totalBruto - totalBruto / 1.19)
   const neto = totalBruto - iva
   const ppm = Math.round(neto * 0.03)
   const utilidadNeta = neto - ppm
   const ticket = activas.length ? Math.round(totalBruto / activas.length) : 0
 
+  // Costos de productos por venta (para venta directa)
+  const costoPorVenta: Record<string, number> = {}
+  ;(saleItemsRaw ?? []).forEach(it => {
+    costoPorVenta[it.sale_id] = (costoPorVenta[it.sale_id] ?? 0) + (it.precio_costo ?? 0) * (it.cantidad ?? 1)
+  })
+
+  // Obtener costos de repuestos para ventas de taller
+  const idsOT = activas
+    .filter((v: Record<string, unknown>) => v.tipo === 'reparacion' && v.repair_order_id)
+    .map((v: Record<string, unknown>) => v.repair_order_id as string)
+
+  let costoRepPorOT: Record<string, number> = {}
+  if (idsOT.length > 0) {
+    const { data: repItems } = await supabase.from('repair_items')
+      .select('repair_order_id, cantidad, precio_costo, costo_envio')
+      .in('repair_order_id', idsOT)
+    ;(repItems ?? []).forEach(ri => {
+      const c = (ri.cantidad ?? 1) * (ri.precio_costo ?? 0) + (ri.costo_envio ?? 0)
+      costoRepPorOT[ri.repair_order_id] = (costoRepPorOT[ri.repair_order_id] ?? 0) + c
+    })
+  }
+
   const porDia: Record<string, number> = {}
-  activas.forEach(v => {
-    const d = v.created_at.split('T')[0]
-    porDia[d] = (porDia[d] ?? 0) + v.total
+  activas.forEach((v: Record<string, unknown>) => {
+    const d = (v.created_at as string).split('T')[0]
+    porDia[d] = (porDia[d] ?? 0) + (v.total as number)
   })
   const areaData = Object.entries(porDia).sort().map(([fecha, total]) => ({ fecha, total }))
 
   const porMetodo: Record<string, number> = {}
-  activas.forEach(v => {
-    const m = v.metodo_pago ?? 'otro'
-    porMetodo[m] = (porMetodo[m] ?? 0) + v.total
+  activas.forEach((v: Record<string, unknown>) => {
+    const m = (v.metodo_pago as string) ?? 'otro'
+    porMetodo[m] = (porMetodo[m] ?? 0) + (v.total as number)
   })
   const pieMetodo = Object.entries(porMetodo).map(([name, value]) => ({ name, value }))
 
   const topProd: Record<string, { nombre: string; qty: number; total: number }> = {}
-  ;(items ?? [])
-    .filter(it => !(it.sales as { anulada?: boolean } | null)?.anulada)
-    .forEach(it => {
-      const key = it.producto_id ?? it.descripcion
-      if (!topProd[key]) topProd[key] = { nombre: it.descripcion ?? '—', qty: 0, total: 0 }
-      topProd[key].qty += it.cantidad ?? 1
-      topProd[key].total += it.subtotal ?? 0
-    })
+  ;(saleItemsRaw ?? []).forEach(it => {
+    const key = it.nombre ?? '—'
+    if (!topProd[key]) topProd[key] = { nombre: key, qty: 0, total: 0 }
+    topProd[key].qty += it.cantidad ?? 1
+    topProd[key].total += it.subtotal ?? 0
+  })
   const topProdRows = Object.values(topProd).sort((a, b) => b.total - a.total).slice(0, 10)
     .map(p => [p.nombre, p.qty, formatCLP(p.total)])
 
-  // ── Taller vs Venta directa ─────────────────────────────────────────────
-  const reparaciones = activas.filter(v => v.tipo === 'reparacion')
-  const directas     = activas.filter(v => v.tipo === 'directa')
-  const totRep = reparaciones.reduce((s, v) => s + v.total, 0)
-  const totDir = directas.reduce((s, v) => s + v.total, 0)
+  // ── Taller vs Venta directa con costos reales ────────────────────────────
+  const reparaciones = activas.filter((v: Record<string, unknown>) => v.tipo === 'reparacion')
+  const directas     = activas.filter((v: Record<string, unknown>) => v.tipo === 'directa')
+
+  const totRep = reparaciones.reduce((s: number, v: Record<string, unknown>) => s + (v.total as number), 0)
+  const totDir = directas.reduce((s: number, v: Record<string, unknown>) => s + (v.total as number), 0)
   const netoRep = Math.round(totRep / 1.19); const ivaRep = totRep - netoRep; const ppmRep = Math.round(netoRep * 0.03)
   const netoDir = Math.round(totDir / 1.19); const ivaDir = totDir - netoDir; const ppmDir = Math.round(netoDir * 0.03)
+
+  // Costos reales taller: repuestos + comisión bancaria
+  const costoRepTaller = reparaciones.reduce((s: number, v: Record<string, unknown>) => s + (costoRepPorOT[v.repair_order_id as string] ?? 0), 0)
+  const comBancoTaller = reparaciones.reduce((s: number, v: Record<string, unknown>) => s + (v.comision_bancaria as number ?? 0), 0)
+  const utilRealTaller = netoRep - ppmRep - costoRepTaller - comBancoTaller
+
+  // Costos reales venta directa: costo producto + comisión bancaria
+  const costoProdDir = directas.reduce((s: number, v: Record<string, unknown>) => s + (costoPorVenta[v.id as string] ?? 0), 0)
+  const comBancoDir  = directas.reduce((s: number, v: Record<string, unknown>) => s + (v.comision_bancaria as number ?? 0), 0)
+  const utilRealDir  = netoDir - ppmDir - costoProdDir - comBancoDir
+
+  const comBancoTotal = comBancoTaller + comBancoDir
+  const costoTotal    = costoRepTaller + costoProdDir
+  const utilRealTotal = neto - ppm - costoTotal - comBancoTotal
 
   return (
     <div className="space-y-5">
@@ -164,50 +196,55 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
             <p className="text-xs text-gray-400">pago provisional SII</p>
           </div>
           <div className="bg-green-50 border-2 border-green-400 rounded-lg p-3 text-center">
-            <p className="text-xs text-gray-600 font-semibold mb-1">= UTILIDAD NETA EST.</p>
-            <p className="text-2xl font-bold text-green-700">{formatCLP(utilidadNeta)}</p>
-            <p className="text-xs text-gray-400">neto − PPM</p>
+            <p className="text-xs text-gray-600 font-semibold mb-1">= UTILIDAD REAL</p>
+            <p className="text-2xl font-bold text-green-700">{formatCLP(utilRealTotal)}</p>
+            <p className="text-xs text-gray-400">neto − PPM − costos − banco</p>
           </div>
         </div>
         <p className="text-xs text-gray-400 mt-3">
-          * El IVA ya está excluido del Ingreso Neto. La Utilidad Neta es <strong>estimada</strong> — no descuenta costos operacionales ni el impuesto a la renta (25–27% anual).
+          Utilidad real = Neto − PPM − Costo repuestos/productos − Comisiones bancarias.
+          No incluye comisiones de técnicos ni gastos operacionales (ver Rentabilidad y Gastos).
         </p>
       </div>
-      {/* Taller vs Venta Directa */}
+      {/* Taller vs Venta Directa — con costos reales */}
       <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="bg-gray-50 border-b px-4 py-3 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800 text-sm">🔧 Taller (reparaciones) vs 🛒 Venta directa</h2>
+        <div className="bg-gray-50 border-b px-4 py-3">
+          <h2 className="font-semibold text-gray-800 text-sm">🔧 Taller (reparaciones) vs 🛒 Venta directa — costos reales</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Taller descuenta repuestos · Venta directa descuenta costo del producto · Ambos descuentan comisión bancaria y PPM</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {['Canal', 'Transacciones', 'Bruto cobrado', 'Neto (sin IVA)', 'IVA 19%', 'PPM 3%', 'Util. estimada'].map((h, i) => (
+                {['Canal', 'Transacc.', 'Bruto', 'Neto (sin IVA)', 'IVA 19%', 'PPM 3%', 'Costo (rep./prod.)', 'Com. banco', 'Utilidad real'].map((h, i) => (
                   <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y">
               {[
-                { label: '🔧 Taller / Reparaciones', count: reparaciones.length, bruto: totRep, neto: netoRep, iva: ivaRep, ppm: ppmRep, util: netoRep - ppmRep },
-                { label: '🛒 Venta directa',         count: directas.length,     bruto: totDir, neto: netoDir, iva: ivaDir, ppm: ppmDir, util: netoDir - ppmDir },
-                { label: 'TOTAL',                    count: activas.length,      bruto: totalBruto, neto, iva, ppm, util: neto - ppm },
+                { label: '🔧 Taller',        count: reparaciones.length, bruto: totRep, neto: netoRep, iva: ivaRep, ppm: ppmRep, costo: costoRepTaller, banco: comBancoTaller, util: utilRealTaller },
+                { label: '🛒 Venta directa', count: directas.length,     bruto: totDir, neto: netoDir, iva: ivaDir, ppm: ppmDir, costo: costoProdDir,  banco: comBancoDir,  util: utilRealDir  },
+                { label: 'TOTAL',            count: activas.length,      bruto: totalBruto, neto, iva, ppm, costo: costoTotal, banco: comBancoTotal, util: utilRealTotal },
               ].map((row, i) => (
                 <tr key={i} className={i === 2 ? 'bg-gray-50 font-semibold border-t-2 border-gray-300' : 'hover:bg-gray-50'}>
-                  <td className="px-3 py-2">{row.label}</td>
-                  <td className="px-3 py-2 text-right">{row.count}</td>
-                  <td className="px-3 py-2 text-right font-medium text-gray-900">{formatCLP(row.bruto)}</td>
-                  <td className="px-3 py-2 text-right text-blue-700">{formatCLP(row.neto)}</td>
-                  <td className="px-3 py-2 text-right text-red-600">{formatCLP(row.iva)}</td>
-                  <td className="px-3 py-2 text-right text-orange-600">{formatCLP(row.ppm)}</td>
-                  <td className="px-3 py-2 text-right text-green-700 font-bold">{formatCLP(row.util)}</td>
+                  <td className="px-3 py-2.5">{row.label}</td>
+                  <td className="px-3 py-2.5 text-right">{row.count}</td>
+                  <td className="px-3 py-2.5 text-right font-medium text-gray-900">{formatCLP(row.bruto)}</td>
+                  <td className="px-3 py-2.5 text-right text-blue-700">{formatCLP(row.neto)}</td>
+                  <td className="px-3 py-2.5 text-right text-red-500">{formatCLP(row.iva)}</td>
+                  <td className="px-3 py-2.5 text-right text-orange-500">{formatCLP(row.ppm)}</td>
+                  <td className="px-3 py-2.5 text-right text-red-600 font-medium">{formatCLP(row.costo)}</td>
+                  <td className="px-3 py-2.5 text-right text-orange-600">{formatCLP(row.banco)}</td>
+                  <td className={`px-3 py-2.5 text-right font-bold text-base ${row.util >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCLP(row.util)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-2 border-t bg-blue-50 text-xs text-blue-700">
-          Util. estimada = Neto − PPM · No descuenta costos de repuestos ni comisiones.
+        <div className="px-4 py-2.5 border-t bg-amber-50 text-xs text-amber-800">
+          <strong>Utilidad real</strong> = Neto − PPM − Costo (repuestos/productos) − Comisión bancaria.
+          No incluye comisiones de técnicos (ver pestaña Rentabilidad) ni gastos operacionales.
         </div>
       </div>
 
