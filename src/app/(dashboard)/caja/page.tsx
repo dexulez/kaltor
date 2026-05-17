@@ -16,15 +16,27 @@ type OtPendienteCaja = RepairOrder & {
 
 export default async function CajaPage() {
   const supabase = await createClient()
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = new Intl.DateTimeFormat('sv', { timeZone: 'America/Santiago' }).format(new Date())
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Obtener sesión activa para filtrar ventas solo de esta sesión
+  const { data: sesionActiva } = await supabase
+    .from('sesiones_caja')
+    .select('id, apertura_at')
+    .eq('fecha', hoy)
+    .eq('estado', 'abierta')
+    .maybeSingle()
+
+  // Filtrar ventas desde la apertura de la sesión actual (o inicio del día como fallback)
+  const desdeSession = sesionActiva?.apertura_at ?? `${hoy}T00:00:00.000Z`
+
   const [{ data: ventasHoy }, { data: ultimasVentas }, { data: otsPendientes }, { data: perfil }, { data: sysConfig }] = await Promise.all([
     supabase.from('sales').select('total, metodo_pago, iva, ppm')
-      .gte('created_at', hoy).eq('anulada', false),
+      .gte('created_at', desdeSession).eq('anulada', false),
     supabase.from('sales').select('id, numero_venta, total, metodo_pago, tipo_documento, created_at, anulada, customers(nombre)')
-      .order('created_at', { ascending: false }).limit(20),
+      .gte('created_at', desdeSession)
+      .order('created_at', { ascending: false }).limit(50),
     supabase.from('repair_orders').select('*, customers(nombre), equipment(marca, modelo)')
       .eq('estado', 'listo').order('updated_at', { ascending: false }).limit(10),
     supabase.from('user_profiles').select('permisos_modulos, roles(nombre)').eq('id', user!.id).single(),
@@ -82,11 +94,14 @@ export default async function CajaPage() {
 
       <SesionCajaPanel />
 
-      {/* Resumen del día */}
+      {/* Resumen de la sesión */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">Total del día</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-gray-900">{formatCLP(totalHoy)}</p></CardContent>
+          <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">Total sesión</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-gray-900">{formatCLP(totalHoy)}</p>
+            {sesionActiva && <p className="text-xs text-gray-400 mt-0.5">desde {new Date(sesionActiva.apertura_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</p>}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">Neto</CardTitle></CardHeader>
@@ -140,10 +155,12 @@ export default async function CajaPage() {
 
         {/* Últimas ventas */}
         <div>
-          <h2 className="font-semibold text-gray-800 mb-3">🧾 Últimas ventas</h2>
+          <h2 className="font-semibold text-gray-800 mb-3">🧾 Ventas de esta sesión</h2>
           <div className="bg-white rounded-xl border overflow-hidden">
             {!ultimasVentasList.length ? (
-              <p className="text-center text-gray-400 py-8 text-sm">Sin ventas registradas hoy</p>
+              <p className="text-center text-gray-400 py-8 text-sm">
+                {sesionActiva ? 'Sin ventas en esta sesión' : 'Abre la caja para registrar ventas'}
+              </p>
             ) : (
               <div className="divide-y">
                 {ultimasVentasList.map((v) => {
