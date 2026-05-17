@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatRut } from '@/lib/calculations'
+import TipoEquipoSelector from '@/components/reparaciones/TipoEquipoSelector'
 
 const TIPOS_REP = [
   { value: 'pantalla', label: 'Pantalla' }, { value: 'bateria', label: 'Batería' },
@@ -25,7 +26,7 @@ interface OTData {
   tecnico_id?: string | null
   customers?: { id: string; nombre: string; telefono: string; rut?: string | null; email?: string | null } | null
   equipment?: {
-    id: string; marca: string; modelo: string; imei?: string | null; imei2?: string | null
+    id: string; tipo_equipo?: string | null; marca: string; modelo: string; imei?: string | null; imei2?: string | null
     numero_serie?: string | null; color?: string | null; capacidad?: string | null
     falla_reportada?: string; observaciones?: string | null
   } | null
@@ -52,6 +53,7 @@ export default function EditarOTForm({ ot, tecnicos }: Props) {
 
   // Datos del equipo
   const equipo = ot.equipment
+  const [tipoEquipo, setTipoEquipo] = useState(equipo?.tipo_equipo ?? '')
   const [marca, setMarca] = useState(equipo?.marca ?? '')
   const [modelo, setModelo] = useState(equipo?.modelo ?? '')
   const [imei, setImei] = useState(equipo?.imei ?? '')
@@ -86,6 +88,7 @@ export default function EditarOTForm({ ot, tecnicos }: Props) {
     // Actualizar equipo
     if (equipo?.id) {
       const { error: e2 } = await supabase.from('equipment').update({
+        tipo_equipo: tipoEquipo || null,
         marca: marca.trim() || 'Sin especificar',
         modelo: modelo.trim() || 'Sin especificar',
         imei: imei.trim() || null,
@@ -139,6 +142,10 @@ export default function EditarOTForm({ ot, tecnicos }: Props) {
       {/* Equipo */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
         <h2 className="font-semibold text-gray-800">Equipo</h2>
+        <div className="space-y-1.5">
+          <Label>Tipo de equipo</Label>
+          <TipoEquipoSelector value={tipoEquipo} onChange={setTipoEquipo} />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1"><Label>Marca</Label>
             <Input value={marca} onChange={e => setMarca(e.target.value)} /></div>

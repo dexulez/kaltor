@@ -87,6 +87,9 @@ export default async function CajaPage() {
           <p className="text-gray-500 text-sm">{new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/caja/cierres">
+            <Button variant="outline" className="text-gray-600 border-gray-300">📋 Historial cierres</Button>
+          </Link>
           <Link href="/caja/venta-directa">
             <Button className="bg-green-600 hover:bg-green-700">🛒 Venta directa</Button>
           </Link>
