@@ -30,8 +30,8 @@ export default async function CajaPage() {
     .eq('estado', 'abierta')
     .maybeSingle()
 
-  // Filtrar ventas desde la apertura de la sesión actual (o inicio del día como fallback)
-  const desdeSession = sesionActiva?.apertura_at ?? `${hoy}T00:00:00.000Z`
+  // Cuando la caja está cerrada no mostramos ventas → fecha futura = 0 resultados
+  const desdeSession = sesionActiva?.apertura_at ?? '9999-01-01T00:00:00.000Z'
 
   const [{ data: ventasHoy }, { data: ultimasVentas }, { data: otsPendientes }, { data: perfil }, { data: sysConfig }] = await Promise.all([
     supabase.from('sales').select('total, metodo_pago, iva, ppm')

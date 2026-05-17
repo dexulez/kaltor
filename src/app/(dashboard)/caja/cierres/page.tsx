@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { formatCLP } from '@/lib/calculations'
 import ReimprimirCierreBtn from '@/components/caja/ReimprimirCierreBtn'
+import VentasSesionModal from '@/components/caja/VentasSesionModal'
 
 const TZ = 'America/Santiago'
 
@@ -18,11 +19,24 @@ export default async function CierresCajaPage() {
       .order('fecha', { ascending: false })
       .limit(120),
     supabase.from('system_config')
-      .select('iva, comision_debito, comision_credito, comision_transferencia')
+      .select('iva, comision_debito, comision_credito, comision_transferencia, nombre_local, rut_local, direccion, telefono, email, logo_url')
       .maybeSingle(),
   ])
 
-  const conf = sysConf as { iva?: number; comision_debito?: number; comision_credito?: number; comision_transferencia?: number } | null
+  const conf = sysConf as {
+    iva?: number; comision_debito?: number; comision_credito?: number; comision_transferencia?: number
+    nombre_local?: string; rut_local?: string | null; direccion?: string | null
+    telefono?: string | null; email?: string | null; logo_url?: string | null
+  } | null
+
+  const ticketConfig = {
+    nombre_local: conf?.nombre_local ?? '',
+    rut_local: conf?.rut_local ?? null,
+    direccion: conf?.direccion ?? null,
+    telefono: conf?.telefono ?? null,
+    email: conf?.email ?? null,
+    logo_url: conf?.logo_url ?? null,
+  }
 
   type Sesion = {
     id: string; fecha: string; estado: string; apertura_at: string; cierre_at: string | null
@@ -77,7 +91,7 @@ export default async function CierresCajaPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   {['Fecha', 'Apertura', 'Cierre', 'Fondo', 'Efectivo', 'Transbank', 'Transfer.', 'Total', 'Diferencia', 'Acciones'].map((h, i) => (
-                    <th key={i} className={`px-3 py-2.5 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'} ${i === 9 ? 'text-center' : ''}`}>{h}</th>
+                    <th key={i} className={`px-3 py-2.5 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'} ${i === 9 ? 'text-center min-w-[160px]' : ''}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -102,24 +116,32 @@ export default async function CierresCajaPage() {
                           {dif === 0 ? '✓ Cuadra' : `${dif > 0 ? '+' : ''}${formatCLP(dif)}`}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-center">
-                        <ReimprimirCierreBtn
-                          sesionId={ses.id}
-                          fecha={ses.fecha}
-                          aperturaAt={ses.apertura_at}
-                          cierreAt={ses.cierre_at ?? new Date().toISOString()}
-                          fondoApertura={ses.efectivo_apertura}
-                          efectivoCierre={ses.efectivo_cierre ?? 0}
-                          transbankCierre={ses.transbank_cierre ?? 0}
-                          transferenciaCierre={ses.transferencia_cierre ?? 0}
-                          otrosCierre={ses.otros_cierre ?? 0}
-                          diferenciaEfectivo={ses.diferencia_efectivo ?? 0}
-                          observacionesCierre={ses.observaciones_cierre}
-                          ivaRate={conf?.iva ?? 19}
-                          comisionDebito={conf?.comision_debito ?? 1.5}
-                          comisionCredito={conf?.comision_credito ?? 2.5}
-                          comisionTransferencia={conf?.comision_transferencia ?? 0}
-                        />
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5 justify-center flex-wrap">
+                          <VentasSesionModal
+                            aperturaAt={ses.apertura_at}
+                            cierreAt={ses.cierre_at ?? new Date().toISOString()}
+                            fecha={new Date(ses.fecha + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                            ticketConfig={ticketConfig}
+                          />
+                          <ReimprimirCierreBtn
+                            sesionId={ses.id}
+                            fecha={ses.fecha}
+                            aperturaAt={ses.apertura_at}
+                            cierreAt={ses.cierre_at ?? new Date().toISOString()}
+                            fondoApertura={ses.efectivo_apertura}
+                            efectivoCierre={ses.efectivo_cierre ?? 0}
+                            transbankCierre={ses.transbank_cierre ?? 0}
+                            transferenciaCierre={ses.transferencia_cierre ?? 0}
+                            otrosCierre={ses.otros_cierre ?? 0}
+                            diferenciaEfectivo={ses.diferencia_efectivo ?? 0}
+                            observacionesCierre={ses.observaciones_cierre}
+                            ivaRate={conf?.iva ?? 19}
+                            comisionDebito={conf?.comision_debito ?? 1.5}
+                            comisionCredito={conf?.comision_credito ?? 2.5}
+                            comisionTransferencia={conf?.comision_transferencia ?? 0}
+                          />
+                        </div>
                       </td>
                     </tr>
                   )
