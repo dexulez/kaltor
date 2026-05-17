@@ -45,7 +45,7 @@ export const ESTADO_LABEL_MAP: Partial<Record<RepairStatus, string>> = {
 
 type OTRow = RepairOrder & {
   customers: Pick<Customer, 'nombre' | 'telefono'> | null
-  equipment: Pick<Equipment, 'marca' | 'modelo'> | null
+  equipment: (Pick<Equipment, 'marca' | 'modelo'> & { tipo_equipo?: string | null }) | null
   user_profiles: Pick<UserProfile, 'nombre_completo'> | null
 }
 
@@ -86,7 +86,7 @@ function OTTable({ ots, userId, puedeAdjudicar, puedeCobrar }: {
                   <p className="font-medium text-gray-900">{ot.customers?.nombre}</p>
                   <p className="text-gray-400 text-xs">{ot.customers?.telefono}</p>
                 </td>
-                <td className="px-4 py-3 text-gray-700">{ot.equipment?.marca} {ot.equipment?.modelo}</td>
+                <td className="px-4 py-3 text-gray-700">{[ot.equipment?.tipo_equipo, ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</td>
                 <td className="px-4 py-3 text-gray-500 text-xs">
                   {ot.user_profiles?.nombre_completo ?? <span className="text-amber-600 font-medium">Sin asignar</span>}
                 </td>
@@ -147,7 +147,7 @@ export default async function ReparacionesPage({
 
   // ── Vista técnico: mis OTs + disponibles ───────────────────────────────────
   if (!verTodas) {
-    const baseSelect = '*, customers(nombre, telefono), equipment(marca, modelo), user_profiles(nombre_completo)'
+    const baseSelect = '*, customers(nombre, telefono), equipment(tipo_equipo, marca, modelo), user_profiles(nombre_completo)'
     const estadoQ = estadoActivo !== 'todas' ? { estado: estadoActivo } : {}
 
     const [{ data: misOTs }, { data: disponibles }] = await Promise.all([
@@ -217,7 +217,7 @@ export default async function ReparacionesPage({
   // ── Vista completa (admin, supervisor, vendedor) ───────────────────────────
   let query = supabase
     .from('repair_orders')
-    .select('*, customers(nombre, telefono), equipment(marca, modelo), user_profiles(nombre_completo)')
+    .select('*, customers(nombre, telefono), equipment(tipo_equipo, marca, modelo), user_profiles(nombre_completo)')
     .order('created_at', { ascending: false })
     .limit(100)
 

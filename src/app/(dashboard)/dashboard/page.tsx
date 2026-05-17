@@ -74,7 +74,7 @@ export default async function DashboardPage() {
     supabase.from('products').select('nombre, stock_actual, stock_minimo')
       .filter('stock_actual', 'lte', 'stock_minimo').eq('activo', true).limit(5),
     supabase.from('repair_orders')
-      .select('id, numero_ot, estado, created_at, customers(nombre), equipment(marca, modelo)')
+      .select('id, numero_ot, estado, created_at, customers(nombre), equipment(tipo_equipo, marca, modelo)')
       .not('estado', 'in', '("entregado","cancelado","rechazado")')
       .order('created_at', { ascending: false }).limit(10),
     supabase.from('sales')
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
 
   type GastoItem  = { id: string; concepto: string; monto: number; categoria: string; metodo_pago: string; created_at: string }
   type CompraItem = { id: string; numero_oc: string; total: number; estado: string; created_at: string; suppliers: { nombre: string } | null }
-  type OTItem     = { id: string; numero_ot: string; estado: string; created_at: string; customers: { nombre: string } | null; equipment: { marca: string; modelo: string } | null }
+  type OTItem     = { id: string; numero_ot: string; estado: string; created_at: string; customers: { nombre: string } | null; equipment: { tipo_equipo?: string | null; marca: string; modelo: string } | null }
   type VentaItem  = { id: string; numero_venta: string; total: number; metodo_pago: string; tipo_documento: string; created_at: string; customers: { nombre: string } | null }
 
   const gastosList  = (gastosRes.data  ?? []) as GastoItem[]
@@ -252,7 +252,7 @@ export default async function DashboardPage() {
                       <div className="min-w-0 flex-1">
                         <p className="font-mono font-bold text-blue-700 text-xs">{ot.numero_ot}</p>
                         <p className="text-sm text-gray-800 truncate">{ot.customers?.nombre}</p>
-                        <p className="text-xs text-gray-400 truncate">{ot.equipment?.marca} {ot.equipment?.modelo}</p>
+                        <p className="text-xs text-gray-400 truncate">{[ot.equipment?.tipo_equipo, ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
                       </div>
                       <span className={`ml-2 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${ESTADO_BADGE[ot.estado] ?? 'bg-gray-100 text-gray-600'}`}>
                         {ESTADO_LABEL[ot.estado] ?? ot.estado}

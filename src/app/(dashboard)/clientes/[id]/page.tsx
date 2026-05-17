@@ -23,7 +23,7 @@ const DOC_LABEL: Record<string, string> = {
   boleta: '🧾 Boleta', factura: '📄 Factura', presupuesto: '📋 Presupuesto',
 }
 
-type ClienteOT = RepairOrder & { equipment: Pick<Equipment, 'marca' | 'modelo'> | null }
+type ClienteOT = RepairOrder & { equipment: (Pick<Equipment, 'marca' | 'modelo'> & { tipo_equipo?: string | null }) | null }
 
 export default async function ClienteDetallePage({
   params,
@@ -39,7 +39,7 @@ export default async function ClienteDetallePage({
   const [{ data: cliente }, { data: ots }, { data: ventas }] = await Promise.all([
     supabase.from('customers').select('*').eq('id', id).single(),
     supabase.from('repair_orders')
-      .select('*, equipment(marca, modelo)')
+      .select('*, equipment(tipo_equipo, marca, modelo)')
       .eq('customer_id', id)
       .order('created_at', { ascending: false }),
     supabase.from('sales')
@@ -186,7 +186,7 @@ export default async function ClienteDetallePage({
                   return (
                     <tr key={ot.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono font-medium text-blue-700">{ot.numero_ot}</td>
-                      <td className="px-4 py-3 text-gray-700">{ot.equipment?.marca} {ot.equipment?.modelo}</td>
+                      <td className="px-4 py-3 text-gray-700">{[ot.equipment?.tipo_equipo, ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.color}`}>{estado.label}</span>
                       </td>

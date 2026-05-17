@@ -30,8 +30,14 @@ interface OTListaItem {
   id: string
   numero_ot: string
   precio_servicio: number | null
-  customers: { nombre: string } | null
-  equipment: { marca: string; modelo: string } | null
+  presupuesto_estimado: number | null
+  created_at: string
+  customers: { nombre: string; rut?: string | null } | null
+  equipment: { tipo_equipo?: string | null; marca: string; modelo: string } | null
+}
+
+function descEquipo(eq: OTListaItem['equipment']): string {
+  return [eq?.tipo_equipo, eq?.marca, eq?.modelo].filter(Boolean).join(' ')
 }
 
 interface Props {
@@ -55,6 +61,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const [showImportOT, setShowImportOT] = useState(false)
   const [otsDisponibles, setOtsDisponibles] = useState<OTListaItem[]>([])
   const [loadingOTs, setLoadingOTs] = useState(false)
+  const [busqOT, setBusqOT] = useState('')
   const [clienteId, setClienteId] = useState('')
   const [popupClienteOpen, setPopupClienteOpen] = useState(false)
   const [guardandoCliente, setGuardandoCliente] = useState(false)
@@ -169,13 +176,14 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
 
   async function abrirImportOT() {
     setShowImportOT(true)
+    setBusqOT('')
     setLoadingOTs(true)
     const { data } = await supabase
       .from('repair_orders')
-      .select('id, numero_ot, precio_servicio, customers(nombre), equipment(marca, modelo)')
-      .eq('estado', 'listo')
+      .select('id, numero_ot, precio_servicio, presupuesto_estimado, created_at, customers(nombre, rut), equipment(tipo_equipo, marca, modelo)')
+      .in('estado', ['listo', 'para_entrega'])
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(200)
     setOtsDisponibles((data ?? []) as unknown as OTListaItem[])
     setLoadingOTs(false)
   }
@@ -186,11 +194,29 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       id: ot.id,
       numero_ot: ot.numero_ot,
       cliente_nombre: ot.customers?.nombre ?? '—',
-      equipo: `${ot.equipment?.marca ?? ''} ${ot.equipment?.modelo ?? ''}`.trim(),
-      precio: ot.precio_servicio ?? 0,
+      equipo: descEquipo(ot.equipment),
+      precio: ot.precio_servicio ?? ot.presupuesto_estimado ?? 0,
     }])
     toast.success(`OT ${ot.numero_ot} agregada`)
   }
+
+  // Filtrar OTs por búsqueda
+  const otsFiltradas = (() => {
+    const q = busqOT.trim().toLowerCase()
+    if (!q) return otsDisponibles
+    return otsDisponibles.filter(ot => {
+      const fecha = ot.created_at.split('T')[0]
+      return (
+        ot.numero_ot.toLowerCase().includes(q) ||
+        (ot.customers?.nombre ?? '').toLowerCase().includes(q) ||
+        (ot.customers?.rut ?? '').toLowerCase().replace(/[.\-]/g, '').includes(q.replace(/[.\-]/g, '')) ||
+        (ot.equipment?.tipo_equipo ?? '').toLowerCase().includes(q) ||
+        (ot.equipment?.marca ?? '').toLowerCase().includes(q) ||
+        (ot.equipment?.modelo ?? '').toLowerCase().includes(q) ||
+        fecha.includes(q)
+      )
+    })
+  })()
 
   function quitarOT(id: string) { setServiciosOT(s => s.filter(ot => ot.id !== id)) }
 
@@ -538,22 +564,45 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
             </div>
             <button onClick={() => setShowImportOT(false)} className="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-lg">✕</button>
           </div>
+          {/* Buscador */}
+          <div className="px-4 py-3 border-b bg-gray-50">
+            <input
+              type="text"
+              value={busqOT}
+              onChange={e => setBusqOT(e.target.value)}
+              placeholder="Buscar por N° OT, cliente, RUT, tipo, marca, fecha..."
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+              autoFocus
+            />
+            {busqOT && (
+              <p className="text-xs text-gray-400 mt-1.5 px-1">
+                {otsFiltradas.length} resultado{otsFiltradas.length !== 1 ? 's' : ''} de {otsDisponibles.length} OTs
+              </p>
+            )}
+          </div>
+
           <div className="overflow-y-auto flex-1">
             {loadingOTs ? (
               <div className="py-10 text-center text-gray-400 text-sm">Cargando órdenes...</div>
-            ) : otsDisponibles.length === 0 ? (
-              <div className="py-10 text-center text-gray-400 text-sm">No hay OTs listas para cobrar</div>
+            ) : otsFiltradas.length === 0 ? (
+              <div className="py-10 text-center text-gray-400 text-sm">
+                {busqOT ? `Sin resultados para "${busqOT}"` : 'No hay OTs listas para cobrar'}
+              </div>
             ) : (
               <div className="divide-y">
-                {otsDisponibles.map(ot => (
+                {otsFiltradas.map(ot => (
                   <button key={ot.id} onClick={() => { agregarOT(ot); setShowImportOT(false) }}
                     className="w-full text-left px-5 py-3 hover:bg-blue-50 transition-colors flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-mono font-semibold text-sm text-gray-900">{ot.numero_ot}</p>
-                      <p className="text-xs text-gray-500">{ot.customers?.nombre ?? '—'} · {ot.equipment?.marca} {ot.equipment?.modelo}</p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-mono font-semibold text-sm text-gray-900">{ot.numero_ot}</p>
+                        <span className="text-xs text-gray-400">{ot.created_at.split('T')[0]}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 truncate">{ot.customers?.nombre ?? '—'}</p>
+                      <p className="text-xs text-gray-500">{descEquipo(ot.equipment)}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-blue-700 text-sm">{formatCLP(ot.precio_servicio ?? 0)}</p>
+                      <p className="font-bold text-blue-700 text-sm">{formatCLP(ot.precio_servicio ?? ot.presupuesto_estimado ?? 0)}</p>
                       <p className="text-xs text-green-600">Listo ✓</p>
                     </div>
                   </button>

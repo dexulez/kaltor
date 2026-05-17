@@ -12,7 +12,7 @@ import MisComisionesHoy from '@/components/caja/MisComisionesHoy'
 
 type OtPendienteCaja = RepairOrder & {
   customers: Pick<Customer, 'nombre'> | null
-  equipment: Pick<Equipment, 'marca' | 'modelo'> | null
+  equipment: (Pick<Equipment, 'marca' | 'modelo'> & { tipo_equipo?: string | null }) | null
 }
 
 export default async function CajaPage() {
@@ -38,7 +38,7 @@ export default async function CajaPage() {
     supabase.from('sales').select('id, numero_venta, total, metodo_pago, tipo_documento, created_at, anulada, customers(nombre)')
       .gte('created_at', desdeSession)
       .order('created_at', { ascending: false }).limit(50),
-    supabase.from('repair_orders').select('*, customers(nombre), equipment(marca, modelo)')
+    supabase.from('repair_orders').select('*, customers(nombre), equipment(tipo_equipo, marca, modelo)')
       .eq('estado', 'listo').order('updated_at', { ascending: false }).limit(10),
     supabase.from('user_profiles').select('permisos_modulos, roles(nombre)').eq('id', user!.id).single(),
     supabase.from('system_config').select('pin_autorizacion, nombre_local, rut_local, direccion, telefono, email, logo_url, iva, comision_debito, comision_credito').maybeSingle()
@@ -150,7 +150,7 @@ export default async function CajaPage() {
                     <div>
                       <p className="font-mono font-bold text-blue-700 text-sm">{ot.numero_ot}</p>
                       <p className="text-sm text-gray-700">{ot.customers?.nombre}</p>
-                      <p className="text-xs text-gray-400">{ot.equipment?.marca} {ot.equipment?.modelo}</p>
+                      <p className="text-xs text-gray-400">{[ot.equipment?.tipo_equipo, ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
                     </div>
                     <Link href={`/caja/venta-directa?ot=${ot.id}`}>
                       <Button size="sm" className="bg-green-600 hover:bg-green-700 shrink-0">Cobrar</Button>
