@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 
 export default function AdjudicarOTButton({ otId, userId }: { otId: string; userId: string }) {
-  const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
 
@@ -19,8 +17,8 @@ export default function AdjudicarOTButton({ otId, userId }: { otId: string; user
       .eq('id', otId)
     if (error) { toast.error('Error al adjudicarse la OT'); setLoading(false); return }
     toast.success('OT adjudicada — ahora aparece en tus reparaciones')
-    router.refresh()
-    setLoading(false)
+    // Recarga completa para que móvil/PWA actualice correctamente
+    setTimeout(() => { window.location.reload() }, 700)
   }
 
   return (

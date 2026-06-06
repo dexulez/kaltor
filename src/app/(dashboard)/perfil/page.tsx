@@ -62,14 +62,22 @@ export default function PerfilPage() {
     e.preventDefault()
     setGuardando(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setGuardando(false); return }
+
+    // Paso 1: campos que siempre existen
     const { error } = await supabase.from('user_profiles').update({
       nombre_completo: perfil.nombre_completo.trim(),
       telefono: perfil.telefono.trim() || null,
-      rut: perfil.rut.trim() || null,
     }).eq('id', user.id)
-    if (error) toast.error(error.message)
-    else toast.success('Perfil actualizado')
+
+    if (error) { toast.error(error.message); setGuardando(false); return }
+
+    // Paso 2: rut (columna opcional — falla silenciosamente si no existe)
+    await supabase.from('user_profiles')
+      .update({ rut: perfil.rut.trim() || null } as Record<string, unknown>)
+      .eq('id', user.id)
+
+    toast.success('Perfil actualizado')
     setGuardando(false)
   }
 

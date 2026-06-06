@@ -187,7 +187,12 @@ export function MarcaSelector({ value, onChange }: { value: string; onChange: (v
     : todasMarcas
 
   function seleccionar(marca: string) {
-    if (marca === '__otro__') { setShowInput(true); setOpen(false); return }
+    if (marca === '__otro__') {
+      setNuevaMarca(busq.trim())   // pre-rellena con lo que escribió
+      setShowInput(true)
+      setOpen(false)
+      return
+    }
     onChange(marca)
     setBusq('')
     setOpen(false)
@@ -215,7 +220,8 @@ export function MarcaSelector({ value, onChange }: { value: string; onChange: (v
           autoFocus
           value={nuevaMarca}
           onChange={e => setNuevaMarca(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') guardarNueva() }}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); guardarNueva() } }}
+          onBlur={() => { if (nuevaMarca.trim()) guardarNueva() }}
           placeholder="Nombre de la marca..."
           className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
@@ -316,6 +322,7 @@ export function ModeloSelector({ marca, value, onChange }: { marca: string; valu
           value={value}
           onChange={e => { onChange(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (esNuevo) guardarModelo() } }}
           placeholder={marca ? `Modelo de ${marca}...` : 'Escribe el modelo...'}
           className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 pr-8"
         />

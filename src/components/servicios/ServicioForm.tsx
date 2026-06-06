@@ -57,6 +57,7 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
   const sExtra = servicio as unknown as Record<string, unknown>
   const [manoObraTipo, setManoObraTipo] = useState<'porcentaje' | 'monto' | 'utilidad'>((sExtra?.mano_obra_tipo as 'porcentaje' | 'monto' | 'utilidad') ?? 'porcentaje')
   const [manoObraValor, setManoObraValor] = useState(String(sExtra?.mano_obra_valor ?? 0))
+  const [precioCosto, setPrecioCosto] = useState(String((sExtra?.precio_costo as number) ?? 0))
   const [activo, setActivo] = useState(servicio?.activo ?? true)
   const [repuestos, setRepuestos] = useState<Repuesto[]>(
     (servicio?.repair_service_items ?? []).map(r => ({ ...r, esNuevo: false }))
@@ -129,6 +130,7 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
       descripcion: descripcion.trim() || null,
       tipo_reparacion: tipo,
       precio_base: parseInt(precioBase) || 0,
+      precio_costo: parseInt(precioCosto) || 0,
       tiempo_estimado_min: parseInt(tiempoMin) || null,
       activo,
       mano_obra_tipo: manoObraTipo,
@@ -160,7 +162,45 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
       )
     }
 
-    toast.success(servicio ? 'Servicio actualizado' : 'Servicio creado')
+    // Si venimos de una OT y es creación nueva, aplicar el servicio automáticamente
+    const otId = !servicio ? returnTo?.match(/\/reparaciones\/([^/?]+)/)?.[1] : null
+    if (otId && serviceId) {
+      await supabase.from('repair_order_services').insert({
+        repair_order_id: otId,
+        service_id: serviceId,
+      })
+      if (repuestos.length > 0) {
+        await supabase.from('repair_items').insert(
+          repuestos.map(r => ({
+            repair_order_id: otId,
+            product_id: r.product_id || null,
+            nombre: r.nombre.trim(),
+            cantidad: r.cantidad,
+            precio_costo: r.precio_costo,
+            precio_venta: r.precio_costo,
+            costo_envio: 0,
+          }))
+        )
+      }
+      // Recalcular precio_servicio de la OT
+      const [{ data: itsData }, { data: srvRows }] = await Promise.all([
+        supabase.from('repair_items').select('precio_venta, precio_costo, cantidad').eq('repair_order_id', otId),
+        supabase.from('repair_order_services').select('service_id').eq('repair_order_id', otId),
+      ])
+      const totalItems = (itsData ?? []).reduce((s: number, r: { precio_venta?: number; precio_costo: number; cantidad: number }) =>
+        s + ((r.precio_venta ?? r.precio_costo) * r.cantidad), 0)
+      const srvIds = (srvRows ?? []).map((r: { service_id: string }) => r.service_id)
+      let totalServicios = 0
+      if (srvIds.length > 0) {
+        const { data: srvData } = await supabase.from('repair_services').select('precio_base').in('id', srvIds)
+        totalServicios = (srvData ?? []).reduce((s: number, srv: { precio_base: number }) => s + (srv.precio_base ?? 0), 0)
+      }
+      await supabase.from('repair_orders').update({ precio_servicio: totalItems + totalServicios }).eq('id', otId)
+      toast.success('Servicio creado y aplicado a la OT')
+    } else {
+      toast.success(servicio ? 'Servicio actualizado' : 'Servicio creado')
+    }
+
     router.push(returnTo ?? '/servicios')
     router.refresh()
     setLoading(false)
@@ -296,11 +336,10 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
           <div className="space-y-1.5">
             <Label>Precio costo del servicio (CLP)</Label>
             <Input type="number" min={0}
-              value={String((servicio as unknown as Record<string,unknown>)?.precio_costo ?? 0)}
-              readOnly
-              className="bg-gray-50 text-gray-500"
+              value={precioCosto}
+              onChange={e => setPrecioCosto(e.target.value)}
               placeholder="0" />
-            <p className="text-xs text-gray-400">Se calcula en el módulo de Servicios</p>
+            <p className="text-xs text-gray-400">Costo interno del servicio (mano de obra)</p>
           </div>
         </div>
 

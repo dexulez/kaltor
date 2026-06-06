@@ -1,9 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import PosVentaDirecta from '@/components/caja/PosVentaDirecta'
 import AbrirCajaInline from '@/components/caja/AbrirCajaInline'
-
-const TZ = 'America/Santiago'
+import { labelTipoEquipo } from '@/lib/tipoEquipo'
 
 export default async function VentaDirectaPage({
   searchParams,
@@ -13,14 +12,13 @@ export default async function VentaDirectaPage({
   const { ot: otId } = await searchParams
   const supabase = await createClient()
 
-  const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
-
-  const [{ data: productos }, { data: config }, { data: clientes }, { data: sesion }] = await Promise.all([
-    supabase.from('products').select('*, product_categories(*)').eq('activo', true).gt('stock_actual', 0).order('nombre'),
+  const [{ data: productos }, { data: config }, { data: clientes }, { data: sesion }, { data: servicios }] = await Promise.all([
+    supabase.from('products').select('*, product_categories(*)').eq('activo', true).order('nombre'),
     supabase.from('system_config').select('*').single(),
     supabase.from('customers').select('id, nombre, telefono, rut').order('nombre'),
-    supabase.from('sesiones_caja').select('id, estado').eq('fecha', hoy).eq('estado', 'abierta').maybeSingle()
+    supabase.from('sesiones_caja').select('id, estado').eq('estado', 'abierta').order('apertura_at', { ascending: false }).limit(1).maybeSingle()
       .then(r => r.error ? { data: null } : r),
+    supabase.from('repair_services').select('id, nombre, precio_base, tipo_reparacion').eq('activo', true).order('nombre'),
   ])
 
   const cajaAbierta = !!sesion
@@ -44,7 +42,7 @@ export default async function VentaDirectaPage({
         id: ot.id,
         numero_ot: ot.numero_ot,
         cliente_nombre: ot.customers?.nombre ?? '—',
-        equipo: [ot.equipment?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' '),
+        equipo: [labelTipoEquipo(ot.equipment?.tipo_equipo), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' '),
         precio: ot.precio_servicio ?? ot.presupuesto_estimado ?? 0,
       }
     }
@@ -58,11 +56,12 @@ export default async function VentaDirectaPage({
       </div>
 
       {!cajaAbierta ? (
-        <AbrirCajaInline />
+        <AbrirCajaInline returnUrl={`/caja/venta-directa${otId ? `?ot=${otId}` : ''}`} />
       ) : (
         <PosVentaDirecta
           productos={productos ?? []}
           clientes={clientes ?? []}
+          servicios={(servicios ?? []) as { id: string; nombre: string; precio_base: number; tipo_reparacion: string }[]}
           IVA={config?.iva ?? 19}
           PPM={config?.ppm ?? 3}
           comisionDebito={config?.comision_debito ?? 0}
@@ -81,3 +80,4 @@ export default async function VentaDirectaPage({
     </div>
   )
 }
+

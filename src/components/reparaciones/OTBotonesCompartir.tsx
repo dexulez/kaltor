@@ -1,8 +1,10 @@
-'use client'
+﻿'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import QRCode from 'qrcode'
 import { formatCLP } from '@/lib/calculations'
+import { createClient } from '@/lib/supabase/client'
+import { labelTipoEquipo } from '@/lib/tipoEquipo'
 
 const TIPO_LABELS: Record<string, string> = {
   pantalla: 'Pantalla', bateria: 'Batería', placa: 'Placa madre',
@@ -12,6 +14,7 @@ const TIPO_LABELS: Record<string, string> = {
 type PrintFormat = 'a5h' | 'a5v' | 'a4' | 'ticket'
 
 interface OTParaCompartir {
+  id: string
   numero_ot: string
   codigo_seguimiento: string
   estado: string
@@ -63,12 +66,33 @@ const FORMAT_INFO: Record<PrintFormat, { label: string; desc: string; icon: stri
 }
 
 export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico = true }: Props) {
+  const supabase = createClient()
   const [showPrintModal, setShowPrintModal] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [formato, setFormato] = useState<PrintFormat>('a5h')
   const [incluirTC, setIncluirTC] = useState(true)
   const [copias, setCopias] = useState<1 | 2>(2)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
+  const detallesRef = useRef<{ servicios: string[]; repuestos: string[] }>({ servicios: [], repuestos: [] })
+
+  // Carga servicios y repuestos para el ticket
+  useEffect(() => {
+    async function cargarDetalles() {
+      const [{ data: items }, { data: roServices }] = await Promise.all([
+        supabase.from('repair_items').select('nombre, cantidad').eq('repair_order_id', ot.id),
+        supabase.from('repair_order_services').select('service_id').eq('repair_order_id', ot.id),
+      ])
+      const repuestos = (items ?? []).map(i => i.cantidad > 1 ? `${i.nombre} ×${i.cantidad}` : i.nombre)
+      let servicios: string[] = []
+      if (roServices?.length) {
+        const ids = roServices.map(r => r.service_id)
+        const { data: srvs } = await supabase.from('repair_services').select('nombre').in('id', ids)
+        servicios = (srvs ?? []).map(s => s.nombre)
+      }
+      detallesRef.current = { servicios, repuestos }
+    }
+    cargarDetalles()
+  }, [ot.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const trackingUrl = `${baseUrl}/seguimiento/${ot.codigo_seguimiento}`
 
@@ -88,8 +112,8 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   // ── Generadores de HTML ────────────────────────────────────────────────────
 
   const logoHtml = config.logo_url
-    ? `<img src="${config.logo_url}" style="max-height:14mm;max-width:50mm;display:block;object-fit:contain" alt="Logo">`
-    : `<span style="font-size:22pt">🔧</span>`
+    ? `<img src="${config.logo_url}" style="max-height:11mm;max-width:42mm;display:block;object-fit:contain" alt="Logo">`
+    : `<span style="font-size:18pt">🔧</span>`
 
   const tcHtml = incluirTC ? `
     <div style="margin-top:3mm;border-top:1px solid #ccc;padding-top:2mm">
@@ -121,7 +145,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     .ot-badge-label{font-size:6.5pt;letter-spacing:1px;text-transform:uppercase;color:#93c5fd}
     .ot-badge-num{font-size:11pt;font-weight:bold;font-family:monospace;color:#fbbf24;line-height:1.2}
     .ot-badge-info{font-size:7.5pt;line-height:1.4}
-    .title-line{text-align:center;font-size:10.5pt;font-weight:bold;letter-spacing:2px;text-transform:uppercase;padding:2mm 0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;margin:3mm 0}
+    .title-line{text-align:center;font-size:9pt;font-weight:bold;letter-spacing:2px;text-transform:uppercase;padding:1mm 0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;margin:1.5mm 0}
     .cobro-tbl td:last-child{text-align:right;font-weight:600}
     .cobro-total{border-top:2px solid #111;font-size:9pt;font-weight:bold}
     .separator{border:none;border-top:3px dashed #d1d5db;margin:6mm 0}`
@@ -129,14 +153,14 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   // ── Cabecera profesional (igual en todos los formatos) ─────────────────────
   function cabeceraHtml() {
     return `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2mm">
-      <div style="display:flex;align-items:center;gap:3mm">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1mm">
+      <div style="display:flex;align-items:center;gap:2mm">
         ${logoHtml}
         <div>
-          <div style="font-size:11pt;font-weight:bold;line-height:1.1">${config.nombre_local}</div>
-          ${config.rut_local ? `<div style="font-size:7.5pt">RUT: ${config.rut_local}</div>` : ''}
-          ${config.direccion ? `<div style="font-size:7.5pt">${config.direccion}</div>` : ''}
-          ${config.telefono ? `<div style="font-size:7.5pt">Tel: ${config.telefono}</div>` : ''}
+          <div style="font-size:10pt;font-weight:bold;line-height:1.1">${config.nombre_local}</div>
+          ${config.rut_local ? `<div style="font-size:7pt">RUT: ${config.rut_local}</div>` : ''}
+          ${config.direccion ? `<div style="font-size:7pt">${config.direccion}</div>` : ''}
+          ${config.telefono ? `<div style="font-size:7pt">Tel: ${config.telefono}</div>` : ''}
         </div>
       </div>
       <div class="ot-badge">
@@ -172,44 +196,50 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     return `<div class="box" style="height:100%">
       <div class="box-hdr"><span>&#128241;</span> DETALLES DEL EQUIPO</div>
       <div class="box-body" style="word-break:break-word">
-        <div><strong>${[equipo?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}</strong></div>
+        <div><strong>${[labelTipoEquipo(equipo?.tipo_equipo), equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}</strong></div>
         ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</div>` : ''}
         ${equipo?.imei ? `<div style="font-family:monospace;font-size:7pt;word-break:break-all">IMEI 1: ${equipo.imei}</div>` : ''}
         ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:7pt;word-break:break-all">IMEI 2: ${equipo.imei2}</div>` : ''}
         ${equipo?.numero_serie ? `<div style="font-family:monospace;font-size:7pt">S/N: ${equipo.numero_serie}</div>` : ''}
         ${accs ? `<div style="font-size:7.5pt;line-height:1.6">Acc: ${accs}</div>` : ''}
         ${condDedup.length ? `<div style="font-size:7.5pt;line-height:1.6">Cond: ${condDedup.join(' · ')}</div>` : ''}
-        ${equipo?.observaciones ? `<div style="font-size:7.5pt;margin-top:1mm"><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
       </div>
     </div>`
   }
 
   function boxServicio() {
-    // 20% más grande: font-size 9.6pt, padding 3mm
+    const { servicios, repuestos: reps } = detallesRef.current
+    const serviciosHtml = servicios.length
+      ? `<div style="margin-top:1mm"><strong>Servicios:</strong><ul style="margin:0 0 0 3mm;padding:0;list-style:disc;font-size:7pt">${servicios.map(s => `<li style="margin-bottom:0">${s}</li>`).join('')}</ul></div>` : ''
+    const repuestosHtml = reps.length
+      ? `<div style="margin-top:1mm"><strong>Repuestos:</strong><ul style="margin:0 0 0 3mm;padding:0;list-style:disc;font-size:7pt">${reps.map(r => `<li style="margin-bottom:0">${r}</li>`).join('')}</ul></div>` : ''
     return `<div class="box">
       <div class="box-hdr"><span>&#128295;</span> INFORMACIÓN DEL SERVICIO</div>
-      <div class="box-body" style="font-size:9.6pt;padding:3mm 3.5mm;line-height:1.6">
+      <div class="box-body" style="font-size:7.5pt;padding:1.5mm 2.5mm;line-height:1.4">
         ${ot.tipo_reparacion ? `<div><strong>Tipo:</strong> ${TIPO_LABELS[ot.tipo_reparacion] ?? ot.tipo_reparacion}</div>` : ''}
         ${mostrarTecnico && ot.user_profiles ? `<div><strong>Técnico:</strong> ${ot.user_profiles.nombre_completo}</div>` : ''}
         <div><strong>Falla:</strong> ${equipo?.falla_reportada ?? '—'}</div>
         ${equipo?.observaciones ? `<div><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
-        ${ot.diagnostico_tecnico ? `<div><strong>Diagnóstico:</strong> ${ot.diagnostico_tecnico}</div>` : ''}
+        ${serviciosHtml}
+        ${repuestosHtml}
+        ${ot.diagnostico_tecnico ? `<div style="margin-top:1mm"><strong>Diagnóstico:</strong> ${ot.diagnostico_tecnico}</div>` : ''}
       </div>
     </div>`
   }
 
   function boxCobro() {
-    const rows = [
-      ot.presupuesto_estimado ? `<tr><td>Presupuesto est.</td><td style="font-weight:bold">${formatCLP(ot.presupuesto_estimado)}</td></tr>` : '',
-      ot.precio_servicio ? `<tr class="cobro-total"><td>Total</td><td style="color:#16a34a">${formatCLP(ot.precio_servicio)}</td></tr>` : '',
-    ].filter(Boolean).join('')
+    const monto = ot.precio_servicio ?? ot.presupuesto_estimado
+    const esPresupuesto = !ot.precio_servicio && !!ot.presupuesto_estimado
     return `<div class="box">
       <div class="box-hdr"><span>&#36;</span> DETALLES DE COBRO</div>
-      <div class="box-body" style="font-size:6.5pt;padding:2mm 3mm;line-height:1.4">
-        <table class="cobro-tbl">
-          <thead><tr style="border-bottom:1px solid #e5e7eb;font-size:6pt;color:#6b7280"><td>Concepto</td><td style="text-align:right">Monto</td></tr></thead>
-          <tbody>${rows || '<tr><td colspan="2" style="color:#9ca3af;font-size:6pt">Sin precio asignado</td></tr>'}</tbody>
-        </table>
+      <div class="box-body" style="padding:1.5mm 2.5mm">
+        ${monto
+          ? `<div style="display:flex;justify-content:space-between;align-items:center;border-top:1.5px solid #111;padding-top:1.5mm">
+               <span style="font-size:7.5pt;font-weight:bold;text-transform:uppercase">${esPresupuesto ? 'Presupuesto est.' : 'Total a cobrar'}</span>
+               <span style="font-size:12pt;font-weight:bold;color:#16a34a">${formatCLP(monto)}</span>
+             </div>`
+          : `<div style="color:#9ca3af;font-size:7pt;text-align:center;padding:1.5mm 0">Sin precio asignado</div>`
+        }
       </div>
     </div>`
   }
@@ -260,25 +290,25 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       const unaHoja = `
         ${cabeceraHtml()}
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
-        ${dosColumnas('2mm', '44%')}
-        <div style="display:flex;align-items:center;gap:3mm;margin-top:2mm">
-          ${qrDataUrl ? `<img src="${qrDataUrl}" style="width:18mm;height:18mm;display:block;flex-shrink:0">` : ''}
-          <div style="font-size:7pt;color:#6b7280">
+        ${dosColumnas('1.5mm', '44%')}
+        <div style="display:flex;align-items:center;gap:2mm;margin-top:1.5mm">
+          ${qrDataUrl ? `<img src="${qrDataUrl}" style="width:14mm;height:14mm;display:block;flex-shrink:0">` : ''}
+          <div style="font-size:6pt;color:#6b7280">
             <div>Escanea para ver el estado de tu reparación</div>
-            <div style="font-family:monospace;font-size:6.5pt">${trackingUrl}</div>
+            <div style="font-family:monospace;font-size:5.5pt">${trackingUrl}</div>
           </div>
           <div style="flex:1"></div>
           ${firmaRow()}
         </div>`
 
-      if (copias === 1) return unaHoja + tcHtml
+      if (copias === 1) return unaHoja
 
       const copia2 = `
         <hr class="separator">
         ${cabeceraHtml()}
-        ${dosColumnas('2mm', '44%')}
+        ${dosColumnas('1.5mm', '44%')}
         ${firmaRow()}`
-      return unaHoja + copia2 + tcHtml
+      return unaHoja + copia2
     }
 
     // ── A5 Vertical ────────────────────────────────────────────────────────────
@@ -351,14 +381,13 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       <!-- Equipo -->
       ${sT('EQUIPO')}
       <div style="font-size:8.5pt;line-height:1.5">
-        <div><strong>${[equipo?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}</strong></div>
+        <div><strong>${[labelTipoEquipo(equipo?.tipo_equipo), equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}</strong></div>
         ${(equipo?.color || equipo?.capacidad) ? `<div>${[equipo?.color, equipo?.capacidad].filter(Boolean).join(' · ')}</div>` : ''}
         ${equipo?.imei  ? `<div style="font-family:monospace;font-size:8pt">IMEI 1: ${equipo.imei}</div>`  : ''}
         ${equipo?.imei2 ? `<div style="font-family:monospace;font-size:8pt">IMEI 2: ${equipo.imei2}</div>` : ''}
         ${equipo?.numero_serie ? `<div style="font-family:monospace;font-size:8pt">S/N: ${equipo.numero_serie}</div>` : ''}
         ${accs80  ? `<div style="font-size:8pt;margin-top:0.5mm">Acc: ${accs80}</div>`                            : ''}
         ${condDedup80.length ? `<div style="font-size:8pt">Cond: ${condDedup80.join(' · ')}</div>`                : ''}
-        ${equipo?.observaciones ? `<div style="font-size:8pt"><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
       </div>
 
       <!-- Servicio -->
@@ -368,15 +397,17 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${mostrarTecnico && ot.user_profiles ? `<div>Técnico: ${ot.user_profiles.nombre_completo}</div>` : ''}
         <div><strong>Falla:</strong> ${equipo?.falla_reportada ?? '—'}</div>
         ${equipo?.observaciones ? `<div style="font-size:8pt"><strong>Obs:</strong> ${equipo.observaciones}</div>` : ''}
+        ${detallesRef.current.servicios.length ? `<div style="margin-top:1mm"><strong>Servicios:</strong> ${detallesRef.current.servicios.join(', ')}</div>` : ''}
+        ${detallesRef.current.repuestos.length ? `<div><strong>Repuestos:</strong> ${detallesRef.current.repuestos.join(', ')}</div>` : ''}
         ${ot.diagnostico_tecnico ? `<div style="font-size:8pt"><strong>Diagnóstico:</strong> ${ot.diagnostico_tecnico}</div>` : ''}
       </div>
 
       <!-- Cobro -->
-      ${(ot.presupuesto_estimado || ot.precio_servicio) ? `
+      ${(ot.precio_servicio || ot.presupuesto_estimado) ? `
         ${sT('COBRO')}
-        <div style="font-size:9pt;line-height:1.6">
-          ${ot.presupuesto_estimado ? `<div>Presupuesto: <strong>${formatCLP(ot.presupuesto_estimado)}</strong></div>` : ''}
-          ${ot.precio_servicio ? `<div style="font-size:11pt;font-weight:bold">TOTAL: ${formatCLP(ot.precio_servicio)}</div>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid #000;padding-top:1.5mm;margin-top:0.5mm">
+          <span style="font-size:9pt;font-weight:bold">${ot.precio_servicio ? 'TOTAL A COBRAR' : 'PRESUPUESTO EST.'}</span>
+          <span style="font-size:13pt;font-weight:bold">${formatCLP(ot.precio_servicio ?? ot.presupuesto_estimado ?? 0)}</span>
         </div>` : ''}
 
       <!-- QR + Seguimiento -->
@@ -399,7 +430,9 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   // ── CSS por formato ────────────────────────────────────────────────────────
 
   function getPageCSS(): string {
-    if (formato === 'a5h') return `@page { size: A5 landscape; margin: 6mm; }`
+    if (formato === 'a5h') return `
+      @page { size: A5 landscape; margin: 4mm; }
+      @media print { body { zoom: 0.92; } }`
     if (formato === 'a5v') return `@page { size: A5 portrait; margin: 6mm; }`
     if (formato === 'a4')  return `@page { size: A4; margin: 10mm; }`
     return `@page { size: 80mm auto; margin: 3mm; }` // ticket
@@ -447,7 +480,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     }
 
     const msg = [
-      `Hola ${cliente?.nombre ?? 'cliente'}, te informamos sobre el estado de tu *${[equipo?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}*.`,
+      `Hola ${cliente?.nombre ?? 'cliente'}, te informamos sobre el estado de tu *${[labelTipoEquipo(equipo?.tipo_equipo), equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}*.`,
       '',
       firma.join('\n'),
       '',
@@ -472,7 +505,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     const body = [
       `Hola ${cliente?.nombre ?? 'cliente'},`,
       '',
-      `Te informamos sobre el estado de tu ${[equipo?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}.`,
+      `Te informamos sobre el estado de tu ${[labelTipoEquipo(equipo?.tipo_equipo), equipo?.marca, equipo?.modelo].filter(Boolean).join(' ')}.`,
       '',
       `OT: ${ot.numero_ot}`,
       `Estado: ${ot.estado.replace(/_/g, ' ')}`,
@@ -674,3 +707,4 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     </>
   )
 }
+

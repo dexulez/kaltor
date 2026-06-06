@@ -3,34 +3,32 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCLP } from '@/lib/calculations'
-import { PurchaseOrder, Supplier } from '@/types'
-
-const OC_ESTADO: Record<string, { label: string; color: string }> = {
-  pendiente:          { label: 'Pendiente',         color: 'bg-yellow-100 text-yellow-700' },
-  en_transito:        { label: 'En tránsito',       color: 'bg-blue-100 text-blue-700' },
-  recibida_parcial:   { label: 'Recibida parcial',  color: 'bg-orange-100 text-orange-700' },
-  recibida_completa:  { label: 'Recibida',          color: 'bg-green-100 text-green-700' },
-  cancelada:          { label: 'Cancelada',          color: 'bg-gray-200 text-gray-500' },
-}
-
-type OrdenCompraRow = PurchaseOrder & {
-  suppliers: Pick<Supplier, 'nombre'> | null
-}
+import { Supplier } from '@/types'
+import AlertasOCPanel from '@/components/compras/AlertasOCPanel'
+import AbonarProveedorBtn from '@/components/compras/AbonarProveedorBtn'
+import OrdenesConFiltro from '@/components/compras/OrdenesConFiltro'
 
 export default async function ComprasPage() {
   const supabase = await createClient()
   const [{ data: proveedores }, { data: ordenes }] = await Promise.all([
     supabase.from('suppliers').select('*').eq('activo', true).order('nombre'),
     supabase.from('purchase_orders')
-      .select('*, suppliers(nombre)')
+      .select('*, suppliers(nombre, whatsapp, telefono)')
       .order('created_at', { ascending: false })
-      .limit(50),
+      .limit(100),
   ])
 
-  const ordenesList: OrdenCompraRow[] = (ordenes ?? []) as OrdenCompraRow[]
+  const hoyStr = new Intl.DateTimeFormat('sv', { timeZone: 'America/Santiago' }).format(new Date())
+
+  type ORow = { id: string; numero_oc: string; estado: string; metodo_pago?: string | null; total?: number | null; created_at?: string | null; notas?: string | null; fecha_estimada_llegada?: string | null; suppliers?: { nombre?: string | null; whatsapp?: string | null; telefono?: string | null } | null }
+  const todas = (ordenes ?? []) as ORow[]
+  const borradores = todas.filter(o => (o.notas ?? '').startsWith('[SOLICITUD]'))
+  const otrasOrdenes = todas.filter(o => !(o.notas ?? '').startsWith('[SOLICITUD]'))
 
   return (
     <div className="p-6 space-y-4">
+      <AlertasOCPanel />
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-900">Compras y Proveedores</h1>
         <Link href="/compras/historial">
@@ -40,10 +38,10 @@ export default async function ComprasPage() {
         </Link>
       </div>
 
-      <Tabs defaultValue="proveedores">
+      <Tabs defaultValue="ordenes">
         <TabsList>
+          <TabsTrigger value="ordenes">Órdenes de compra ({todas.length})</TabsTrigger>
           <TabsTrigger value="proveedores">Proveedores ({proveedores?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="ordenes">Órdenes de compra ({ordenesList.length})</TabsTrigger>
         </TabsList>
 
         {/* PROVEEDORES */}
@@ -86,12 +84,24 @@ export default async function ComprasPage() {
                         {p.plazo_pago_dias > 0 && <span className="text-gray-400"> ({p.plazo_pago_dias} días)</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className={`font-bold ${p.saldo_deudor > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                          {formatCLP(p.saldo_deudor)}
-                        </span>
+                        {p.saldo_deudor > 0 ? (
+                          <div className="space-y-1">
+                            <span className="font-bold text-red-600 text-base">{formatCLP(p.saldo_deudor)}</span>
+                            <p className="text-xs text-red-400">Deuda por crédito</p>
+                          </div>
+                        ) : (
+                          <span className="text-gray-300 text-sm">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2 justify-end flex-wrap">
+                        <div className="flex gap-2 justify-end flex-wrap items-center">
+                          {p.saldo_deudor > 0 && (
+                            <AbonarProveedorBtn
+                              supplierId={p.id}
+                              nombreProveedor={p.nombre}
+                              saldoActual={p.saldo_deudor}
+                            />
+                          )}
                           <Link href={`/compras/proveedor/${p.id}/liquidacion`}>
                             <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">💸 Liquidar</Button>
                           </Link>
@@ -112,61 +122,12 @@ export default async function ComprasPage() {
         </TabsContent>
 
         {/* ÓRDENES DE COMPRA */}
-        <TabsContent value="ordenes" className="mt-4 space-y-3">
-          <div className="flex gap-2 justify-end">
-            <Link href="/compras/orden/nueva-masiva">
-              <Button variant="outline" className="gap-1.5">📊 Carga masiva desde Excel</Button>
-            </Link>
-            <Link href="/compras/orden/nueva">
-              <Button className="bg-blue-600 hover:bg-blue-700">+ Nueva orden de compra</Button>
-            </Link>
-          </div>
-          <div className="bg-white rounded-xl border overflow-hidden">
-            {!ordenesList.length ? (
-              <div className="text-center py-14 text-gray-400">
-                <span className="text-5xl block mb-3">📋</span>
-                <p className="font-medium">Sin órdenes de compra</p>
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">N° OC</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Proveedor</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Pago</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-600">Total</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Llegada est.</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {ordenesList.map((o) => {
-                    const est = OC_ESTADO[o.estado]
-                    return (
-                      <tr key={o.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-mono font-bold text-blue-700">{o.numero_oc}</td>
-                        <td className="px-4 py-3 font-medium">{o.suppliers?.nombre}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${est?.color}`}>{est?.label}</span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 capitalize">{o.metodo_pago ?? '—'}</td>
-                        <td className="px-4 py-3 text-right font-medium">{formatCLP(o.total)}</td>
-                        <td className="px-4 py-3 text-gray-500">
-                          {o.fecha_estimada_llegada ? new Date(o.fecha_estimada_llegada).toLocaleDateString('es-CL') : '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Link href={`/compras/orden/${o.id}`}>
-                            <Button variant="ghost" size="sm">Ver</Button>
-                          </Link>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+        <TabsContent value="ordenes" className="mt-4">
+          <OrdenesConFiltro
+            borradores={borradores}
+            ordenes={otrasOrdenes}
+            hoyStr={hoyStr}
+          />
         </TabsContent>
       </Tabs>
     </div>

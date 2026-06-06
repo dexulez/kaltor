@@ -7,7 +7,11 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { RepairStatus } from '@/types'
+import { crearNotificacion } from '@/lib/notifications'
+import { soundOTListo, soundOTEntregada, soundOTRechazada, soundEstadoOT, soundError } from '@/lib/sounds'
+import { enviarWA, msgOTRecibida, msgOTPresupuestado, msgOTEsperandoRepuesto, msgOTLista, msgOTRechazada as msgRechazada } from '@/lib/whatsapp'
 
 export const ESTADO_LABELS: Record<RepairStatus, string> = {
   recibido:           'Recibido',
@@ -43,7 +47,18 @@ export const ESTADO_DESC: Partial<Record<RepairStatus, string>> = {
   en_garantia:    'El equipo regresó por garantía',
 }
 
-export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; estadoActual: RepairStatus }) {
+interface Props {
+  otId: string
+  estadoActual: RepairStatus
+  fechaEntrega?: string | null
+  otNumero?: string
+  clienteTelefono?: string | null
+  clienteNombre?: string | null
+  equipoDesc?: string | null
+  nombreLocal?: string | null
+}
+
+export default function CambiarEstadoOT({ otId, estadoActual, fechaEntrega, otNumero, clienteTelefono, clienteNombre, equipoDesc, nombreLocal }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -51,9 +66,15 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
   const [nuevoEstado, setNuevoEstado] = useState<RepairStatus | ''>('')
   const [comentario, setComentario] = useState('')
   const [resultado, setResultado] = useState<'exitosa' | 'no_exitosa' | ''>('')
+  const [montoRevision, setMontoRevision] = useState('')
   const [foto, setFoto] = useState<File | null>(null)
   const [fotoPreview, setFotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Mostrar input de revisión cuando: sin reparación, o rechazado
+  const mostrarMontoRevision =
+    (nuevoEstado === 'listo' && resultado === 'no_exitosa') ||
+    nuevoEstado === 'rechazado'
 
   const opciones = TODOS_ESTADOS.filter(e => e !== estadoActual)
 
@@ -105,6 +126,16 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
     return data.publicUrl
   }
 
+  async function handleRegistrarDevolucion() {
+    setLoading(true)
+    await supabase.from('repair_orders')
+      .update({ fecha_entrega: new Date().toISOString() })
+      .eq('id', otId)
+    toast.success('Devolución registrada')
+    router.refresh()
+    setLoading(false)
+  }
+
   async function handleCambio() {
     if (!nuevoEstado) return
     if (nuevoEstado === 'listo' && !resultado) {
@@ -114,10 +145,13 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
     setLoading(true)
 
     const fotoUrl = await subirFoto()
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
 
-    // Actualizar estado + resultado si aplica
+    // Actualizar estado + resultado + precio si aplica
     const updatePayload: Record<string, unknown> = { estado: nuevoEstado }
     if (nuevoEstado === 'listo' && resultado) updatePayload.resultado = resultado
+    const monto = parseFloat(montoRevision)
+    if (mostrarMontoRevision && montoRevision && monto > 0) updatePayload.precio_servicio = monto
 
     const { error } = await supabase
       .from('repair_orders')
@@ -125,7 +159,7 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
       .eq('id', otId)
 
     if (error) {
-      toast.error('Error al cambiar estado')
+      soundError(); toast.error('Error al cambiar estado')
       setLoading(false)
       return
     }
@@ -136,21 +170,82 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
       estado_nuevo: nuevoEstado,
       comentario: comentario || null,
       foto_url: fotoUrl,
+      usuario_id: currentUser?.id ?? null,
     })
 
+    // Sonido según estado
+    if (nuevoEstado === 'listo') soundOTListo()
+    else if (nuevoEstado === 'entregado') soundOTEntregada()
+    else if (nuevoEstado === 'rechazado' || nuevoEstado === 'cancelado') soundOTRechazada()
+    else soundEstadoOT()
     toast.success(`Estado: ${ESTADO_LABELS[nuevoEstado]}`)
+
+    // WhatsApp al cliente según estado
+    const ot = otNumero ?? 'OT'
+    const nombre = clienteNombre ?? 'Cliente'
+    const equipo = equipoDesc ?? 'equipo'
+    const local = nombreLocal ?? 'Servitec'
+    if (clienteTelefono) {
+      if (nuevoEstado === 'recibido')           enviarWA(clienteTelefono, msgOTRecibida(nombre, equipo, ot, local))
+      else if (nuevoEstado === 'presupuestado') enviarWA(clienteTelefono, msgOTPresupuestado(nombre, equipo, ot, local))
+      else if (nuevoEstado === 'esperando_repuesto') enviarWA(clienteTelefono, msgOTEsperandoRepuesto(nombre, equipo, ot, local))
+      else if (nuevoEstado === 'listo' || nuevoEstado === 'para_entrega') enviarWA(clienteTelefono, msgOTLista(nombre, equipo, ot, local))
+      else if (nuevoEstado === 'rechazado')     enviarWA(clienteTelefono, msgRechazada(nombre, equipo, ot, local))
+    }
+
+    // Notificaciones para estados relevantes
+    const ref = otNumero ? `${otNumero}` : 'OT'
+    if (nuevoEstado === 'listo') {
+      await crearNotificacion({
+        tipo: 'ot_listo',
+        titulo: `${ref} lista para cobro`,
+        mensaje: resultado === 'no_exitosa' ? 'Sin reparación — cobrar revisión' : 'Reparación completada',
+        url: `/reparaciones/${otId}`,
+      })
+    } else if (nuevoEstado === 'entregado') {
+      await crearNotificacion({
+        tipo: 'ot_entregada',
+        titulo: `${ref} entregada al cliente`,
+        url: `/reparaciones/${otId}`,
+      })
+    } else if (nuevoEstado === 'esperando_repuesto') {
+      await crearNotificacion({
+        tipo: 'solicitud_compra',
+        titulo: `${ref} esperando repuesto`,
+        mensaje: comentario || 'Revisar y solicitar repuesto al proveedor',
+        url: `/reparaciones/${otId}`,
+      })
+    }
+
     setNuevoEstado('')
     setComentario('')
     setResultado('')
+    setMontoRevision('')
     quitarFoto()
     router.refresh()
     setLoading(false)
   }
 
   return (
-    <div className="flex flex-col gap-2 min-w-[240px]">
+    <div className="flex flex-col gap-2">
+      {/* Botón de devolución para equipos rechazados */}
+      {estadoActual === 'rechazado' && (
+        fechaEntrega
+          ? <span className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-medium">
+              ✓ Devuelto al cliente el {new Date(fechaEntrega).toLocaleDateString('es-CL')}
+            </span>
+          : <Button
+              onClick={handleRegistrarDevolucion}
+              disabled={loading}
+              className="bg-amber-500 hover:bg-amber-600 text-white text-sm"
+              size="sm"
+            >
+              📦 Registrar devolución al cliente
+            </Button>
+      )}
+
       <Select value={nuevoEstado} onValueChange={v => { setNuevoEstado(v as RepairStatus); setResultado('') }}>
-        <SelectTrigger>
+        <SelectTrigger className="min-w-[180px] h-9 border-gray-300 hover:border-blue-400 transition-colors">
           <span className="truncate text-sm text-left text-gray-700">
             {nuevoEstado ? ESTADO_LABELS[nuevoEstado] : 'Cambiar estado...'}
           </span>
@@ -181,6 +276,27 @@ export default function CambiarEstadoOT({ otId, estadoActual }: { otId: string; 
               >
                 🔧 Sin reparación
               </button>
+            </div>
+          )}
+
+          {/* Cobro de revisión para sin reparación o rechazado */}
+          {mostrarMontoRevision && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">
+                {nuevoEstado === 'rechazado' ? 'Cobro de revisión (opcional)' : 'Cobro de revisión (no se especificó precio)'}
+              </label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="Ej: 5000"
+                value={montoRevision}
+                onChange={e => setMontoRevision(e.target.value)}
+              />
+              {montoRevision && parseFloat(montoRevision) > 0 && (
+                <p className="text-xs text-orange-600 font-medium">
+                  Se registrará ${Number(montoRevision).toLocaleString('es-CL')} como precio del servicio
+                </p>
+              )}
             </div>
           )}
 

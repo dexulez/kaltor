@@ -34,6 +34,9 @@ export default function ReimprimirCierreBtn({
   const [loading, setLoading] = useState(false)
   const [formato, setFormato] = useState<'a4' | 'ticket80' | 'ticket57'>('a4')
   const [open, setOpen] = useState(false)
+  const [verVentas, setVerVentas] = useState(false)
+  const [verCompras, setVerCompras] = useState(false)
+  const [verGastos, setVerGastos] = useState(false)
 
   async function reimprimir() {
     setLoading(true)
@@ -100,9 +103,56 @@ export default function ReimprimirCierreBtn({
     const comisiones = Object.values(porTec)
     comisiones.forEach(t => { t.pctPromedio = t.baseCalculo > 0 ? Math.round(t.comisionTotal * 100 / t.baseCalculo) : 0 })
 
+    // Detalle ventas (opcional)
+    type VentaDetalle = { numero: string; cliente: string; items: string; metodo: string; total: number }
+    let detalleVentas: VentaDetalle[] = []
+    if (verVentas) {
+      const { data: vd } = await supabase.from('sales')
+        .select('numero_venta, total, metodo_pago, anulada, customers(nombre), sale_items(nombre, cantidad), repair_orders(numero_ot)')
+        .gte('created_at', aperturaAt).lte('created_at', cierreAt).eq('anulada', false)
+        .order('created_at')
+      detalleVentas = (vd ?? []).map((v: Record<string, unknown>) => {
+        const items = (v.sale_items as { nombre: string; cantidad: number }[] ?? [])
+          .map(i => `${i.nombre}${i.cantidad > 1 ? ` x${i.cantidad}` : ''}`).join(', ')
+        const ot = (v.repair_orders as { numero_ot: string } | null)?.numero_ot
+        return {
+          numero: ot ?? (v.numero_venta as string),
+          cliente: (v.customers as { nombre: string } | null)?.nombre ?? '—',
+          items: items || (ot ? `OT ${ot}` : '—'),
+          metodo: (v.metodo_pago as string) ?? '—',
+          total: v.total as number,
+        }
+      })
+    }
+
+    // Detalle compras recibidas (opcional)
+    type CompraDetalle = { numero: string; proveedor: string; items: number; total: number }
+    let detalleCompras: CompraDetalle[] = []
+    if (verCompras) {
+      const { data: cd } = await supabase.from('purchase_orders')
+        .select('numero_oc, total, suppliers(nombre), purchase_order_items(id)')
+        .in('estado', ['recibida_parcial', 'recibida_completa'])
+        .gte('updated_at', aperturaAt).lte('updated_at', cierreAt)
+        .order('updated_at')
+      detalleCompras = (cd ?? []).map((c: Record<string, unknown>) => ({
+        numero: c.numero_oc as string,
+        proveedor: (c.suppliers as { nombre: string } | null)?.nombre ?? '—',
+        items: (c.purchase_order_items as unknown[])?.length ?? 0,
+        total: c.total as number,
+      }))
+    }
+
+    // Gastos fijos activos (opcional)
+    type GastoRow = { nombre: string; categoria: string; monto: number }
+    let gastos: GastoRow[] = []
+    if (verGastos) {
+      const { data: gd } = await supabase.from('gastos_fijos').select('nombre, categoria, monto').eq('activo', true).order('categoria')
+      gastos = (gd ?? []) as GastoRow[]
+    }
+
     setLoading(false)
     setOpen(false)
-    imprimirCierre({ fecha, aperturaAt, cierreAt, fondoApertura, ventas, ef: efectivoCierre, tb: transbankCierre, tr: transferenciaCierre, ot: otrosCierre, difEf: diferenciaEfectivo, cierreObs: observacionesCierre ?? '', comisiones, formato })
+    imprimirCierre({ fecha, aperturaAt, cierreAt, fondoApertura, ventas, ef: efectivoCierre, tb: transbankCierre, tr: transferenciaCierre, ot: otrosCierre, difEf: diferenciaEfectivo, cierreObs: observacionesCierre ?? '', comisiones, formato, detalleVentas, detalleCompras, gastos })
   }
 
   return (
@@ -135,6 +185,26 @@ export default function ReimprimirCierreBtn({
                 </button>
               ))}
             </div>
+            {/* Toggles de detalle */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Incluir detalle de</p>
+              {[
+                { key: 'ventas',  label: '📋 Transacciones de venta',  val: verVentas,  set: setVerVentas },
+                { key: 'compras', label: '📦 Compras recibidas',        val: verCompras, set: setVerCompras },
+                { key: 'gastos',  label: '💸 Gastos fijos',             val: verGastos,  set: setVerGastos },
+              ].map(t => (
+                <label key={t.key} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={t.val}
+                    onChange={e => t.set(e.target.checked)}
+                    className="w-4 h-4 accent-indigo-600"
+                  />
+                  <span className="text-sm text-gray-700">{t.label}</span>
+                </label>
+              ))}
+            </div>
+
             <div className="flex gap-2">
               <button onClick={() => setOpen(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50">Cancelar</button>
               <button onClick={reimprimir} disabled={loading}
@@ -156,6 +226,9 @@ interface CierreData {
   ef: number; tb: number; tr: number; ot: number; difEf: number; cierreObs: string
   comisiones: { nombre: string; ots: number; ingresosBruto: number; costoRep: number; comBanco: number; baseCalculo: number; pctPromedio: number; comisionTotal: number; ganancia: number }[]
   formato: 'a4' | 'ticket80' | 'ticket57'
+  detalleVentas?: { numero: string; cliente: string; items: string; metodo: string; total: number }[]
+  detalleCompras?: { numero: string; proveedor: string; items: number; total: number }[]
+  gastos?: { nombre: string; categoria: string; monto: number }[]
 }
 
 function imprimirCierre(d: CierreData) {
@@ -194,11 +267,38 @@ function imprimirCierre(d: CierreData) {
     ? `<div style="margin-top:4mm;border-top:1px dashed #000;padding-top:2mm;text-align:center;font-size:7pt">Firma encargado</div><div style="height:12mm"></div>`
     : `<div style="margin-top:8mm;display:flex;gap:8mm"><div style="flex:1;border-top:1px solid #111;padding-top:2mm;text-align:center;font-size:8pt">Firma encargado</div><div style="flex:1;border-top:1px solid #111;padding-top:2mm;text-align:center;font-size:8pt">V°B° administrador</div></div>`
 
+  // Detalle ventas
+  const detalleVentasH = (d.detalleVentas?.length ?? 0) > 0
+    ? (isTicket
+        ? d.detalleVentas!.map(v => `<div style="margin-bottom:1.5mm;font-size:8pt"><b>${v.numero}</b> ${v.cliente} · ${v.metodo}<div style="display:flex;justify-content:space-between"><span style="color:#555">${v.items.slice(0,40)}</span><span style="font-weight:bold">${fmt(v.total)}</span></div></div>`).join('')
+        : `<table style="width:100%;font-size:8pt;border-collapse:collapse"><thead style="background:#f0f9ff"><tr><th style="text-align:left;padding:1.5mm 2mm">N°</th><th style="text-align:left;padding:1.5mm 2mm">Cliente</th><th style="text-align:left;padding:1.5mm 2mm">Ítems</th><th style="text-align:left;padding:1.5mm 2mm">Método</th><th style="text-align:right;padding:1.5mm 2mm">Total</th></tr></thead><tbody>${d.detalleVentas!.map(v => `<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${v.numero}</td><td style="padding:1.5mm 2mm">${v.cliente}</td><td style="padding:1.5mm 2mm;color:#555">${v.items}</td><td style="padding:1.5mm 2mm">${v.metodo}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold">${fmt(v.total)}</td></tr>`).join('')}<tfoot style="background:#f0f9ff;font-weight:bold"><tr><td colspan="4" style="padding:1.5mm 2mm">TOTAL (${d.detalleVentas!.length} transacciones)</td><td style="text-align:right;padding:1.5mm 2mm">${fmt(d.detalleVentas!.reduce((s,v)=>s+v.total,0))}</td></tr></tfoot></table>`)
+    : ''
+
+  // Detalle compras
+  const detalleComprasH = (d.detalleCompras?.length ?? 0) > 0
+    ? (isTicket
+        ? d.detalleCompras!.map(c => `<div style="margin-bottom:1.5mm;font-size:8pt;display:flex;justify-content:space-between"><span><b>${c.numero}</b> ${c.proveedor} (${c.items} ítem${c.items !== 1 ? 's' : ''})</span><span style="font-weight:bold">${fmt(c.total)}</span></div>`).join('')
+        : `<table style="width:100%;font-size:8pt;border-collapse:collapse"><thead style="background:#f0fdf4"><tr><th style="text-align:left;padding:1.5mm 2mm">OC</th><th style="text-align:left;padding:1.5mm 2mm">Proveedor</th><th style="text-align:center;padding:1.5mm 2mm">Ítems</th><th style="text-align:right;padding:1.5mm 2mm">Total</th></tr></thead><tbody>${d.detalleCompras!.map(c => `<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${c.numero}</td><td style="padding:1.5mm 2mm">${c.proveedor}</td><td style="text-align:center;padding:1.5mm 2mm">${c.items}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold">${fmt(c.total)}</td></tr>`).join('')}<tfoot style="background:#f0fdf4;font-weight:bold"><tr><td colspan="3" style="padding:1.5mm 2mm">TOTAL (${d.detalleCompras!.length} OC)</td><td style="text-align:right;padding:1.5mm 2mm">${fmt(d.detalleCompras!.reduce((s,c)=>s+c.total,0))}</td></tr></tfoot></table>`)
+    : ''
+
+  // Gastos fijos
+  const gastosH = (d.gastos?.length ?? 0) > 0
+    ? (() => {
+        const totalG = d.gastos!.reduce((s,g)=>s+g.monto,0)
+        return isTicket
+          ? d.gastos!.map(g => `<div style="display:flex;justify-content:space-between;font-size:8pt;margin-bottom:1mm"><span>${g.nombre}</span><span>${fmt(g.monto)}</span></div>`).join('') + `<div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #000;padding-top:1mm"><span>TOTAL GASTOS</span><span style="color:#dc2626">${fmt(totalG)}</span></div>`
+          : `<table style="width:100%;font-size:8pt;border-collapse:collapse"><thead style="background:#fff7ed"><tr><th style="text-align:left;padding:1.5mm 2mm">Gasto</th><th style="text-align:left;padding:1.5mm 2mm">Categoría</th><th style="text-align:right;padding:1.5mm 2mm">Monto</th></tr></thead><tbody>${d.gastos!.map(g=>`<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${g.nombre}</td><td style="padding:1.5mm 2mm;color:#555">${g.categoria}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold;color:#dc2626">${fmt(g.monto)}</td></tr>`).join('')}<tfoot style="background:#fff7ed;font-weight:bold"><tr><td colspan="2" style="padding:1.5mm 2mm">TOTAL GASTOS FIJOS</td><td style="text-align:right;padding:1.5mm 2mm;color:#dc2626">${fmt(totalG)}</td></tr></tfoot></table>`
+      })()
+    : ''
+
   const body = header
     + sec('Ventas del día', ventasH)
     + sec('Cierre físico', cierreH)
     + sec('Cuadre', cuadreH)
     + (d.comisiones.length > 0 ? sec('💼 Comisiones técnicos', comisionesH) : '')
+    + (detalleVentasH ? sec('📋 Detalle de transacciones de venta', detalleVentasH) : '')
+    + (detalleComprasH ? sec('📦 Detalle de compras recibidas', detalleComprasH) : '')
+    + (gastosH ? sec('💸 Gastos fijos del local', gastosH) : '')
     + (d.cierreObs ? sec('Observaciones', obsH) : '')
     + firmas
 

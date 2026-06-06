@@ -178,33 +178,40 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
                   <div className="sm:col-span-5 space-y-1 relative">
                     <Label className="text-xs">Producto</Label>
                     <Input
-                      value={item.product_id ? item.nombre : busq}
+                      value={item.nombre}
                       onChange={e => {
-                        if (item.product_id) {
-                          setItem(item.id, 'product_id', null)
-                          setItem(item.id, 'nombre', '')
-                        }
-                        setBusquedaProducto(prev => ({ ...prev, [item.id]: e.target.value }))
+                        const val = e.target.value
+                        if (item.product_id) setItem(item.id, 'product_id', null)
+                        setItem(item.id, 'nombre', val)
+                        setBusquedaProducto(prev => ({ ...prev, [item.id]: val }))
                       }}
-                      placeholder="Buscar o escribir nombre..."
+                      onFocus={() => {
+                        if (!item.product_id)
+                          setBusquedaProducto(prev => ({ ...prev, [item.id]: item.nombre }))
+                      }}
+                      onBlur={() => {
+                        setBusquedaProducto(prev => ({ ...prev, [item.id]: '' }))
+                      }}
+                      placeholder="Escribir nombre del repuesto..."
                       className="text-sm"
+                      autoComplete="off"
                     />
-                    {busq && !item.product_id && (
-                      <div className="absolute top-full left-0 right-0 z-10 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                        {filtrados.length > 0 ? filtrados.map(p => (
-                          <button key={p.id} type="button" onClick={() => seleccionarProducto(item.id, p)}
+                    {item.product_id && (
+                      <p className="text-[10px] text-green-600 mt-0.5">✓ Producto del inventario</p>
+                    )}
+                    {busq && !item.product_id && filtrados.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-10 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <p className="px-3 py-1.5 text-[10px] text-gray-400 uppercase tracking-wide bg-gray-50 border-b">
+                          Coincide con el inventario — selecciona o sigue escribiendo
+                        </p>
+                        {filtrados.map(p => (
+                          <button key={p.id} type="button"
+                            onMouseDown={e => { e.preventDefault(); seleccionarProducto(item.id, p) }}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b last:border-0">
                             <span className="font-medium">{p.nombre}</span>
                             <span className="text-gray-400 ml-2">{formatCLP(p.precio_costo)}</span>
                           </button>
-                        )) : (
-                          <button type="button" onClick={() => {
-                            setItem(item.id, 'nombre', busq)
-                            setBusquedaProducto(prev => ({ ...prev, [item.id]: '' }))
-                          }} className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-blue-600">
-                            Usar &quot;{busq}&quot; como nombre
-                          </button>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>

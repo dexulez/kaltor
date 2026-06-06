@@ -32,7 +32,7 @@ const SHORT_LABEL: Record<string, string> = {
 // Módulos que siempre van en la barra inferior (los más usados)
 const BARRA_KEYS = ['dashboard', 'reparaciones', 'caja', 'inventario']
 
-export default function MobileNav({ user }: { user: UserProfile | null }) {
+export default function MobileNav({ user, alertas }: { user: UserProfile | null; alertas?: { compras: number } }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -95,18 +95,24 @@ export default function MobileNav({ user }: { user: UserProfile | null }) {
               {drawerItems.map(item => {
                 const isActive = pathname === item.href ||
                   (item.href !== '/dashboard' && pathname.startsWith(item.href))
+                const badgeCompras = item.href === '/compras' && !isActive && (alertas?.compras ?? 0) > 0
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setDrawerOpen(false)}
                     className={cn(
-                      'flex flex-col items-center gap-2 py-4 px-2 rounded-xl border transition-colors',
+                      'relative flex flex-col items-center gap-2 py-4 px-2 rounded-xl border transition-colors',
                       isActive
                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                         : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
                     )}
                   >
+                    {badgeCompras && (
+                      <span className="absolute top-2 right-2 bg-orange-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                        {(alertas?.compras ?? 0) > 9 ? '9+' : alertas?.compras}
+                      </span>
+                    )}
                     <span className="text-2xl leading-none">{item.icon}</span>
                     <span className="text-xs font-medium text-center leading-tight">
                       {SHORT_LABEL[item.key] ?? item.label}

@@ -4,14 +4,17 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useTransition } from 'react'
 
 const TABS = [
+  { key: 'resumen',      label: '🏠 Resumen',      title: 'Dashboard General' },
   { key: 'ventas',       label: '💰 Ventas',       title: 'Ventas y Facturación' },
   { key: 'taller',       label: '🔧 Taller',       title: 'Servicio Técnico' },
+  { key: 'clientes',     label: '👥 Clientes',     title: 'Análisis de Clientes' },
   { key: 'inventario',   label: '📦 Inventario',   title: 'Inventario y Stock' },
   { key: 'rentabilidad', label: '📈 Rentabilidad', title: 'Análisis de Rentabilidad' },
   { key: 'servicios',    label: '🔩 Servicios',    title: 'Análisis de Servicios' },
   { key: 'compras',      label: '🛒 Compras',      title: 'Compras y Proveedores' },
   { key: 'gastos',       label: '💸 Gastos',       title: 'Gastos Operacionales' },
   { key: 'auditoria',    label: '🔍 Auditoría',    title: 'Log de Usuarios' },
+  { key: 'equilibrio',   label: '⚖️ Equilibrio',   title: 'Punto de Equilibrio y Rentabilidad' },
 ]
 
 interface Props {

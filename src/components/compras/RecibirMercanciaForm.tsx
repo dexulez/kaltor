@@ -10,6 +10,8 @@ import { PurchaseOrder } from '@/types'
 import { formatCLP } from '@/lib/calculations'
 import QRScanner from '@/components/shared/QRScanner'
 import { parseProductoQR } from '@/components/shared/ProductoQRCode'
+import { crearNotificacion } from '@/lib/notifications'
+import { soundMercanciaRecibida } from '@/lib/sounds'
 
 interface Props {
   oc: PurchaseOrder
@@ -21,12 +23,27 @@ export default function RecibirMercanciaForm({ oc }: Props) {
   const [loading, setLoading] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [numeroFactura, setNumeroFactura] = useState((oc as unknown as Record<string, unknown>).numero_factura_proveedor as string ?? '')
-  const [cantidades, setCantidades] = useState<Record<string, number>>(
-    Object.fromEntries((oc.purchase_order_items ?? []).map(i => [i.id, i.cantidad_recibida]))
-  )
+  const [cantidades, setCantidades] = useState<Record<string, number>>(() => {
+    const activos = (oc.purchase_order_items ?? []).filter(i => {
+      const extra = i as unknown as Record<string, unknown>
+      return i.cantidad_solicitada > 0 && extra.disponible_proveedor !== false
+    })
+    return Object.fromEntries(activos.map(i => {
+      if (i.cantidad_recibida > 0) return [i.id, i.cantidad_recibida]
+      const extra = i as unknown as Record<string, unknown>
+      const cantProv = extra.cantidad_disponible_proveedor as number | null
+      return [i.id, cantProv ?? i.cantidad_solicitada]
+    }))
+  })
 
   if (!oc.purchase_order_items?.length) return null
-  if (['recibida_completa', 'cancelada'].includes(oc.estado)) return null
+  if (!['en_transito', 'recibida_parcial'].includes(oc.estado)) return null
+
+  // Solo mostrar ítems que el proveedor/admin no descartaron
+  const itemsActivos = (oc.purchase_order_items ?? []).filter(i => {
+    const extra = i as unknown as Record<string, unknown>
+    return i.cantidad_solicitada > 0 && extra.disponible_proveedor !== false
+  })
 
   function setCant(id: string, v: number) {
     setCantidades(prev => ({ ...prev, [id]: v }))
@@ -39,8 +56,7 @@ export default function RecibirMercanciaForm({ oc }: Props) {
       toast.error('Código QR no reconocido')
       return
     }
-    const items = oc.purchase_order_items ?? []
-    const item = items.find(i => i.product_id === productId)
+    const item = itemsActivos.find(i => i.product_id === productId)
     if (!item) {
       toast.error('Producto no encontrado en esta orden de compra')
       return
@@ -53,7 +69,7 @@ export default function RecibirMercanciaForm({ oc }: Props) {
 
   async function handleRecibir() {
     setLoading(true)
-    const items = oc.purchase_order_items ?? []
+    const items = itemsActivos
     // Obtener usuario para log
     const { data: { user } } = await supabase.auth.getUser()
     const { data: perfil } = user
@@ -68,28 +84,59 @@ export default function RecibirMercanciaForm({ oc }: Props) {
 
       await supabase.from('purchase_order_items').update({ cantidad_recibida: nuevaCantidad }).eq('id', item.id)
 
-      if (item.product_id) {
-        const { data: producto } = await supabase.from('products').select('stock_actual, precio_costo, costo_envio').eq('id', item.product_id).single()
+      // Intentar resolver product_id si no está vinculado (item creado manualmente)
+      let productId = item.product_id ?? null
+      if (!productId) {
+        const ocExtra = oc as unknown as Record<string, unknown>
+        const supplierId = ocExtra.supplier_id as string | null
+        // 1. Buscar por nombre exacto (y proveedor si lo hay)
+        let query = supabase.from('products').select('id').ilike('nombre', item.nombre.trim())
+        if (supplierId) query = query.eq('proveedor_id', supplierId)
+        const { data: match } = await query.limit(1).maybeSingle()
+        if (match) {
+          productId = match.id
+          await supabase.from('purchase_order_items').update({ product_id: productId }).eq('id', item.id)
+        } else {
+          // 2. No existe → auto-crear en inventario con categoría "Repuestos" por defecto
+          const { data: cat } = await supabase
+            .from('product_categories').select('id').ilike('nombre', 'repuesto%').limit(1).maybeSingle()
+          const categoriaId = (cat as { id: string } | null)?.id
+          if (categoriaId) {
+            const costoBase = item.precio_aceptado ?? item.precio_cotizado ?? (item.precio_unitario > 0 ? item.precio_unitario : 0)
+            const { data: nuevo } = await supabase.from('products').insert({
+              nombre: item.nombre.trim(),
+              categoria_id: categoriaId,
+              precio_costo: costoBase,
+              precio_venta: 0,
+              stock_actual: 0,
+              stock_minimo: 1,
+              ...(supplierId ? { proveedor_id: supplierId } : {}),
+            }).select('id').single()
+            if (nuevo) {
+              productId = nuevo.id
+              await supabase.from('purchase_order_items').update({ product_id: productId }).eq('id', item.id)
+            }
+          }
+        }
+      }
+
+      if (productId) {
+        const { data: producto } = await supabase.from('products').select('stock_actual, precio_costo, costo_envio').eq('id', productId).single()
         if (producto) {
           const stockAnterior = producto.stock_actual
           const stockNuevo = stockAnterior + cantidadNuevamenteRecibida
-
-          // Calcular costo promedio ponderado con el nuevo lote
-          const costoAnterior = (producto.precio_costo ?? 0)
-          const costoNuevo = item.precio_unitario ?? 0
+          // Precio confirmado: precio_aceptado > precio_cotizado > precio_unitario (ignorar $0 del original)
+          const costoNuevo = item.precio_aceptado ?? item.precio_cotizado ?? (item.precio_unitario > 0 ? item.precio_unitario : null) ?? producto.precio_costo ?? 0
           const costoEnvioNuevo = item.costo_envio_prorrateado ?? 0
-          const costoPromedio = stockAnterior > 0
-            ? Math.round((costoAnterior * stockAnterior + costoNuevo * cantidadNuevamenteRecibida) / stockNuevo)
-            : costoNuevo
 
           await supabase.from('products').update({
             stock_actual: stockNuevo,
             activo: true,
-            precio_costo: costoPromedio,
+            ...(costoNuevo > 0 ? { precio_costo: costoNuevo } : {}),
             ...(costoEnvioNuevo > 0 ? { costo_envio: costoEnvioNuevo } : {}),
-          }).eq('id', item.product_id)
+          }).eq('id', productId)
           await supabase.from('stock_movements').insert({
-            product_id: item.product_id,
+            product_id: productId,
             tipo: 'entrada',
             cantidad: cantidadNuevamenteRecibida,
             stock_anterior: stockAnterior,
@@ -119,7 +166,16 @@ export default function RecibirMercanciaForm({ oc }: Props) {
       ...(numeroFactura.trim() ? { numero_factura_proveedor: numeroFactura.trim() } : {}),
     }).eq('id', oc.id)
 
+    soundMercanciaRecibida()
     toast.success('Recepción registrada correctamente')
+
+    await crearNotificacion({
+      tipo: 'mercancia_recibida',
+      titulo: `Mercancía recibida — ${oc.numero_oc}`,
+      mensaje: `${Object.keys(cantidades).length} producto(s) recibidos. Stock actualizado.`,
+      url: `/compras/orden/${oc.id}`,
+    })
+
     router.refresh()
     setLoading(false)
   }
@@ -155,11 +211,11 @@ export default function RecibirMercanciaForm({ oc }: Props) {
           </div>
         </div>
         <div className="divide-y">
-          {(oc.purchase_order_items ?? []).map(item => (
+          {itemsActivos.map(item => (
             <div key={item.id} className="px-4 py-3 flex items-center gap-4">
               <div className="flex-1">
                 <p className="font-medium text-gray-800 text-sm">{item.nombre}</p>
-                <p className="text-xs text-gray-400">Precio unit.: {formatCLP(item.precio_unitario)}</p>
+                <p className="text-xs text-gray-400">Precio unit.: {formatCLP(item.precio_aceptado ?? item.precio_cotizado ?? item.precio_unitario)}</p>
               </div>
               <div className="text-center text-sm text-gray-500 w-24">
                 <p className="text-xs text-gray-400 mb-1">Solicitado</p>

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAutoSaveDraft, loadDraft, clearDraft } from '@/hooks/useFormDraft'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { soundOTCreada, soundError } from '@/lib/sounds'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,12 +15,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { formatRut, formatCLP } from '@/lib/calculations'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
 import TipoEquipoSelector from '@/components/reparaciones/TipoEquipoSelector'
-import CrearServicioInline from '@/components/servicios/CrearServicioInline'
+
 import Link from 'next/link'
 const CAPACIDADES = ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
 const COLORES = ['Negro', 'Blanco', 'Azul', 'Rojo', 'Verde', 'Dorado', 'Plateado', 'Morado', 'Rosa', 'Otro']
 
-const TIPOS_REP = [
+const TIPOS_REP_BASE = [
   { value: 'pantalla', label: 'Pantalla' },
   { value: 'bateria', label: 'Batería' },
   { value: 'placa', label: 'Placa' },
@@ -28,6 +29,7 @@ const TIPOS_REP = [
   { value: 'conector', label: 'Conector' },
   { value: 'otro', label: 'Otro' },
 ]
+const TIPOS_REP_KEY = 'tr_tipos_reparacion'
 
 interface Props {
   clientes: { id: string; nombre: string; telefono: string; rut?: string | null }[]
@@ -43,6 +45,38 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [clientesList, setClientesList] = useState(clientes)
+  const [tiposRepCustom, setTiposRepCustom] = useState<{ value: string; label: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem(TIPOS_REP_KEY) ?? '[]') } catch { return [] }
+  })
+  const [nuevoTipoInput, setNuevoTipoInput] = useState('')
+  const [mostrarNuevoTipo, setMostrarNuevoTipo] = useState(false)
+  const todosLosTipos = [...TIPOS_REP_BASE, ...tiposRepCustom]
+
+  function guardarNuevoTipo() {
+    const label = nuevoTipoInput.trim()
+    if (!label) return
+    const value = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+    if (todosLosTipos.some(t => t.value === value || t.label.toLowerCase() === label.toLowerCase())) {
+      setOt(o => ({ ...o, tipo_reparacion: value || label }))
+      setMostrarNuevoTipo(false)
+      setNuevoTipoInput('')
+      return
+    }
+    const nuevo = { value, label }
+    const updated = [...tiposRepCustom, nuevo]
+    setTiposRepCustom(updated)
+    try { localStorage.setItem(TIPOS_REP_KEY, JSON.stringify(updated)) } catch { /* ignore */ }
+    setOt(o => ({ ...o, tipo_reparacion: value }))
+    setMostrarNuevoTipo(false)
+    setNuevoTipoInput('')
+  }
+
+  function eliminarTipoCustom(value: string) {
+    const updated = tiposRepCustom.filter(t => t.value !== value)
+    setTiposRepCustom(updated)
+    try { localStorage.setItem(TIPOS_REP_KEY, JSON.stringify(updated)) } catch { /* ignore */ }
+    if (ot.tipo_reparacion === value) setOt(o => ({ ...o, tipo_reparacion: '' }))
+  }
   const [clienteId, setClienteId] = useState(clienteIdInicial ?? '')
   const [draftRestored, setDraftRestored] = useState(false)
   // ── Accesorios ──────────────────────────────────────────────────────────────
@@ -50,8 +84,15 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     cargador: false, cable: false, cajaCaraga: false, funda: false,
     bandejaSim: false, microsd: false, sim: false,
     simCantidad: 1 as 1 | 2, sim1Carrier: '', sim2Carrier: '',
+    juego: false,
+    mando: false, mandoCantidad: 1,
   })
-  function toggleAcc(k: keyof typeof acc) { setAcc(a => ({ ...a, [k]: !a[k] })) }
+  const [microsdTamano, setMicrosdTamano] = useState('')
+  const MICROSD_SIZES = ['4GB', '8GB', '16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
+  function toggleAcc(k: keyof typeof acc) {
+    setAcc(a => ({ ...a, [k]: !a[k] }))
+    if (k === 'microsd' && acc.microsd) setMicrosdTamano('')
+  }
 
   // ── Operadoras SIM (localStorage) ────────────────────────────────────────
   const [savedCarriers, setSavedCarriers] = useState<string[]>([])
@@ -64,98 +105,6 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     const updated = [...savedCarriers, c].sort()
     setSavedCarriers(updated)
     try { localStorage.setItem('tr_sim_carriers', JSON.stringify(updated)) } catch { /* ignore */ }
-  }
-
-  // ── Servicios disponibles ────────────────────────────────────────────────
-  interface ServicioItem { id: string; nombre: string; tipo_reparacion: string; precio_base: number; descripcion: string | null }
-  const [servicios, setServicios] = useState<ServicioItem[]>([])
-  const [serviciosSeleccionados, setServiciosSeleccionados] = useState<ServicioItem[]>([])
-  useEffect(() => {
-    supabase.from('repair_services').select('id, nombre, tipo_reparacion, precio_base, descripcion').eq('activo', true).order('nombre')
-      .then(({ data }) => setServicios((data ?? []) as ServicioItem[]))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  function agregarServicioOT(s: ServicioItem) {
-    setServiciosSeleccionados(prev =>
-      prev.find(x => x.id === s.id) ? prev : [...prev, s]
-    )
-  }
-
-  function quitarServicioOT(id: string) {
-    setServiciosSeleccionados(prev => prev.filter(x => x.id !== id))
-  }
-
-  // ── Repuestos a agregar en la recepción ──────────────────────────────────
-  interface RepuestoLocal {
-    _key: string; product_id: string | null; nombre: string; cantidad: number
-    precio_costo: number; precio_venta: number; sumar_al_presupuesto: boolean
-  }
-  const [repuestos, setRepuestos] = useState<RepuestoLocal[]>([])
-  const [prodSearch, setProdSearch] = useState('')
-  const [prodResults, setProdResults] = useState<{ id: string; nombre: string; precio_costo: number; precio_venta: number }[]>([])
-  const [prodOpen, setProdOpen] = useState(false)
-  const [addManual, setAddManual] = useState(false)
-  const [manualPart, setManualPart] = useState({
-    nombre: '', cantidad: '1', precio_costo: '0', precio_venta: '0', sumar_al_presupuesto: true,
-  })
-  const prodRef = useRef<HTMLDivElement>(null)
-
-  // Auto-calcular presupuesto cada vez que cambian servicios o repuestos
-  useEffect(() => {
-    const sumS = serviciosSeleccionados.reduce((t, s) => t + s.precio_base, 0)
-    const sumR = repuestos.filter(r => r.sumar_al_presupuesto).reduce((t, r) => t + r.precio_venta * r.cantidad, 0)
-    setOt(o => ({ ...o, presupuesto_estimado: String(sumS + sumR) }))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviciosSeleccionados, repuestos])
-
-  useEffect(() => {
-    const trimmed = prodSearch.trim()
-    if (trimmed.length < 2) { setProdResults([]); setProdOpen(false); return }
-    const t = setTimeout(async () => {
-      const { data } = await supabase.from('products').select('id, nombre, precio_costo, precio_venta').ilike('nombre', `%${trimmed}%`).limit(8)
-      setProdResults((data ?? []) as { id: string; nombre: string; precio_costo: number; precio_venta: number }[])
-      setProdOpen(true)
-    }, 300)
-    return () => clearTimeout(t)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prodSearch])
-
-  useEffect(() => {
-    function h(e: MouseEvent) {
-      if (prodRef.current && !prodRef.current.contains(e.target as Node)) setProdOpen(false)
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
-
-  function agregarProducto(p: { id: string; nombre: string; precio_costo: number; precio_venta: number }) {
-    setRepuestos(prev => [...prev, {
-      _key: crypto.randomUUID(), product_id: p.id, nombre: p.nombre, cantidad: 1,
-      precio_costo: p.precio_costo,
-      precio_venta: p.precio_venta || p.precio_costo,
-      sumar_al_presupuesto: true,
-    }])
-    setProdSearch(''); setProdResults([]); setProdOpen(false)
-  }
-  function agregarManual() {
-    if (!manualPart.nombre.trim()) return
-    setRepuestos(prev => [...prev, {
-      _key: crypto.randomUUID(), product_id: null, nombre: manualPart.nombre.trim(),
-      cantidad: parseInt(manualPart.cantidad) || 1,
-      precio_costo: parseInt(manualPart.precio_costo) || 0,
-      precio_venta: parseInt(manualPart.precio_venta) || 0,
-      sumar_al_presupuesto: manualPart.sumar_al_presupuesto,
-    }])
-    setManualPart({ nombre: '', cantidad: '1', precio_costo: '0', precio_venta: '0', sumar_al_presupuesto: true })
-    setAddManual(false)
-  }
-  function quitarRepuesto(key: string) { setRepuestos(prev => prev.filter(r => r._key !== key)) }
-  function updCant(key: string, delta: number) {
-    setRepuestos(prev => prev.map(r => r._key === key ? { ...r, cantidad: Math.max(1, r.cantidad + delta) } : r))
-  }
-  function toggleSumar(key: string) {
-    setRepuestos(prev => prev.map(r => r._key === key ? { ...r, sumar_al_presupuesto: !r.sumar_al_presupuesto } : r))
   }
 
   // ── IMEI / SN ────────────────────────────────────────────────────────────
@@ -196,12 +145,21 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     if (acc.cable) r.push('Cable')
     if (acc.cajaCaraga) r.push('Caja de carga')
     if (acc.funda) r.push('Funda')
-    if (acc.bandejaSim) r.push('Bandeja de SIM')
-    if (acc.microsd) r.push('MicroSD')
+    // Bandeja, SIM y MicroSD: siempre anotados (con o sin)
+    r.push(acc.bandejaSim ? 'Bandeja de SIM' : 'Sin Bandeja de SIM')
+    if (acc.microsd) {
+      r.push(microsdTamano ? `MicroSD ${microsdTamano}` : 'MicroSD')
+    } else {
+      r.push('Sin MicroSD')
+    }
     if (acc.sim) {
       if (acc.simCantidad >= 1) r.push(`SIM 1${acc.sim1Carrier ? `: ${acc.sim1Carrier}` : ''}`)
       if (acc.simCantidad === 2) r.push(`SIM 2${acc.sim2Carrier ? `: ${acc.sim2Carrier}` : ''}`)
+    } else {
+      r.push('Sin SIM card')
     }
+    if (acc.juego) r.push('Juego')
+    if (acc.mando) r.push(acc.mandoCantidad > 1 ? `Mando ×${acc.mandoCantidad}` : 'Mando')
     return r
   }
   function buildCondicion(): string[] {
@@ -387,7 +345,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     }
 
     if (eqErr || !equipoData) {
-      toast.error('Error al registrar el equipo: ' + eqErr?.message)
+      soundError(); toast.error('Error al registrar el equipo: ' + eqErr?.message)
       setLoading(false)
       return
     }
@@ -403,32 +361,21 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     }).select().single()
 
     if (otErr) {
-      toast.error('Error al crear la OT: ' + otErr.message)
+      soundError(); toast.error('Error al crear la OT: ' + otErr.message)
       setLoading(false)
       return
     }
 
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
     await supabase.from('repair_status_history').insert({
       repair_order_id: otData.id,
       estado_nuevo: 'recibido',
       comentario: 'Equipo recibido en taller',
+      usuario_id: currentUser?.id ?? null,
     })
 
-    if (repuestos.length > 0) {
-      await supabase.from('repair_items').insert(
-        repuestos.map(r => ({
-          repair_order_id: otData.id,
-          product_id: r.product_id,
-          nombre: r.nombre,
-          cantidad: r.cantidad,
-          precio_costo: r.precio_costo,
-          precio_venta: r.precio_venta || 0,
-          costo_envio: 0,
-        }))
-      )
-    }
-
     clearDraft(DRAFT_KEY)
+    soundOTCreada()
     toast.success(`OT ${otData.numero_ot} creada correctamente`)
     router.push(`/reparaciones/${otData.id}`)
     router.refresh()
@@ -440,13 +387,12 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     setBusqCliente('')
     setEquipo({ tipo_equipo: '', marca: '', modelo: '', imei: '', color: '', capacidad: '', observaciones: '', falla_reportada: '' })
     setOt({ tecnico_id: '', tipo_reparacion: '', presupuesto_estimado: '', fecha_estimada_entrega: '' })
-    setAcc({ cargador: false, cable: false, cajaCaraga: false, funda: false, bandejaSim: false, microsd: false, sim: false, simCantidad: 1, sim1Carrier: '', sim2Carrier: '' })
+    setAcc({ cargador: false, cable: false, cajaCaraga: false, funda: false, bandejaSim: false, microsd: false, sim: false, simCantidad: 1, sim1Carrier: '', sim2Carrier: '', juego: false, mando: false, mandoCantidad: 1 })
+    setMicrosdTamano('')
     setCond({ sin_danos: false, equipo_apagado: false, carga: '', cargaVoltios: '', cargaAmperaje: '', rayones: [], golpes: [], pantalla_trizada: false, marco_doblado: false, humedad: [], quemaduras: [] })
     setImeiCount(1)
     setImei2('')
     setNumeroSerie('')
-    setRepuestos([])
-    setProdSearch('')
     setDraftRestored(false)
   }
 
@@ -458,7 +404,17 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
   useAutoSaveDraft(DRAFT_KEY, { clienteId, busqCliente, equipo, ot, imei2, numeroSerie, imeiCount })
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+      onKeyDown={e => {
+        // En iOS el botón "Done" del teclado envía el form desde cualquier input.
+        // Solo permitimos Enter desde el botón de submit explícito.
+        if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
+          e.preventDefault()
+        }
+      }}
+    >
       {/* Banner borrador restaurado */}
       {draftRestored && (
         <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
@@ -688,9 +644,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
               { k: 'cable',      label: 'Cable' },
               { k: 'cajaCaraga', label: 'Caja de carga' },
               { k: 'funda',      label: 'Funda' },
-              { k: 'bandejaSim', label: 'Bandeja de SIM' },
-              { k: 'sim',        label: 'SIM card' },
-              { k: 'microsd',    label: 'MicroSD' },
+              { k: 'juego',      label: '🎮 Juego' },
             ] as { k: keyof typeof acc; label: string }[]).map(({ k, label }) => (
               <button key={k} type="button" onClick={() => toggleAcc(k)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${acc[k] ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
@@ -698,6 +652,56 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
               </button>
             ))}
           </div>
+
+          {/* Bandeja SIM, SIM card, MicroSD — siempre anotados */}
+          <div className="space-y-1.5">
+            <p className="text-xs text-gray-500 font-medium">Los siguientes accesorios quedan siempre registrados (con o sin):</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { k: 'bandejaSim', label: 'Bandeja de SIM' },
+                { k: 'sim',        label: 'SIM card' },
+                { k: 'microsd',    label: 'MicroSD' },
+              ] as { k: keyof typeof acc; label: string }[]).map(({ k, label }) => (
+                <button key={k} type="button" onClick={() => toggleAcc(k)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${acc[k] ? 'bg-blue-600 text-white border-blue-600' : 'bg-red-50 text-red-600 border-red-300 hover:border-red-500'}`}>
+                  {acc[k] ? `✓ ${label}` : `Sin ${label}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mando con cantidad */}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setAcc(a => ({ ...a, mando: !a.mando, mandoCantidad: 1 }))}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${acc.mando ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+              🎮 Mando
+            </button>
+            {acc.mando && (
+              <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-2 py-1">
+                <button type="button" onClick={() => setAcc(a => ({ ...a, mandoCantidad: Math.max(1, a.mandoCantidad - 1) }))}
+                  className="w-5 h-5 rounded-full bg-white border border-blue-300 flex items-center justify-center text-xs font-bold text-blue-700">−</button>
+                <span className="text-xs font-semibold text-blue-700 w-4 text-center">{acc.mandoCantidad}</span>
+                <button type="button" onClick={() => setAcc(a => ({ ...a, mandoCantidad: a.mandoCantidad + 1 }))}
+                  className="w-5 h-5 rounded-full bg-white border border-blue-300 flex items-center justify-center text-xs font-bold text-blue-700">+</button>
+              </div>
+            )}
+          </div>
+          {/* Sub-opciones MicroSD */}
+          {acc.microsd && (
+            <div className="ml-2 pl-3 border-l-2 border-blue-200 space-y-1">
+              <p className="text-xs text-gray-600 font-medium">Tamaño de la MicroSD</p>
+              <div className="flex flex-wrap gap-1.5">
+                {MICROSD_SIZES.map(size => (
+                  <button key={size} type="button"
+                    onClick={() => setMicrosdTamano(s => s === size ? '' : size)}
+                    className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${microsdTamano === size ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Sub-opciones SIM */}
           {acc.sim && (
             <div className="ml-2 pl-3 border-l-2 border-blue-200 space-y-2">
@@ -874,88 +878,8 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             onChange={e => setEquipo(eq => ({ ...eq, falla_reportada: e.target.value }))} />
         </div>
 
-        {/* Servicios sugeridos */}
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-gray-700">🔩 Servicios</Label>
-              <CrearServicioInline
-                nombreSugerido={equipo.falla_reportada.trim()}
-                onCreated={s => {
-                  const nuevo: ServicioItem = { ...s, descripcion: null }
-                  setServicios(prev => [...prev, nuevo])
-                  agregarServicioOT(nuevo)
-                }}
-              />
-            </div>
+        {/* (Servicios y repuestos se agregan desde el detalle de la OT) */}
 
-            {/* Buscador de servicio */}
-            <BuscadorServicioOT
-              servicios={servicios}
-              onSelect={s => agregarServicioOT(s)}
-            />
-
-            {/* Servicios seleccionados */}
-            {serviciosSeleccionados.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-                  Servicios seleccionados ({serviciosSeleccionados.length}) — Total: {formatCLP(serviciosSeleccionados.reduce((s, x) => s + x.precio_base, 0))}
-                </p>
-                {serviciosSeleccionados.map(s => (
-                  <div key={s.id} className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-lg px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{s.nombre}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <p className="text-sm font-bold text-blue-700">{formatCLP(s.precio_base)}</p>
-                      <button type="button" onClick={() => quitarServicioOT(s.id)}
-                        className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Sugeridos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(equipo.falla_reportada.trim().length >= 3
-                ? servicios.filter(s => {
-                    const words = equipo.falla_reportada.toLowerCase().split(/\s+/)
-                    return words.some(w => w.length > 2 && (
-                      s.nombre.toLowerCase().includes(w) ||
-                      (s.descripcion ?? '').toLowerCase().includes(w) ||
-                      s.tipo_reparacion.includes(w)
-                    ))
-                  }).slice(0, 6)
-                : servicios.slice(0, 6)
-              ).map(s => {
-                const seleccionado = !!serviciosSeleccionados.find(x => x.id === s.id)
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => seleccionado ? quitarServicioOT(s.id) : agregarServicioOT(s)}
-                    className={`text-left p-3 rounded-xl border transition-all relative ${seleccionado ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
-                  >
-                    {seleccionado && <span className="absolute top-2 right-2 text-blue-500 text-xs font-bold">✓</span>}
-                    <p className="text-sm font-semibold text-gray-800 leading-tight pr-4">{s.nombre}</p>
-                    <p className="text-xs text-blue-700 font-bold mt-0.5">
-                      {formatCLP(s.precio_base)}
-                    </p>
-                    {s.descripcion && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{s.descripcion}</p>}
-                  </button>
-                )
-              })}
-            </div>
-            {equipo.falla_reportada.trim().length >= 3 &&
-              servicios.filter(s => {
-                const words = equipo.falla_reportada.toLowerCase().split(/\s+/)
-                return words.some(w => w.length > 2 && s.nombre.toLowerCase().includes(w))
-              }).length === 0 && (
-              <p className="text-xs text-gray-400 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                Sin servicios que coincidan — <Link href={`/servicios/nuevo?returnTo=${encodeURIComponent(pathname)}`} className="text-blue-600 hover:underline">crea uno</Link>
-              </p>
-            )}
-        </div>
       </div>
 
       {/* OT */}
@@ -981,23 +905,57 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
           </div>
           <div className="space-y-1.5">
             <Label>Tipo de reparación</Label>
-            <Select value={ot.tipo_reparacion} onValueChange={v => setOt(o => ({ ...o, tipo_reparacion: v ?? '' }))}>
+            <Select value={ot.tipo_reparacion} onValueChange={v => {
+              if (v === '__nuevo__') { setMostrarNuevoTipo(true) }
+              else setOt(o => ({ ...o, tipo_reparacion: v ?? '' }))
+            }}>
               <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
               <SelectContent>
-                {TIPOS_REP.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                {todosLosTipos.map(t => (
+                  <SelectItem key={t.value} value={t.value}>
+                    <span className="flex items-center justify-between gap-3 w-full">
+                      <span>{t.label}</span>
+                      {tiposRepCustom.some(c => c.value === t.value) && (
+                        <button
+                          type="button"
+                          onMouseDown={e => { e.stopPropagation(); eliminarTipoCustom(t.value) }}
+                          className="text-red-400 hover:text-red-600 text-xs ml-2"
+                        >✕</button>
+                      )}
+                    </span>
+                  </SelectItem>
+                ))}
+                <SelectItem value="__nuevo__">
+                  <span className="text-blue-600 font-medium">＋ Crear nuevo tipo...</span>
+                </SelectItem>
               </SelectContent>
             </Select>
+            {mostrarNuevoTipo && (
+              <div className="flex gap-2 mt-1">
+                <input
+                  autoFocus
+                  value={nuevoTipoInput}
+                  onChange={e => setNuevoTipoInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); guardarNuevoTipo() } if (e.key === 'Escape') setMostrarNuevoTipo(false) }}
+                  placeholder="Ej: Teclado, Ventilador, Puerto..."
+                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button type="button" onClick={guardarNuevoTipo}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium">
+                  Guardar
+                </button>
+                <button type="button" onClick={() => { setMostrarNuevoTipo(false); setNuevoTipoInput('') }}
+                  className="px-2 py-1.5 border rounded-lg text-sm text-gray-500 hover:bg-gray-50">
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Presupuesto estimado / Total a cobrar (CLP)</Label>
             <Input type="number" placeholder="0" min={0}
               value={ot.presupuesto_estimado}
               onChange={e => setOt(o => ({ ...o, presupuesto_estimado: e.target.value }))} />
-            {serviciosSeleccionados.length > 0 && (
-              <p className="text-xs text-blue-600">
-                Auto-calculado desde {serviciosSeleccionados.length} servicio(s)
-              </p>
-            )}
           </div>
           <div className="space-y-1.5">
             <Label>Fecha tentativa de entrega</Label>
@@ -1005,123 +963,6 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
               onChange={e => setOt(o => ({ ...o, fecha_estimada_entrega: e.target.value }))} />
           </div>
         </div>
-      </div>
-
-      {/* Repuestos */}
-      <div className="bg-white rounded-xl border p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800">4. Repuestos <span className="text-gray-400 font-normal text-sm">(opcional)</span></h2>
-          {repuestos.length > 0 && (
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-              {repuestos.length} ítem(s) · costo {formatCLP(repuestos.reduce((s, r) => s + r.precio_costo * r.cantidad, 0))}
-              {repuestos.some(r => r.sumar_al_presupuesto) && ` · cobro ${formatCLP(repuestos.filter(r => r.sumar_al_presupuesto).reduce((s, r) => s + r.precio_venta * r.cantidad, 0))}`}
-            </span>
-          )}
-        </div>
-
-        {/* Búsqueda en inventario */}
-        <div ref={prodRef} className="relative">
-          <Input
-            placeholder="🔍 Buscar repuesto del inventario..."
-            value={prodSearch}
-            onChange={e => setProdSearch(e.target.value)}
-            onFocus={() => prodResults.length > 0 && setProdOpen(true)}
-          />
-          {prodOpen && prodResults.length > 0 && (
-            <div className="absolute z-20 mt-1 w-full bg-white border rounded-xl shadow-lg max-h-48 overflow-y-auto">
-              {prodResults.map(p => (
-                <button key={p.id} type="button" onClick={() => agregarProducto(p)}
-                  className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors text-sm border-b last:border-0 flex justify-between items-center gap-2">
-                  <span className="font-medium text-gray-800 truncate">{p.nombre}</span>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-blue-600">venta: {formatCLP(p.precio_venta || p.precio_costo)}</p>
-                    <p className="text-xs text-gray-400">costo: {formatCLP(p.precio_costo)}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Agregar manual */}
-        {!addManual ? (
-          <button type="button" onClick={() => setAddManual(true)}
-            className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2">
-            + Agregar repuesto sin inventario
-          </button>
-        ) : (
-          <div className="bg-gray-50 rounded-xl p-3 space-y-2 border">
-            <Input placeholder="Nombre del repuesto" value={manualPart.nombre} autoFocus
-              onChange={e => setManualPart(v => ({ ...v, nombre: e.target.value }))}
-              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), agregarManual())} />
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Cantidad</Label>
-                <Input type="number" min={1} value={manualPart.cantidad}
-                  onChange={e => setManualPart(v => ({ ...v, cantidad: e.target.value }))} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Costo (CLP)</Label>
-                <Input type="number" min={0} value={manualPart.precio_costo}
-                  onChange={e => setManualPart(v => ({ ...v, precio_costo: e.target.value }))} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Precio cobro (CLP)</Label>
-                <Input type="number" min={0} value={manualPart.precio_venta}
-                  onChange={e => setManualPart(v => ({ ...v, precio_venta: e.target.value }))} />
-              </div>
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={manualPart.sumar_al_presupuesto}
-                onChange={e => setManualPart(v => ({ ...v, sumar_al_presupuesto: e.target.checked }))}
-                className="w-4 h-4 accent-blue-600" />
-              <span className="text-xs text-gray-700 font-medium">Sumar al presupuesto del cliente</span>
-            </label>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={agregarManual}>Agregar</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setAddManual(false)}>Cancelar</Button>
-            </div>
-          </div>
-        )}
-
-        {/* Lista de repuestos agregados */}
-        {repuestos.length > 0 && (
-          <div className="space-y-2 pt-1">
-            {repuestos.map(r => (
-              <div key={r._key} className={`border rounded-xl px-3 py-2.5 space-y-1.5 ${r.sumar_al_presupuesto ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{r.nombre}</p>
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                      <p className="text-xs text-gray-400">Costo: {formatCLP(r.precio_costo)} c/u</p>
-                      {r.sumar_al_presupuesto && r.precio_venta > 0 && (
-                        <p className="text-xs text-blue-600 font-medium">Cobro: {formatCLP(r.precio_venta * r.cantidad)}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button type="button" onClick={() => updCant(r._key, -1)}
-                      className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold">−</button>
-                    <span className="w-6 text-center text-sm font-semibold text-gray-800">{r.cantidad}</span>
-                    <button type="button" onClick={() => updCant(r._key, 1)}
-                      className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold">+</button>
-                  </div>
-                  <button type="button" onClick={() => quitarRepuesto(r._key)}
-                    className="text-red-400 hover:text-red-600 w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 shrink-0">✕</button>
-                </div>
-                {/* Toggle sumar al presupuesto */}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={r.sumar_al_presupuesto}
-                    onChange={() => toggleSumar(r._key)}
-                    className="w-3.5 h-3.5 accent-blue-600" />
-                  <span className={`text-xs font-medium ${r.sumar_al_presupuesto ? 'text-blue-700' : 'text-gray-400'}`}>
-                    {r.sumar_al_presupuesto ? '💰 Sumado al presupuesto' : 'Solo costo interno (no cobrar)'}
-                  </span>
-                </label>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="flex gap-3">

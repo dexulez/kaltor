@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { formatRut } from '@/lib/calculations'
 import TipoEquipoSelector from '@/components/reparaciones/TipoEquipoSelector'
 
@@ -172,7 +172,11 @@ export default function EditarOTForm({ ot, tecnicos }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1"><Label>Técnico</Label>
             <Select value={tecnicoId || 'none'} onValueChange={v => setTecnicoId(!v || v === 'none' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+              <SelectTrigger>
+                <span className="truncate text-sm">
+                  {!tecnicoId ? 'Sin asignar' : (tecnicos.find(t => t.id === tecnicoId)?.nombre_completo ?? 'Sin asignar')}
+                </span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Sin asignar</SelectItem>
                 {tecnicos.map(t => <SelectItem key={t.id} value={t.id}>{t.nombre_completo}</SelectItem>)}
@@ -181,7 +185,11 @@ export default function EditarOTForm({ ot, tecnicos }: Props) {
           </div>
           <div className="space-y-1"><Label>Tipo de reparación</Label>
             <Select value={tipoReparacion || 'none'} onValueChange={v => setTipoReparacion(!v || v === 'none' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+              <SelectTrigger>
+                <span className="truncate text-sm">
+                  {!tipoReparacion ? 'Sin especificar' : (TIPOS_REP.find(t => t.value === tipoReparacion)?.label ?? tipoReparacion)}
+                </span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Sin especificar</SelectItem>
                 {TIPOS_REP.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}

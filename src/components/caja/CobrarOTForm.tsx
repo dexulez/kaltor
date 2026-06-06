@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { formatCLP, calcularIva, calcularPpm, formatRut } from '@/lib/calculations'
 import { Customer, Equipment, RepairItem, RepairOrder, SystemConfig } from '@/types'
 import ComprobanteOT from '@/components/caja/ComprobanteOT'
+import { enviarWA, msgOTCobrada } from '@/lib/whatsapp'
+import { soundVenta, soundError } from '@/lib/sounds'
 
 const METODO_LABELS = {
   efectivo: '💵 Efectivo',
@@ -86,6 +88,8 @@ export default function CobrarOTForm({ ot, config }: Props) {
     }
     setLoading(true)
 
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+
     // Protección anti-duplicado: verificar que la OT sigue en estado 'listo'
     const { data: otActual } = await supabase.from('repair_orders').select('estado').eq('id', ot.id).single()
     if (otActual?.estado === 'entregado') {
@@ -112,9 +116,10 @@ export default function CobrarOTForm({ ot, config }: Props) {
       rut_receptor: rutReceptor.trim() || null,
       razon_social_receptor: razonSocial.trim() || null,
       notas: notas.trim() || null,
+      usuario_id: currentUser?.id ?? null,
     }).select().single()
 
-    if (ve) { toast.error('Error al registrar cobro: ' + ve.message); setLoading(false); return }
+    if (ve) { soundError(); toast.error('Error al registrar cobro: ' + ve.message); setLoading(false); return }
 
     await supabase.from('sale_items').insert({
       sale_id: venta.id,
@@ -144,9 +149,22 @@ export default function CobrarOTForm({ ot, config }: Props) {
       estado_anterior: 'listo',
       estado_nuevo: 'entregado',
       comentario: `Cobro registrado — ${formatCLP(totalFinal)} — ${metodo}`,
+      usuario_id: currentUser?.id ?? null,
     })
 
+    soundVenta()
+    soundVenta()
     toast.success(`OT ${ot.numero_ot} cobrada — ${formatCLP(totalFinal)}`)
+    enviarWA(
+      ot.customers?.telefono,
+      msgOTCobrada(
+        ot.customers?.nombre ?? 'Cliente',
+        `${ot.equipment?.marca ?? ''} ${ot.equipment?.modelo ?? ''}`.trim() || 'equipo',
+        ot.numero_ot,
+        totalFinal,
+        config.nombre_local ?? 'Servitec',
+      )
+    )
     setVentaData({ id: venta.id, numero_venta: venta.numero_venta })
     setVentaCompletada(true)
     setLoading(false)

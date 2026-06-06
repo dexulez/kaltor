@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import { Product, ProductCategory, Supplier } from '@/types'
 import ProductoQRButton from '@/components/inventario/ProductoQRButton'
+import EliminarProductoBtn from '@/components/inventario/EliminarProductoBtn'
 import BuscadorInventario from '@/components/inventario/BuscadorInventario'
 import { Suspense } from 'react'
 
@@ -147,6 +148,7 @@ export default async function InventarioPage({
                       <Link href={`/inventario/${p.id}/editar`}>
                         <Button variant="outline" size="sm" className="text-xs h-7 px-2">Editar</Button>
                       </Link>
+                      <EliminarProductoBtn productId={p.id} nombre={p.nombre} />
                     </div>
                   </div>
                 </div>
@@ -197,6 +199,7 @@ export default async function InventarioPage({
                           <Link href={`/inventario/${p.id}/editar`}>
                             <Button variant="outline" size="sm">Editar</Button>
                           </Link>
+                          <EliminarProductoBtn productId={p.id} nombre={p.nombre} />
                         </div>
                       </td>
                     </tr>

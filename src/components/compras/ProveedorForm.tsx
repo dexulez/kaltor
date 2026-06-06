@@ -134,12 +134,10 @@ export default function ProveedorForm({ proveedor }: { proveedor?: Supplier }) {
               </SelectContent>
             </Select>
           </div>
-          {form.condicion_pago !== 'contado' && (
-            <div className="space-y-1.5">
-              <Label>Plazo de pago (días)</Label>
-              <Input type="number" min={0} value={form.plazo_pago_dias} onChange={e => set('plazo_pago_dias', e.target.value)} />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label>Plazo de pago (días)</Label>
+            <Input type="number" min={0} value={form.plazo_pago_dias} onChange={e => set('plazo_pago_dias', e.target.value)} />
+          </div>
           <div className="sm:col-span-2 space-y-1.5">
             <Label>Notas internas</Label>
             <Textarea value={form.notas} onChange={e => set('notas', e.target.value)} placeholder="Condiciones especiales, descuentos, etc." rows={2} />

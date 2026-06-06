@@ -66,7 +66,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
   const { data: ot } = await supabase
     .from('repair_orders')
     .select(`
-      id, numero_ot, estado, created_at, precio_servicio, presupuesto_estimado,
+      id, numero_ot, estado, resultado, created_at, precio_servicio, presupuesto_estimado,
       diagnostico_tecnico, codigo_seguimiento,
       customers(nombre, telefono),
       equipment(tipo_equipo, marca, modelo, color, capacidad, falla_reportada, observaciones,
@@ -124,9 +124,12 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
   const rawCl = (ot as Record<string, unknown>).customers
   const cliente = (Array.isArray(rawCl) ? rawCl[0] : rawCl) as OTData['customers']
 
-  const estadoActual = ESTADO_INFO[otData.estado] ?? {
-    label: otData.estado, color: 'text-gray-700', bg: 'bg-gray-100', icono: '📋',
-  }
+  const noReparado = (otData as Record<string, unknown>).resultado === 'no_exitosa'
+  const estadoBase = ESTADO_INFO[otData.estado] ?? { label: otData.estado, color: 'text-gray-700', bg: 'bg-gray-100', icono: '📋' }
+  // Si está listo pero NO fue reparado, sobreescribir la info del estado
+  const estadoActual = (otData.estado === 'listo' || otData.estado === 'para_entrega') && noReparado
+    ? { label: 'Listo para retirar — sin reparación', color: 'text-orange-700', bg: 'bg-orange-100', icono: '⚠️' }
+    : estadoBase
   const esListo = otData.estado === 'listo' || otData.estado === 'para_entrega'
   const esEntregado = otData.estado === 'entregado'
 
@@ -174,18 +177,28 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
 
           {esListo && (
             <div className="mt-4 space-y-2">
-              <p className="text-sm font-semibold text-green-700">
-                ¡Tu equipo está listo! Puedes venir a retirarlo.
-              </p>
+              {noReparado ? (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-left">
+                  <p className="text-sm font-bold text-orange-800">⚠️ Equipo sin reparación</p>
+                  <p className="text-xs text-orange-700 mt-1">
+                    Tu equipo está disponible para retiro, pero no pudo ser reparado.
+                    Comunícate con el taller para más información.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm font-semibold text-green-700">
+                  ¡Tu equipo está listo! Puedes venir a retirarlo.
+                </p>
+              )}
               <div className="flex flex-col gap-2 mt-3">
                 {config?.telefono && (
                   <a href={`tel:${config.telefono}`}
-                    className="inline-flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl">
+                    className={`inline-flex items-center justify-center gap-2 text-white text-sm font-medium px-4 py-2.5 rounded-xl ${noReparado ? 'bg-orange-500' : 'bg-green-600'}`}>
                     📞 Llamar al taller
                   </a>
                 )}
                 {config?.whatsapp && (
-                  <a href={`https://wa.me/${config.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, vengo a retirar mi equipo OT ${otData.numero_ot}`)}`}
+                  <a href={`https://wa.me/${config.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(noReparado ? `Hola, tengo una consulta sobre mi equipo OT ${otData.numero_ot} que no pudo ser reparado` : `Hola, vengo a retirar mi equipo OT ${otData.numero_ot}`)}`}
                     target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 bg-green-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl">
                     📲 WhatsApp para coordinar retiro
@@ -259,6 +272,13 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
             <div className="pt-2 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-0.5">Falla reportada</p>
               <p className="text-sm text-gray-700">{equipo.falla_reportada}</p>
+            </div>
+          )}
+
+          {equipo?.observaciones && (
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-0.5">Observaciones del equipo</p>
+              <p className="text-sm text-gray-700">{equipo.observaciones}</p>
             </div>
           )}
 
@@ -404,7 +424,9 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
                         {/* Encabezado */}
                         <div className="flex items-start justify-between gap-2 flex-wrap">
                           <p className={`font-bold text-sm ${esActual ? 'text-blue-900' : 'text-gray-700'}`}>
-                            {info?.label ?? (h.estado_nuevo as string)}
+                            {(h.estado_nuevo === 'listo' || h.estado_nuevo === 'para_entrega') && noReparado
+                              ? 'Listo para retirar — sin reparación'
+                              : (info?.label ?? (h.estado_nuevo as string))}
                             {esActual && <span className="ml-2 text-xs font-normal bg-blue-600 text-white px-1.5 py-0.5 rounded-full">Actual</span>}
                           </p>
                           <p className="text-xs text-gray-400 shrink-0 capitalize">{fecha}</p>

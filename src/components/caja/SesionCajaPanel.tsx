@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { soundAperturaCaja, soundCierreCaja, soundError } from '@/lib/sounds'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,6 +44,8 @@ interface CuentaBancaria {
 
 export default function SesionCajaPanel() {
   const supabase = createClient()
+  const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
+
   const [sesion, setSesion] = useState<Sesion | null | undefined>(undefined)
   const [ventas, setVentas] = useState<VentasDia>({ efectivo: 0, transbank: 0, transferencia: 0, otros: 0, total: 0 })
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
@@ -65,6 +68,7 @@ export default function SesionCajaPanel() {
   const [cierreOtros, setCierreOtros] = useState('0')
   const [cierreCuentas, setCierreCuentas] = useState<string[]>([])
   const [cierreObs, setCierreObs] = useState('')
+  const [cierreFecha, setCierreFecha] = useState(hoy)
   const [saving, setSaving] = useState(false)
   type TicketFormato = 'a4' | 'ticket80' | 'ticket57'
   const [formatoTicket, setFormatoTicket] = useState<TicketFormato>('a4')
@@ -81,17 +85,23 @@ export default function SesionCajaPanel() {
     difEf: number; cuentas: CuentaBancaria[]; cierreObs: string
   } | null>(null)
 
-  const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
-
   const cargar = useCallback(async () => {
     setLoading(true)
-    const [{ data: sesData }, { data: ventasData }, { data: cuentasData }] = await Promise.all([
-      supabase.from('sesiones_caja').select('*').eq('fecha', hoy).order('created_at', { ascending: false }).limit(1),
-      supabase.from('sales').select('total, metodo_pago').gte('created_at', `${hoy}T00:00:00`).lte('created_at', `${hoy}T23:59:59`).eq('anulada', false),
+    const [{ data: sesData }, { data: cuentasData }] = await Promise.all([
+      supabase.from('sesiones_caja').select('*').eq('estado', 'abierta').order('created_at', { ascending: false }).limit(1),
       supabase.from('cuentas_bancarias').select('id, banco, tipo_cuenta, numero, titular').eq('activa', true).order('orden'),
     ])
     const s = sesData?.[0] ?? null
     setSesion(s as Sesion | null)
+
+    // Filtrar ventas solo desde la apertura de la sesión activa (no desde medianoche)
+    const desdeVentas = s?.estado === 'abierta' ? s.apertura_at : `${hoy}T00:00:00`
+    const hastaVentas = s?.estado === 'abierta' ? new Date().toISOString() : `${hoy}T23:59:59`
+    const { data: ventasData } = await supabase.from('sales')
+      .select('total, metodo_pago')
+      .gte('created_at', desdeVentas)
+      .lte('created_at', hastaVentas)
+      .eq('anulada', false)
     const v = (ventasData ?? []).reduce((acc, v) => {
       const m = v.metodo_pago?.toLowerCase() ?? 'otros'
       const t = v.total ?? 0
@@ -109,6 +119,8 @@ export default function SesionCajaPanel() {
       setCierreTransbank(String(s.transbank_cierre ?? v.transbank))
       setCierreTransferencia(String(s.transferencia_cierre ?? v.transferencia))
       setCierreOtros(String(s.otros_cierre ?? v.otros))
+      // Inicializar fecha cierre: hoy por defecto, pero no antes de la apertura
+      setCierreFecha(hoy >= s.fecha ? hoy : s.fecha)
     }
     setLoading(false)
   }, [hoy]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -117,13 +129,16 @@ export default function SesionCajaPanel() {
 
   async function abrirCaja() {
     setSaving(true)
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
     const { data, error } = await supabase.from('sesiones_caja').insert({
       fecha: hoy,
       estado: 'abierta',
       efectivo_apertura: parseInt(aperturaEfectivo) || 0,
       apertura_at: new Date().toISOString(),
+      usuario_id: currentUser?.id ?? null,
     }).select().single()
-    if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
+    if (error) { soundError(); toast.error('Error: ' + error.message); setSaving(false); return }
+    soundAperturaCaja()
     toast.success('Caja abierta correctamente')
     setSesion(data as Sesion)
     setView('panel')
@@ -150,13 +165,20 @@ export default function SesionCajaPanel() {
   async function cerrarCaja() {
     if (!sesion) return
     setSaving(true)
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
     const ef = parseInt(cierreEfectivo) || 0
     const tb = parseInt(cierreTransbank) || 0
     const tr = parseInt(cierreTransferencia) || 0
     const ot = parseInt(cierreOtros) || 0
     const difEf = ef - (sesion.efectivo_apertura + ventas.efectivo)
+    // Si se seleccionó una fecha de cierre diferente a la apertura, construir el cierre_at con esa fecha
+    const fechaCierreISO = cierreFecha !== sesion.fecha
+      ? new Date(cierreFecha + 'T' + new Date().toLocaleTimeString('sv', { timeZone: TZ })).toISOString()
+      : new Date().toISOString()
+
     const { error } = await supabase.from('sesiones_caja').update({
       estado: 'cerrada',
+      fecha: cierreFecha,
       efectivo_cierre: ef,
       transbank_cierre: tb,
       transferencia_cierre: tr,
@@ -164,9 +186,11 @@ export default function SesionCajaPanel() {
       diferencia_efectivo: difEf,
       cuentas_transferencia: cierreCuentas.length ? cierreCuentas : null,
       observaciones_cierre: cierreObs || null,
-      cierre_at: new Date().toISOString(),
+      cierre_at: fechaCierreISO,
+      usuario_cierre_id: currentUser?.id ?? null,
     }).eq('id', sesion.id)
-    if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
+    if (error) { soundError(); toast.error('Error: ' + error.message); setSaving(false); return }
+    soundCierreCaja()
     toast.success('Caja cerrada correctamente')
 
     // ── Calcular comisiones de técnicos de esta sesión ─────────────────────
@@ -661,6 +685,29 @@ export default function SesionCajaPanel() {
         <div className="space-y-1">
           <Label className="text-xs">Observaciones del cierre</Label>
           <Input value={cierreObs} onChange={e => setCierreObs(e.target.value)} placeholder="Novedades del día..." />
+        </div>
+
+        {/* Fecha de cierre — mostrar si la sesión fue abierta un día diferente */}
+        <div className="space-y-1">
+          <Label className="text-xs">
+            📅 Fecha de cierre
+            {sesion && sesion.fecha !== hoy && (
+              <span className="ml-2 text-amber-600 font-normal">
+                ⚠ La caja fue abierta el {new Date(sesion.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
+              </span>
+            )}
+          </Label>
+          <input
+            type="date"
+            value={cierreFecha}
+            min={sesion?.fecha}
+            max={hoy}
+            onChange={e => setCierreFecha(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {cierreFecha !== hoy && (
+            <p className="text-xs text-amber-600">El cierre quedará registrado para el {new Date(cierreFecha + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long' })}</p>
+          )}
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 flex justify-between items-center">

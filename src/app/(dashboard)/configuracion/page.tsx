@@ -55,6 +55,15 @@ export default async function ConfiguracionPage() {
           </div>
           <span className="ml-auto text-gray-300">→</span>
         </Link>
+        <Link href="/configuracion/gastos-fijos"
+          className="flex items-center gap-3 bg-white rounded-xl border p-4 hover:border-orange-400 hover:bg-orange-50 transition-colors">
+          <span className="text-2xl">📊</span>
+          <div>
+            <p className="font-semibold text-gray-800 text-sm">Gastos fijos y empleados</p>
+            <p className="text-xs text-gray-400">Arriendo, servicios, sueldos con imposiciones legales</p>
+          </div>
+          <span className="ml-auto text-gray-300">→</span>
+        </Link>
       </div>
     </div>
   )

@@ -79,6 +79,220 @@ function Tabla({ headers, rows }: { headers: string[]; rows: (string | number | 
   )
 }
 
+// ── Helpers adicionales ───────────────────────────────────────────────────────
+
+function variacion(actual: number, anterior: number): { pct: string; color: string } {
+  if (!anterior) return { pct: '—', color: 'text-gray-400' }
+  const pct = Math.round((actual - anterior) * 100 / anterior)
+  return {
+    pct: pct >= 0 ? `+${pct}%` : `${pct}%`,
+    color: pct >= 0 ? 'text-green-600' : 'text-red-600',
+  }
+}
+
+function KpiCardComp({ label, value, sub, colorIdx = 0, prev, prevLabel }: {
+  label: string; value: string; sub?: string; colorIdx?: number
+  prev?: { value: string; pct: string; color: string }; prevLabel?: string
+}) {
+  return (
+    <div className="bg-white rounded-xl border p-4">
+      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${kpiColor(colorIdx)}`}>{value}</p>
+      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      {prev && (
+        <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-1.5">
+          <span className={`text-xs font-bold ${prev.color}`}>{prev.pct}</span>
+          <span className="text-xs text-gray-400">vs {prevLabel ?? 'período anterior'}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Tab: Resumen General ──────────────────────────────────────────────────────
+
+async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
+  const supabase = await createClient()
+  const desdeIso = `${desde}T00:00:00.000Z`
+  const hastaIso = `${hasta}T23:59:59.999Z`
+
+  // Período anterior (misma duración)
+  const diasPeriodo = Math.max(1, Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86400000))
+  const prevHastaDate = new Date(new Date(desde).getTime() - 86400000)
+  const prevDesdeDate = new Date(prevHastaDate.getTime() - (diasPeriodo - 1) * 86400000)
+  const prevDesdeIso = `${prevDesdeDate.toISOString().split('T')[0]}T00:00:00.000Z`
+  const prevHastaIso = `${prevHastaDate.toISOString().split('T')[0]}T23:59:59.999Z`
+
+  const [
+    { data: ventasAct },   { data: ventasPrev },
+    { data: reparAct },    { data: reparActivasNow },
+    { data: gastosAct },   { data: gastosPrev },
+    { data: stockCrit },   { data: clientesNuevos },
+    { data: repItemsAct },
+  ] = await Promise.all([
+    supabase.from('sales').select('total, created_at, tipo, repair_order_id').eq('anulada', false).gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('sales').select('total').eq('anulada', false).gte('created_at', prevDesdeIso).lte('created_at', prevHastaIso),
+    supabase.from('repair_orders').select('estado, precio_servicio, resultado, fecha_estimada_entrega, created_at').gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('repair_orders').select('estado, fecha_estimada_entrega').not('estado', 'in', '(entregado,cancelado,en_garantia)'),
+    supabase.from('gastos').select('monto').gte('fecha', desde).lte('fecha', hasta).then(r => r.error ? { data: [] } : r),
+    supabase.from('gastos').select('monto').gte('fecha', prevDesdeDate.toISOString().split('T')[0]).lte('fecha', prevHastaDate.toISOString().split('T')[0]).then(r => r.error ? { data: [] } : r),
+    supabase.from('products').select('id').eq('activo', true).lte('stock_actual', 5).gt('stock_actual', 0),
+    supabase.from('customers').select('id').gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('repair_items').select('repair_order_id, cantidad, precio_costo, costo_envio').gte('created_at', desdeIso).lte('created_at', hastaIso),
+  ])
+
+  // Ventas
+  const ventaActTotal = (ventasAct ?? []).reduce((s: number, v: Record<string, unknown>) => s + (v.total as number), 0)
+  const ventaPrevTotal = (ventasPrev ?? []).reduce((s: number, v: Record<string, unknown>) => s + (v.total as number), 0)
+
+  // Utilidad estimada actual
+  const costoRepPorOT: Record<string, number> = {}
+  ;(repItemsAct ?? []).forEach((it: Record<string, unknown>) => {
+    const k = it.repair_order_id as string
+    costoRepPorOT[k] = (costoRepPorOT[k] ?? 0) + (it.cantidad as number ?? 1) * (it.precio_costo as number ?? 0) + (it.costo_envio as number ?? 0)
+  })
+  const netoAct = Math.round(ventaActTotal / 1.19)
+  const ppmAct  = Math.round(netoAct * 0.03)
+  const costoRepAct = (ventasAct ?? []).filter((v: Record<string, unknown>) => v.tipo === 'reparacion').reduce((s: number, v: Record<string, unknown>) => s + (costoRepPorOT[v.repair_order_id as string] ?? 0), 0)
+  const utilidadEst = netoAct - ppmAct - costoRepAct
+  const netoPrev    = Math.round(ventaPrevTotal / 1.19)
+  const ppmPrev     = Math.round(netoPrev * 0.03)
+  const utilidadPrev = netoPrev - ppmPrev
+
+  // Gastos
+  const gastosActTotal  = (gastosAct ?? []).reduce((s: number, g: Record<string, unknown>) => s + (g.monto as number ?? 0), 0)
+  const gastosPrevTotal = (gastosPrev ?? []).reduce((s: number, g: Record<string, unknown>) => s + (g.monto as number ?? 0), 0)
+
+  // Reparaciones
+  type RR = { estado: string; precio_servicio: number | null; resultado: string | null; fecha_estimada_entrega: string | null; created_at: string }
+  const reps = (reparAct ?? []) as unknown as RR[]
+  const entregadasP = reps.filter(r => r.estado === 'entregado').length
+  const conResult   = reps.filter(r => r.resultado === 'exitosa' || r.resultado === 'no_exitosa')
+  const exitosasP   = conResult.filter(r => r.resultado === 'exitosa').length
+  const tasaP       = conResult.length ? Math.round(exitosasP * 100 / conResult.length) : null
+
+  // OTs activas ahora
+  type RA = { estado: string; fecha_estimada_entrega: string | null }
+  const activasAhora = (reparActivasNow ?? []) as unknown as RA[]
+  const hoy = new Date().toISOString().split('T')[0]
+  const fueraPlazoAhora = activasAhora.filter(r => r.fecha_estimada_entrega && r.fecha_estimada_entrega < hoy).length
+  const listasAhora = activasAhora.filter(r => r.estado === 'listo' || r.estado === 'para_entrega').length
+
+  // Gráfico ventas diarias
+  const porDia: Record<string, number> = {}
+  ;(ventasAct ?? []).forEach((v: Record<string, unknown>) => {
+    const d = (v.created_at as string).split('T')[0]
+    porDia[d] = (porDia[d] ?? 0) + (v.total as number)
+  })
+  const areaVentas = Object.entries(porDia).sort().map(([fecha, total]) => ({ fecha: fecha.slice(5), total }))
+
+  const vVar = variacion(ventaActTotal, ventaPrevTotal)
+  const uVar = variacion(utilidadEst, utilidadPrev)
+  const gVar = variacion(gastosActTotal, gastosPrevTotal)
+
+  return (
+    <div className="space-y-5">
+
+      {/* KPIs financieros con comparativa */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCardComp
+          label="Ventas brutas" value={formatCLP(ventaActTotal)}
+          sub={`${(ventasAct ?? []).length} transacciones`} colorIdx={0}
+          prev={{ value: formatCLP(ventaPrevTotal), pct: vVar.pct, color: vVar.color }}
+        />
+        <KpiCardComp
+          label="Utilidad estimada" value={formatCLP(utilidadEst)}
+          sub="neto − PPM − repuestos" colorIdx={1}
+          prev={{ value: formatCLP(utilidadPrev), pct: uVar.pct, color: uVar.color }}
+        />
+        <KpiCardComp
+          label="Gastos del período" value={formatCLP(gastosActTotal)}
+          sub="gastos operacionales" colorIdx={4}
+          prev={{ value: formatCLP(gastosPrevTotal), pct: gVar.pct, color: gVar.color }}
+        />
+        <KpiCardComp
+          label="Balance estimado" value={formatCLP(utilidadEst - gastosActTotal)}
+          sub="utilidad − gastos" colorIdx={utilidadEst - gastosActTotal >= 0 ? 1 : 4}
+        />
+      </div>
+
+      {/* KPIs operacionales */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard label="OTs recibidas" value={`${reps.length}`} sub={`${entregadasP} entregadas`} colorIdx={0} />
+        <KpiCard label="Tasa de éxito" value={tasaP !== null ? `${tasaP}%` : '—'} sub={`${exitosasP} de ${conResult.length} con resultado`} colorIdx={tasaP !== null && tasaP >= 80 ? 1 : tasaP !== null && tasaP >= 60 ? 2 : 4} />
+        <KpiCard label="Clientes nuevos" value={`${(clientesNuevos ?? []).length}`} sub="registrados en el período" colorIdx={5} />
+        <KpiCard label="Stock crítico" value={`${(stockCrit ?? []).length}`} sub="productos con stock ≤ 5" colorIdx={4} />
+      </div>
+
+      {/* Estado actual del taller */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gray-50 border-b px-4 py-3">
+          <h2 className="font-semibold text-gray-800 text-sm">Estado actual del taller (tiempo real)</h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0">
+          {[
+            { label: 'OTs en proceso', value: activasAhora.length - listasAhora, icon: '🔧', color: 'text-blue-700' },
+            { label: 'Listas para cobrar', value: listasAhora, icon: '✅', color: 'text-green-700' },
+            { label: 'Fuera de plazo', value: fueraPlazoAhora, icon: '⏰', color: fueraPlazoAhora > 0 ? 'text-red-600' : 'text-gray-400' },
+            { label: 'Total activas', value: activasAhora.length, icon: '📋', color: 'text-gray-700' },
+          ].map((item, i) => (
+            <div key={i} className="px-5 py-4 text-center">
+              <p className="text-2xl mb-1">{item.icon}</p>
+              <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
+              <p className="text-xs text-gray-500 mt-1">{item.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tendencia de ventas */}
+      {areaVentas.length > 1 && (
+        <Section title="Tendencia de ventas en el período">
+          <GraficoArea data={areaVentas} dataKey="total" nameKey="fecha" height={200} />
+        </Section>
+      )}
+
+      {/* Comparativa numérica */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gray-50 border-b px-4 py-3">
+          <h2 className="font-semibold text-gray-800 text-sm">Comparativa período actual vs período anterior</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Período anterior: {prevDesdeDate.toISOString().split('T')[0]} → {prevHastaDate.toISOString().split('T')[0]}</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                {['Métrica', 'Período anterior', 'Período actual', 'Variación'].map((h, i) => (
+                  <th key={i} className={`px-4 py-2.5 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {[
+                { label: '💰 Ventas brutas', actual: ventaActTotal, prev: ventaPrevTotal, fmt: 'clp' },
+                { label: '📈 Utilidad estimada', actual: utilidadEst, prev: utilidadPrev, fmt: 'clp' },
+                { label: '💸 Gastos', actual: gastosActTotal, prev: gastosPrevTotal, fmt: 'clp' },
+                { label: '🔧 OTs recibidas', actual: reps.length, prev: 0, fmt: 'num' },
+              ].map((row, i) => {
+                const v = variacion(row.actual, row.prev)
+                return (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-2.5 font-medium text-gray-800">{row.label}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-500">{row.fmt === 'clp' ? formatCLP(row.prev) : row.prev || '—'}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-gray-900">{row.fmt === 'clp' ? formatCLP(row.actual) : row.actual}</td>
+                    <td className={`px-4 py-2.5 text-right font-bold ${v.color}`}>{v.pct}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
 // ── Tab: Ventas ───────────────────────────────────────────────────────────────
 
 async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
@@ -87,7 +301,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
   const hastaIso = `${hasta}T23:59:59.999Z`
 
   const [{ data: ventas }, { data: saleItemsRaw }] = await Promise.all([
-    supabase.from('sales').select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, repair_order_id, comision_bancaria, customers(nombre)').gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('sales').select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, repair_order_id, comision_bancaria, customer_id, customers(nombre)').gte('created_at', desdeIso).lte('created_at', hastaIso),
     supabase.from('sale_items').select('sale_id, nombre, cantidad, precio_unitario, precio_costo, subtotal').gte('created_at', desdeIso).lte('created_at', hastaIso),
   ])
 
@@ -112,15 +326,39 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
     .map((v: Record<string, unknown>) => v.repair_order_id as string)
 
   let costoRepPorOT: Record<string, number> = {}
+  let costoEnvioPorOT: Record<string, number> = {}
+  let costoPiezasPorOT: Record<string, number> = {}
   if (idsOT.length > 0) {
     const { data: repItems } = await supabase.from('repair_items')
       .select('repair_order_id, cantidad, precio_costo, costo_envio')
       .in('repair_order_id', idsOT)
     ;(repItems ?? []).forEach(ri => {
-      const c = (ri.cantidad ?? 1) * (ri.precio_costo ?? 0) + (ri.costo_envio ?? 0)
-      costoRepPorOT[ri.repair_order_id] = (costoRepPorOT[ri.repair_order_id] ?? 0) + c
+      const pieza = (ri.cantidad ?? 1) * (ri.precio_costo ?? 0)
+      const envio = ri.costo_envio ?? 0
+      costoPiezasPorOT[ri.repair_order_id] = (costoPiezasPorOT[ri.repair_order_id] ?? 0) + pieza
+      costoEnvioPorOT[ri.repair_order_id]  = (costoEnvioPorOT[ri.repair_order_id]  ?? 0) + envio
+      costoRepPorOT[ri.repair_order_id]    = (costoRepPorOT[ri.repair_order_id]    ?? 0) + pieza + envio
     })
   }
+
+  // Desglose diario con costos
+  type DiaRow = { bruto: number; costo: number; banco: number; util: number }
+  const porDiaCostos: Record<string, DiaRow> = {}
+  activas.forEach((v: Record<string, unknown>) => {
+    const d = (v.created_at as string).split('T')[0]
+    if (!porDiaCostos[d]) porDiaCostos[d] = { bruto: 0, costo: 0, banco: 0, util: 0 }
+    const bruto = v.total as number
+    const costo = v.tipo === 'reparacion'
+      ? (costoRepPorOT[v.repair_order_id as string] ?? 0)
+      : (costoPorVenta[v.id as string] ?? 0)
+    const banco = (v.comision_bancaria as number) ?? 0
+    const neto = Math.round(bruto / 1.19)
+    const ppm = Math.round(neto * 0.03)
+    porDiaCostos[d].bruto += bruto
+    porDiaCostos[d].costo += costo
+    porDiaCostos[d].banco += banco
+    porDiaCostos[d].util  += neto - ppm - costo - banco
+  })
 
   const porDia: Record<string, number> = {}
   activas.forEach((v: Record<string, unknown>) => {
@@ -370,6 +608,134 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
           <Tabla headers={['Fecha', 'Monto', 'Método']} rows={anuladas.map(v => [v.created_at.split('T')[0], formatCLP(v.total), v.metodo_pago ?? '—'])} />
         </Section>
       )}
+
+      {/* ── Desglose diario de costos y utilidad ─────────────────────────── */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gray-50 border-b px-4 py-3">
+          <h2 className="font-semibold text-gray-800 text-sm">📅 Utilidad real por día — con todos los gastos</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Bruto − IVA − PPM − Costo producto/repuesto − Comisión bancaria</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                {['Día', 'Bruto cobrado', 'Costo prod./rep.', 'Com. banco', 'Utilidad real'].map((h, i) => (
+                  <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {Object.entries(porDiaCostos).sort().map(([dia, r]) => (
+                <tr key={dia} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 font-medium text-gray-700">{dia}</td>
+                  <td className="px-3 py-2 text-right font-medium text-gray-900">{formatCLP(r.bruto)}</td>
+                  <td className="px-3 py-2 text-right text-red-600">{formatCLP(r.costo)}</td>
+                  <td className="px-3 py-2 text-right text-orange-600">{formatCLP(r.banco)}</td>
+                  <td className={`px-3 py-2 text-right font-bold ${r.util >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCLP(r.util)}</td>
+                </tr>
+              ))}
+              <tr className="bg-gray-50 font-semibold border-t-2">
+                <td className="px-3 py-2">TOTAL</td>
+                <td className="px-3 py-2 text-right">{formatCLP(totalBruto)}</td>
+                <td className="px-3 py-2 text-right text-red-600">{formatCLP(costoTotal)}</td>
+                <td className="px-3 py-2 text-right text-orange-600">{formatCLP(comBancoTotal)}</td>
+                <td className={`px-3 py-2 text-right font-bold text-lg ${utilRealTotal >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCLP(utilRealTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Detalle de gastos por cada operación ─────────────────────────── */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gray-50 border-b px-4 py-3">
+          <h2 className="font-semibold text-gray-800 text-sm">💸 Detalle de gastos por operación ({activas.length} ventas)</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Cada venta con su desglose completo de costos y utilidad real</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                {['Fecha', 'Tipo', 'N° Venta', 'Cliente', 'Cobrado', 'Costo piezas', 'Envío rep.', 'Com. banco', 'Utilidad'].map((h, i) => (
+                  <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {activas.length === 0 ? (
+                <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-400 text-xs">Sin ventas en el período</td></tr>
+              ) : activas.map((v: Record<string, unknown>) => {
+                const esReparacion = v.tipo === 'reparacion'
+                const bruto  = v.total as number
+                const pieza  = esReparacion ? (costoPiezasPorOT[v.repair_order_id as string] ?? 0) : (costoPorVenta[v.id as string] ?? 0)
+                const envio  = esReparacion ? (costoEnvioPorOT[v.repair_order_id as string] ?? 0) : 0
+                const banco  = (v.comision_bancaria as number) ?? 0
+                const neto   = Math.round(bruto / 1.19)
+                const ppm    = Math.round(neto * 0.03)
+                const util   = neto - ppm - pieza - envio - banco
+                const cli    = v.customers as Record<string, unknown> | null
+                const nombre = Array.isArray(cli) ? ((cli[0]?.nombre as string) ?? '—') : ((cli?.nombre as string) ?? '—')
+                return (
+                  <tr key={v.id as string} className={`hover:bg-gray-50 ${util < 0 ? 'bg-red-50' : ''}`}>
+                    <td className="px-3 py-2 text-xs text-gray-500">{(v.created_at as string).substring(0, 10)}</td>
+                    <td className="px-3 py-2"><span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${esReparacion ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{esReparacion ? '🔧 OT' : '🛒 Directa'}</span></td>
+                    <td className="px-3 py-2 font-mono text-xs text-right">{v.numero_venta as string}</td>
+                    <td className="px-3 py-2 text-xs max-w-[120px] truncate">{nombre}</td>
+                    <td className="px-3 py-2 text-right font-medium">{formatCLP(bruto)}</td>
+                    <td className="px-3 py-2 text-right text-red-600">{pieza > 0 ? formatCLP(pieza) : '—'}</td>
+                    <td className="px-3 py-2 text-right text-red-400">{envio > 0 ? formatCLP(envio) : '—'}</td>
+                    <td className="px-3 py-2 text-right text-orange-600">{banco > 0 ? formatCLP(banco) : '—'}</td>
+                    <td className={`px-3 py-2 text-right font-bold ${util >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCLP(util)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Top 10 clientes por ingresos ─────────────────────────────────── */}
+      {(() => {
+        const clienteMap: Record<string, { nombre: string; total: number; visitas: number }> = {}
+        activas.forEach((v: Record<string, unknown>) => {
+          const cid = v.customer_id as string | null
+          if (!cid) return
+          const cli = v.customers as { nombre?: string } | null
+          const nom = cli?.nombre ?? '—'
+          if (!clienteMap[cid]) clienteMap[cid] = { nombre: nom, total: 0, visitas: 0 }
+          clienteMap[cid].total += v.total as number
+          clienteMap[cid].visitas += 1
+        })
+        const rows = Object.values(clienteMap).sort((a, b) => b.total - a.total).slice(0, 10)
+        if (!rows.length) return null
+        return (
+          <Section title="Top 10 clientes por ingresos en ventas">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    {['#', 'Cliente', 'N° ventas', 'Total cobrado', '% del bruto'].map((h, i) => (
+                      <th key={i} className={`px-4 py-2.5 text-xs text-gray-500 font-medium ${i <= 1 ? 'text-left' : 'text-right'}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rows.map((c, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-4 py-2.5 text-gray-400 font-bold">{i + 1}</td>
+                      <td className="px-4 py-2.5 font-medium text-gray-900">{c.nombre}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-600">{c.visitas}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-blue-700">{formatCLP(c.total)}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-500">{totalBruto ? `${Math.round(c.total * 100 / totalBruto)}%` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+        )
+      })()}
+
     </div>
   )
 }
@@ -384,8 +750,8 @@ async function TabTaller({ desde, hasta }: { desde: string; hasta: string }) {
   const { data: ots } = await supabase
     .from('repair_orders')
     .select(`
-      id, estado, tipo_reparacion, precio_servicio, tecnico_id,
-      created_at, fecha_entrega,
+      id, estado, tipo_reparacion, precio_servicio, presupuesto_estimado, tecnico_id,
+      resultado, created_at, fecha_entrega, fecha_estimada_entrega,
       equipment(marca, modelo),
       tecnico:user_profiles(nombre_completo)
     `)
@@ -394,68 +760,245 @@ async function TabTaller({ desde, hasta }: { desde: string; hasta: string }) {
 
   type OTT = {
     id: string; estado: string; tipo_reparacion: string | null
-    precio_servicio: number | null; tecnico_id: string | null
-    created_at: string; fecha_entrega: string | null
+    precio_servicio: number | null; presupuesto_estimado: number | null
+    tecnico_id: string | null; resultado: string | null
+    created_at: string; fecha_entrega: string | null; fecha_estimada_entrega: string | null
     equipment: { marca: string; modelo: string } | null
     tecnico: { nombre_completo: string } | null
   }
   const lista = (ots ?? []) as unknown as OTT[]
-  const entregadas = lista.filter(o => o.estado === 'entregado')
-  const enGarantia = lista.filter(o => o.estado === 'en_garantia')
 
+  // ── Métricas base ────────────────────────────────────────────────────────────
+  const estadosFinales = new Set(['entregado', 'en_garantia', 'cancelado', 'rechazado'])
+  const entregadas     = lista.filter(o => o.estado === 'entregado')
+  const activas        = lista.filter(o => !estadosFinales.has(o.estado))
+
+  // Tasa de éxito (solo OTs con resultado definido)
+  const conResultado   = lista.filter(o => o.resultado === 'exitosa' || o.resultado === 'no_exitosa')
+  const exitosas       = conResultado.filter(o => o.resultado === 'exitosa')
+  const sinReparacion  = conResultado.filter(o => o.resultado === 'no_exitosa')
+  const tasaExito      = conResultado.length ? Math.round(exitosas.length * 100 / conResultado.length) : null
+
+  // Ingresos totales (entregadas + para_entrega)
+  const ingresosTotal  = entregadas.reduce((s, o) => s + (o.precio_servicio ?? 0), 0)
+
+  // Tiempo promedio de resolución
   const tiemposProm = entregadas.filter(o => o.fecha_entrega)
     .map(o => (new Date(o.fecha_entrega!).getTime() - new Date(o.created_at).getTime()) / 86400000)
   const promDias = tiemposProm.length
     ? (tiemposProm.reduce((a, b) => a + b, 0) / tiemposProm.length).toFixed(1) : '—'
 
+  // OTs fuera de plazo (fecha_estimada_entrega < hoy, no cerradas)
+  const hoy = new Date().toISOString().split('T')[0]
+  const fueraPlazo = lista.filter(o =>
+    o.fecha_estimada_entrega && o.fecha_estimada_entrega < hoy && !estadosFinales.has(o.estado)
+  )
+
+  // ── Agrupaciones para gráficos ───────────────────────────────────────────────
+
+  // Por estado
   const porEstado: Record<string, number> = {}
   lista.forEach(o => { porEstado[o.estado] = (porEstado[o.estado] ?? 0) + 1 })
   const pieEstado = Object.entries(porEstado).map(([name, value]) => ({ name, value }))
 
+  // Por tipo de reparación (cantidad)
   const porTipo: Record<string, number> = {}
   lista.forEach(o => { const f = o.tipo_reparacion ?? 'otro'; porTipo[f] = (porTipo[f] ?? 0) + 1 })
   const barFalla = Object.entries(porTipo).sort((a, b) => b[1] - a[1]).slice(0, 8)
     .map(([name, value]) => ({ name, value }))
 
-  const porTec: Record<string, { nombre: string; total: number; entregadas: number; ingresos: number }> = {}
+  // Tiempo promedio por tipo de reparación
+  const tiempoPorTipo: Record<string, number[]> = {}
+  entregadas.filter(o => o.fecha_entrega).forEach(o => {
+    const tipo = o.tipo_reparacion ?? 'otro'
+    const dias = (new Date(o.fecha_entrega!).getTime() - new Date(o.created_at).getTime()) / 86400000
+    if (!tiempoPorTipo[tipo]) tiempoPorTipo[tipo] = []
+    tiempoPorTipo[tipo].push(dias)
+  })
+  const barTiempoPorTipo = Object.entries(tiempoPorTipo)
+    .map(([name, vals]) => ({ name, value: parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)) }))
+    .sort((a, b) => b.value - a.value).slice(0, 8)
+
+  // Tasa de éxito por tipo de reparación
+  const exitoPorTipo: Record<string, { exitosa: number; no_exitosa: number }> = {}
+  conResultado.forEach(o => {
+    const tipo = o.tipo_reparacion ?? 'otro'
+    if (!exitoPorTipo[tipo]) exitoPorTipo[tipo] = { exitosa: 0, no_exitosa: 0 }
+    if (o.resultado === 'exitosa') exitoPorTipo[tipo].exitosa++
+    else exitoPorTipo[tipo].no_exitosa++
+  })
+  const tasaExitoRows = Object.entries(exitoPorTipo)
+    .map(([tipo, v]) => {
+      const total = v.exitosa + v.no_exitosa
+      const pct = Math.round(v.exitosa * 100 / total)
+      return [tipo, total, v.exitosa, v.no_exitosa, `${pct}%`]
+    })
+    .sort((a, b) => (b[1] as number) - (a[1] as number))
+
+  // Por técnico (detallado con tasa de éxito y tiempo promedio)
+  const porTec: Record<string, {
+    nombre: string; total: number; entregadas: number; exitosas: number
+    noExitosas: number; sinResultado: number; ingresos: number; tiempos: number[]
+  }> = {}
   lista.forEach(o => {
     const k = o.tecnico_id ?? 'sin_asignar'
     const nombre = o.tecnico?.nombre_completo ?? 'Sin asignar'
-    if (!porTec[k]) porTec[k] = { nombre, total: 0, entregadas: 0, ingresos: 0 }
+    if (!porTec[k]) porTec[k] = { nombre, total: 0, entregadas: 0, exitosas: 0, noExitosas: 0, sinResultado: 0, ingresos: 0, tiempos: [] }
     porTec[k].total++
     if (o.estado === 'entregado' || o.estado === 'para_entrega') {
       porTec[k].entregadas++
       porTec[k].ingresos += o.precio_servicio ?? 0
+      if (o.resultado === 'exitosa') porTec[k].exitosas++
+      else if (o.resultado === 'no_exitosa') porTec[k].noExitosas++
+      else porTec[k].sinResultado++
+      if (o.fecha_entrega) {
+        const dias = (new Date(o.fecha_entrega).getTime() - new Date(o.created_at).getTime()) / 86400000
+        porTec[k].tiempos.push(dias)
+      }
     }
   })
-  const tecRows = Object.values(porTec).sort((a, b) => b.entregadas - a.entregadas)
-    .map(t => [t.nombre, t.total, t.entregadas, formatCLP(t.ingresos)])
+  const tecRows = Object.values(porTec).sort((a, b) => b.entregadas - a.entregadas).map(t => {
+    const conRes = t.exitosas + t.noExitosas
+    const tasa = conRes > 0 ? `${Math.round(t.exitosas * 100 / conRes)}%` : '—'
+    const promT = t.tiempos.length ? `${(t.tiempos.reduce((a, b) => a + b, 0) / t.tiempos.length).toFixed(1)}d` : '—'
+    const promIng = t.entregadas > 0 ? formatCLP(Math.round(t.ingresos / t.entregadas)) : '—'
+    return [t.nombre, t.total, t.entregadas, tasa, promT, formatCLP(t.ingresos), promIng]
+  })
 
+  // Por marca
   const porMarca: Record<string, number> = {}
   lista.forEach(o => { const m = o.equipment?.marca ?? 'Otra'; porMarca[m] = (porMarca[m] ?? 0) + 1 })
   const barMarca = Object.entries(porMarca).sort((a, b) => b[1] - a[1]).slice(0, 8)
     .map(([name, value]) => ({ name, value }))
 
+  // Tendencia diaria de OTs recibidas
+  const porDia: Record<string, number> = {}
+  lista.forEach(o => {
+    const dia = o.created_at.split('T')[0]
+    porDia[dia] = (porDia[dia] ?? 0) + 1
+  })
+  const tendenciaDiaria = Object.entries(porDia).sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, value]) => ({ name: name.slice(5), value })) // "MM-DD"
+
+  // OTs activas: desglose por tiempo sin movimiento
+  const ahoraMs = Date.now()
+  const enProcesoRows = activas
+    .map(o => {
+      const diasAbierta = Math.floor((ahoraMs - new Date(o.created_at).getTime()) / 86400000)
+      const vencida = o.fecha_estimada_entrega && o.fecha_estimada_entrega < hoy
+      return { o, diasAbierta, vencida }
+    })
+    .sort((a, b) => b.diasAbierta - a.diasAbierta)
+    .slice(0, 15)
+    .map(({ o, diasAbierta, vencida }) => [
+      o.tecnico?.nombre_completo ?? 'Sin asignar',
+      o.tipo_reparacion ?? 'otro',
+      o.equipment?.marca ?? '—',
+      o.estado,
+      `${diasAbierta}d`,
+      vencida ? '⚠️ Vencida' : (o.fecha_estimada_entrega ?? '—'),
+    ])
+
   return (
     <div className="space-y-5">
+
+      {/* ── KPIs principales ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="Total OTs" value={`${lista.length}`} colorIdx={0} />
-        <KpiCard label="Entregadas" value={`${entregadas.length}`} sub={`${lista.length ? Math.round(entregadas.length * 100 / lista.length) : 0}%`} colorIdx={1} />
-        <KpiCard label="Tiempo promedio" value={`${promDias} días`} colorIdx={2} />
-        <KpiCard label="En garantía" value={`${enGarantia.length}`} colorIdx={4} />
+        <KpiCard label="Total OTs" value={`${lista.length}`} sub={`${activas.length} activas`} colorIdx={0} />
+        <KpiCard label="Entregadas" value={`${entregadas.length}`} sub={`${lista.length ? Math.round(entregadas.length * 100 / lista.length) : 0}% del total`} colorIdx={1} />
+        <KpiCard label="Tiempo promedio" value={promDias === '—' ? '—' : `${promDias} días`} sub="recepción → entrega" colorIdx={2} />
+        <KpiCard label="Ingresos taller" value={formatCLP(ingresosTotal)} sub={`${entregadas.length} OTs cobradas`} colorIdx={5} />
       </div>
+
+      {/* ── Tasa de éxito (destacada) ─────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gray-50 border-b px-4 py-3 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800 text-sm">Tasa de éxito de reparaciones</h2>
+          {conResultado.length > 0 && (
+            <span className={`text-sm font-bold px-3 py-1 rounded-full ${tasaExito !== null && tasaExito >= 80 ? 'bg-green-100 text-green-700' : tasaExito !== null && tasaExito >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+              {tasaExito}% de éxito
+            </span>
+          )}
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <KpiCard label="✅ Reparadas OK" value={`${exitosas.length}`} sub={tasaExito !== null ? `${tasaExito}% éxito` : 'Sin datos aún'} colorIdx={1} />
+            <KpiCard label="⚠️ Sin reparación" value={`${sinReparacion.length}`} sub={conResultado.length ? `${Math.round(sinReparacion.length * 100 / conResultado.length)}% del total` : '—'} colorIdx={4} />
+            <KpiCard label="🔧 En proceso" value={`${activas.length}`} sub="aún sin resultado" colorIdx={0} />
+            <KpiCard label="⏰ Fuera de plazo" value={`${fueraPlazo.length}`} sub="con fecha vencida" colorIdx={4} />
+          </div>
+          {/* Barra visual de tasa de éxito */}
+          {conResultado.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                <span>Exitosas: {exitosas.length}</span>
+                <span>Sin reparar: {sinReparacion.length}</span>
+              </div>
+              <div className="h-4 rounded-full bg-gray-100 overflow-hidden flex">
+                <div className="bg-green-500 h-full transition-all" style={{ width: `${tasaExito ?? 0}%` }} />
+                <div className="bg-red-400 h-full transition-all" style={{ width: `${conResultado.length ? Math.round(sinReparacion.length * 100 / conResultado.length) : 0}%` }} />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Solo incluye OTs con resultado registrado ({conResultado.length} de {lista.length} totales)</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Gráficos de distribución ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Section title="OTs por estado"><GraficoPastel data={pieEstado} height={220} /></Section>
+        <Section title="OTs por estado">
+          <GraficoPastel data={pieEstado} height={220} />
+        </Section>
         <Section title="Tipo de reparación más frecuente">
           <GraficoBarrasNum data={barFalla} dataKey="value" nameKey="name" color="#8b5cf6" height={220} />
         </Section>
       </div>
+
+      {/* ── Tendencia diaria ──────────────────────────────────────────────────── */}
+      {tendenciaDiaria.length > 1 && (
+        <Section title="Tendencia de OTs recibidas">
+          <GraficoBarrasNum data={tendenciaDiaria} dataKey="value" nameKey="name" color="#3b82f6" height={200} />
+        </Section>
+      )}
+
+      {/* ── Tiempo promedio y tasa de éxito por tipo ─────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {barTiempoPorTipo.length > 0 && (
+          <Section title="Tiempo promedio de resolución por tipo (días)">
+            <GraficoBarrasNum data={barTiempoPorTipo} dataKey="value" nameKey="name" color="#f59e0b" height={220} />
+          </Section>
+        )}
+        <Section title="Tasa de éxito por tipo de reparación">
+          <Tabla
+            headers={['Tipo', 'Total', '✅ OK', '⚠️ Sin rep.', 'Éxito']}
+            rows={tasaExitoRows.length ? tasaExitoRows : []}
+          />
+        </Section>
+      </div>
+
+      {/* ── Rendimiento por técnico (detallado) ──────────────────────────────── */}
       <Section title="Rendimiento por técnico">
-        <Tabla headers={['Técnico', 'OTs asignadas', 'Entregadas', 'Ingresos generados']} rows={tecRows} />
+        <Tabla
+          headers={['Técnico', 'Asignadas', 'Entregadas', 'Tasa éxito', 'T. prom.', 'Ingresos', 'Prom./OT']}
+          rows={tecRows}
+        />
       </Section>
+
+      {/* ── Marcas ────────────────────────────────────────────────────────────── */}
       <Section title="OTs por marca de equipo">
         <GraficoBarrasNum data={barMarca} dataKey="value" nameKey="name" color="#06b6d4" height={200} />
       </Section>
+
+      {/* ── OTs activas con más tiempo abierto ───────────────────────────────── */}
+      {enProcesoRows.length > 0 && (
+        <Section title="OTs activas — más tiempo sin resolver (top 15)">
+          <Tabla
+            headers={['Técnico', 'Tipo', 'Equipo', 'Estado', 'Días abierta', 'Entrega est.']}
+            rows={enProcesoRows}
+          />
+        </Section>
+      )}
+
     </div>
   )
 }
@@ -467,10 +1010,13 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
 
-  const [{ data: productos }, { data: movimientos }, { data: comprasRec }] = await Promise.all([
+  const hace60Iso = new Date(new Date().getTime() - 60 * 86400000).toISOString()
+
+  const [{ data: productos }, { data: movimientos }, { data: comprasRec }, { data: itemsVendidos60 }] = await Promise.all([
     supabase.from('products').select('*, product_categories(nombre)').eq('activo', true),
     supabase.from('stock_movements').select('*').gte('created_at', desdeIso).lte('created_at', hastaIso),
     supabase.from('purchase_orders').select('total').in('estado', ['recibida_completa', 'recibida_parcial']),
+    supabase.from('sale_items').select('product_id, cantidad').gte('created_at', hace60Iso).not('product_id', 'is', null),
   ])
 
   const prods = productos ?? []
@@ -500,6 +1046,29 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
 
   const criticosRows = criticos.sort((a, b) => (a.stock_actual ?? 0) - (b.stock_actual ?? 0)).slice(0, 20)
     .map(p => [p.nombre, p.sku ?? '—', `${p.stock_actual ?? 0}`, `${p.stock_minimo ?? 5}`, formatCLP(p.precio_venta ?? 0)])
+
+  // Rotación y sin movimiento (últimos 60 días)
+  const ventasPorProd: Record<string, number> = {}
+  ;(itemsVendidos60 ?? []).forEach((it: { product_id: string | null; cantidad: number | null }) => {
+    if (!it.product_id) return
+    ventasPorProd[it.product_id] = (ventasPorProd[it.product_id] ?? 0) + (it.cantidad ?? 1)
+  })
+
+  const sinMovimiento = prods
+    .filter(p => (p.stock_actual ?? 0) > 0 && !ventasPorProd[p.id])
+    .sort((a, b) => (b.stock_actual ?? 0) * (b.precio_costo ?? 0) - (a.stock_actual ?? 0) * (a.precio_costo ?? 0))
+    .slice(0, 20)
+
+  const rotacionRows = prods
+    .filter(p => (p.stock_actual ?? 0) > 0 && ventasPorProd[p.id])
+    .map(p => {
+      const vendidos60 = ventasPorProd[p.id] ?? 0
+      const velocidad = vendidos60 / 60 // unidades/día
+      const diasStock = velocidad > 0 ? Math.round((p.stock_actual ?? 0) / velocidad) : 999
+      return { nombre: p.nombre, stock: p.stock_actual ?? 0, vendidos60, diasStock }
+    })
+    .sort((a, b) => a.diasStock - b.diasStock)
+    .slice(0, 15)
 
   return (
     <div className="space-y-5">
@@ -545,6 +1114,53 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
       <Section title={`Productos con stock crítico (${criticos.length})`}>
         <Tabla headers={['Producto', 'SKU', 'Stock actual', 'Stock mínimo', 'Precio venta']} rows={criticosRows} />
       </Section>
+
+      {/* Rotación de stock */}
+      {rotacionRows.length > 0 && (
+        <Section title="Rotación de stock — días de inventario restante (basado en ventas 60 días)">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  {['Producto', 'Stock actual', 'Vendidos (60d)', 'Días de stock', 'Alerta'].map((h, i) => (
+                    <th key={i} className={`px-4 py-2.5 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {rotacionRows.map((r, i) => (
+                  <tr key={i} className={`hover:bg-gray-50 ${r.diasStock <= 15 ? 'bg-red-50' : r.diasStock <= 30 ? 'bg-yellow-50' : ''}`}>
+                    <td className="px-4 py-2.5 font-medium text-gray-900">{r.nombre}</td>
+                    <td className="px-4 py-2.5 text-right">{r.stock}</td>
+                    <td className="px-4 py-2.5 text-right">{r.vendidos60}</td>
+                    <td className={`px-4 py-2.5 text-right font-bold ${r.diasStock <= 15 ? 'text-red-600' : r.diasStock <= 30 ? 'text-orange-600' : 'text-green-700'}`}>{r.diasStock === 999 ? '∞' : r.diasStock}</td>
+                    <td className="px-4 py-2.5 text-right text-xs">{r.diasStock <= 15 ? '🔴 Reponer pronto' : r.diasStock <= 30 ? '🟡 Vigilar' : '🟢 OK'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-400 mt-2 px-1">Días de stock = stock actual ÷ velocidad de venta diaria promedio (últimos 60 días).</p>
+        </Section>
+      )}
+
+      {/* Productos sin movimiento */}
+      {sinMovimiento.length > 0 && (
+        <Section title={`Productos sin ventas en los últimos 60 días (${sinMovimiento.length})`}>
+          <Tabla
+            headers={['Producto', 'SKU', 'Stock', 'Costo unitario', 'Capital inmovilizado']}
+            rows={sinMovimiento.map(p => [
+              p.nombre,
+              p.sku ?? '—',
+              `${p.stock_actual ?? 0}`,
+              formatCLP(p.precio_costo ?? 0),
+              formatCLP((p.stock_actual ?? 0) * (p.precio_costo ?? 0)),
+            ])}
+          />
+          <p className="text-xs text-gray-400 mt-2 px-1">Productos con stock disponible pero sin ninguna venta registrada en los últimos 60 días.</p>
+        </Section>
+      )}
+
     </div>
   )
 }
@@ -1033,6 +1649,7 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
 
+  // Queries sin FK hints — lookup de usuarios por separado
   const [
     { data: salesData },
     { data: historialData },
@@ -1040,74 +1657,84 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
     { data: stockData },
     { data: otsData },
   ] = await Promise.all([
-    // Ventas con usuario
     supabase.from('sales')
-      .select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, usuario_id, customers(nombre), usuario:user_profiles!sales_usuario_id_fkey(nombre_completo, email)')
+      .select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, usuario_id, customers(nombre)')
       .gte('created_at', desdeIso).lte('created_at', hastaIso)
       .order('created_at', { ascending: false }).limit(300),
-    // Cambios de estado OT
     supabase.from('repair_status_history')
-      .select('id, estado_anterior, estado_nuevo, comentario, created_at, repair_order_id, usuario_id, repair_orders(numero_ot, customers(nombre)), usuario:user_profiles!repair_status_history_usuario_id_fkey(nombre_completo, email)')
+      .select('id, estado_anterior, estado_nuevo, comentario, created_at, repair_order_id, usuario_id, repair_orders(numero_ot, customers(nombre))')
       .gte('created_at', desdeIso).lte('created_at', hastaIso)
       .order('created_at', { ascending: false }).limit(300),
-    // Sesiones de caja
     supabase.from('sesiones_caja')
-      .select('id, fecha, estado, apertura_at, cierre_at, efectivo_apertura, efectivo_cierre, transbank_cierre, transferencia_cierre')
+      .select('id, fecha, apertura_at, cierre_at, efectivo_apertura, efectivo_cierre, transbank_cierre, transferencia_cierre, usuario_id, usuario_cierre_id')
       .or(`apertura_at.gte.${desdeIso},cierre_at.gte.${desdeIso}`)
       .order('apertura_at', { ascending: false }).limit(60),
-    // Movimientos de stock
     supabase.from('stock_movements')
-      .select('id, tipo, cantidad, stock_anterior, stock_nuevo, razon, created_at, usuario_id, products(nombre), usuario:user_profiles!stock_movements_usuario_id_fkey(nombre_completo, email)')
+      .select('id, tipo, cantidad, razon, created_at, usuario_id, products(nombre)')
       .gte('created_at', desdeIso).lte('created_at', hastaIso)
       .order('created_at', { ascending: false }).limit(200),
-    // OTs creadas (recibido = creación)
     supabase.from('repair_orders')
-      .select('id, numero_ot, created_at, tecnico_id, equipment(tipo_equipo, marca, modelo), customers(nombre), tecnico:user_profiles!repair_orders_tecnico_id_fkey(nombre_completo)')
+      .select('id, numero_ot, created_at, tecnico_id, equipment(tipo_equipo, marca, modelo), customers(nombre)')
       .gte('created_at', desdeIso).lte('created_at', hastaIso)
       .order('created_at', { ascending: false }).limit(100),
   ])
 
+  // Recolectar todos los user IDs únicos y hacer un solo lookup
+  const allUserIds = [...new Set([
+    ...(salesData ?? []).map((v: Record<string, unknown>) => v.usuario_id as string).filter(Boolean),
+    ...(historialData ?? []).map((h: Record<string, unknown>) => h.usuario_id as string).filter(Boolean),
+    ...(stockData ?? []).map((m: Record<string, unknown>) => m.usuario_id as string).filter(Boolean),
+    ...(otsData ?? []).map((o: Record<string, unknown>) => o.tecnico_id as string).filter(Boolean),
+    ...(sesionesData ?? []).map((s: Record<string, unknown>) => s.usuario_id as string).filter(Boolean),
+    ...(sesionesData ?? []).map((s: Record<string, unknown>) => s.usuario_cierre_id as string).filter(Boolean),
+  ])]
+
+  const { data: perfilesData } = allUserIds.length > 0
+    ? await supabase.from('user_profiles').select('id, nombre_completo, email').in('id', allUserIds)
+    : { data: [] }
+
+  const perfiles: Record<string, string> = {}
+  ;(perfilesData ?? []).forEach((p: Record<string, unknown>) => {
+    perfiles[p.id as string] = (p.nombre_completo as string) ?? (p.email as string) ?? '—'
+  })
+
+  const nombreUsuario = (id: string | null | undefined): string => {
+    if (!id) return '—'
+    return perfiles[id] ?? '—'
+  }
+
   type LogEntry = { fecha: string; usuario: string; modulo: string; accion: string; detalle: string; monto?: number; color: string }
 
-  const norm = (v: unknown): { nombre_completo?: string; email?: string } | null => {
-    if (!v) return null
-    return (Array.isArray(v) ? v[0] : v) as { nombre_completo?: string; email?: string }
-  }
   const normRel = (v: unknown): Record<string, unknown> | null => {
     if (!v) return null
     return (Array.isArray(v) ? v[0] : v) as Record<string, unknown>
-  }
-  const usuarioNombre = (u: unknown) => {
-    const p = norm(u)
-    return p?.nombre_completo ?? p?.email ?? '—'
   }
 
   const entries: LogEntry[] = []
 
   // Ventas
   ;(salesData ?? []).forEach(v => {
-    const u = norm((v as Record<string, unknown>).usuario)
-    const cliente = normRel((v as Record<string, unknown>).customers)
+    const vr = v as Record<string, unknown>
+    const cliente = normRel(vr.customers)
     entries.push({
-      fecha: v.created_at as string,
-      usuario: u?.nombre_completo ?? u?.email ?? 'Sin registro',
+      fecha: vr.created_at as string,
+      usuario: nombreUsuario(vr.usuario_id as string),
       modulo: '💰 Caja',
-      accion: (v as Record<string, unknown>).anulada ? 'Venta anulada' : 'Venta registrada',
-      detalle: `${(v as Record<string, unknown>).numero_venta} · ${(cliente?.nombre as string) ?? 'Sin cliente'} · ${(v as Record<string, unknown>).metodo_pago} · ${(v as Record<string, unknown>).tipo_documento}`,
-      monto: (v as Record<string, unknown>).total as number,
-      color: (v as Record<string, unknown>).anulada ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
+      accion: vr.anulada ? 'Venta anulada' : 'Venta registrada',
+      detalle: `${vr.numero_venta} · ${(cliente?.nombre as string) ?? 'Sin cliente'} · ${vr.metodo_pago} · ${vr.tipo_documento}`,
+      monto: vr.total as number,
+      color: vr.anulada ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
     })
   })
 
   // Cambios de estado OT
   ;(historialData ?? []).forEach(h => {
     const hr = h as Record<string, unknown>
-    const u = norm(hr.usuario)
     const ot = normRel(hr.repair_orders)
     const cliente = ot ? normRel(ot.customers as unknown) : null
     entries.push({
       fecha: hr.created_at as string,
-      usuario: u?.nombre_completo ?? u?.email ?? 'Sistema',
+      usuario: nombreUsuario(hr.usuario_id as string),
       modulo: '🔧 Reparaciones',
       accion: `Estado → ${hr.estado_nuevo}`,
       detalle: `${(ot?.numero_ot as string) ?? ''} · ${(cliente?.nombre as string) ?? ''}${hr.comentario ? ' · ' + hr.comentario : ''}`,
@@ -1119,22 +1746,22 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
   ;(sesionesData ?? []).forEach(s => {
     const sr = s as Record<string, unknown>
     if (sr.apertura_at && (sr.apertura_at as string) >= desdeIso && (sr.apertura_at as string) <= hastaIso) {
-      entries.push({ fecha: sr.apertura_at as string, usuario: 'Caja', modulo: '🔓 Caja', accion: 'Apertura de caja', detalle: `Fondo apertura: ${formatCLP(sr.efectivo_apertura as number)}`, color: 'bg-yellow-100 text-yellow-700' })
+      entries.push({ fecha: sr.apertura_at as string, usuario: nombreUsuario(sr.usuario_id as string), modulo: '🔓 Caja', accion: 'Apertura de caja', detalle: `Fondo apertura: ${formatCLP(sr.efectivo_apertura as number)}`, color: 'bg-yellow-100 text-yellow-700' })
     }
     if (sr.cierre_at && (sr.cierre_at as string) >= desdeIso && (sr.cierre_at as string) <= hastaIso) {
       const total = ((sr.efectivo_cierre as number) ?? 0) + ((sr.transbank_cierre as number) ?? 0) + ((sr.transferencia_cierre as number) ?? 0)
-      entries.push({ fecha: sr.cierre_at as string, usuario: 'Caja', modulo: '🔒 Caja', accion: 'Cierre de caja', detalle: `Total recaudado: ${formatCLP(total)}`, monto: total, color: 'bg-gray-100 text-gray-700' })
+      const usuarioCierre = nombreUsuario((sr.usuario_cierre_id ?? sr.usuario_id) as string)
+      entries.push({ fecha: sr.cierre_at as string, usuario: usuarioCierre, modulo: '🔒 Caja', accion: 'Cierre de caja', detalle: `Total recaudado: ${formatCLP(total)}`, monto: total, color: 'bg-gray-100 text-gray-700' })
     }
   })
 
   // Movimientos de stock
   ;(stockData ?? []).forEach(m => {
     const mr = m as Record<string, unknown>
-    const u = norm(mr.usuario)
     const prod = normRel(mr.products)
     entries.push({
       fecha: mr.created_at as string,
-      usuario: u?.nombre_completo ?? u?.email ?? 'Sistema',
+      usuario: nombreUsuario(mr.usuario_id as string),
       modulo: '📦 Inventario',
       accion: `Stock ${mr.tipo}`,
       detalle: `${(prod?.nombre as string) ?? '—'} · ${mr.tipo}: ${mr.cantidad} unid. · ${mr.razon}`,
@@ -1145,13 +1772,14 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
   // OTs creadas
   ;(otsData ?? []).forEach(o => {
     const or2 = o as Record<string, unknown>
-    const u = norm(or2.tecnico)
     const cliente = normRel(or2.customers)
     const eq = normRel(or2.equipment)
-    const equipoDesc = eq ? [eq.tipo_equipo, eq.marca, eq.modelo].filter(Boolean).join(' ') : '—'
+    const tipo = eq?.tipo_equipo as string | undefined
+    const tipoCapit = tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1) : ''
+    const equipoDesc = [tipoCapit, eq?.marca, eq?.modelo].filter(Boolean).join(' ') || '—'
     entries.push({
       fecha: or2.created_at as string,
-      usuario: u?.nombre_completo ?? 'Recepcionista',
+      usuario: nombreUsuario(or2.tecnico_id as string),
       modulo: '🔧 Reparaciones',
       accion: 'OT creada',
       detalle: `${or2.numero_ot} · ${(cliente?.nombre as string) ?? '—'} · ${equipoDesc}`,
@@ -1309,16 +1937,100 @@ async function TabCompras({ desde, hasta }: { desde: string; hasta: string }) {
   )
 }
 
+// ── Tab: Punto de Equilibrio ──────────────────────────────────────────────────
+
+import PuntoEquilibrioCalculator from '@/components/informes/PuntoEquilibrioCalculator'
+
+async function TabEquilibrio({ desde, hasta }: { desde: string; hasta: string }) {
+  const supabase = await createClient()
+  const desdeIso = `${desde}T00:00:00.000Z`
+  const hastaIso = `${hasta}T23:59:59.999Z`
+  const diasPeriodo = Math.max(1, Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86400000) + 1)
+
+  const [{ data: gastosFijos }, { data: empleados }, { data: ventasPeriodo }, { data: items30 }] = await Promise.all([
+    supabase.from('gastos_fijos').select('monto').eq('activo', true).then(r => r.error ? { data: [] } : r),
+    supabase.from('empleados_taller').select('sueldo_base').eq('activo', true).then(r => r.error ? { data: [] } : r),
+    supabase.from('sales').select('total').eq('anulada', false)
+      .gte('created_at', desdeIso).lte('created_at', hastaIso).limit(500),
+    supabase.from('sale_items').select('precio_unitario, precio_costo, cantidad')
+      .gte('created_at', desdeIso).lte('created_at', hastaIso).limit(1000),
+  ])
+
+  // Total gastos fijos
+  const totalGastosFijos = (gastosFijos ?? []).reduce((s: number, g: Record<string, unknown>) => s + ((g.monto as number) ?? 0), 0)
+
+  // Total costo empleados (sueldo + 4.82% cargas empleador)
+  const CARGA_EMPLEADOR = 1.0482
+  const totalEmpleados = (empleados ?? []).reduce((s: number, e: Record<string, unknown>) => s + Math.round(((e.sueldo_base as number) ?? 0) * CARGA_EMPLEADOR), 0)
+
+  const costosFijosTotales = totalGastosFijos + totalEmpleados
+
+  // PV y CV promedio del período seleccionado
+  const ventasList = (ventasPeriodo ?? []) as { total: number }[]
+  const itemsList = (items30 ?? []) as { precio_unitario: number; precio_costo: number; cantidad: number }[]
+
+  const totalVentasPeriodo = ventasList.reduce((s, v) => s + v.total, 0)
+  const pvPromedio = ventasList.length > 0 ? Math.round(totalVentasPeriodo / ventasList.length) : 0
+
+  const totalUnidades = itemsList.reduce((s, i) => s + (i.cantidad ?? 1), 0)
+  const totalCosto = itemsList.reduce((s, i) => s + (i.precio_costo ?? 0) * (i.cantidad ?? 1), 0)
+  const cvPromedio = totalUnidades > 0 ? Math.round(totalCosto / totalUnidades) : 0
+
+  return (
+    <div className="space-y-5">
+      {/* Resumen costos fijos */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-5 py-3">
+          <h2 className="font-semibold text-white">Estructura de Costos Fijos Mensuales</h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Datos desde <span className="text-white">Configuración → Gastos fijos y empleados</span>
+          </p>
+        </div>
+        <div className="grid grid-cols-3 divide-x">
+          {[
+            { label: 'Gastos operacionales', value: totalGastosFijos, color: 'text-blue-700' },
+            { label: 'Costo total empleados (con imposiciones)', value: totalEmpleados, color: 'text-purple-700' },
+            { label: 'TOTAL COSTOS FIJOS (CF)', value: costosFijosTotales, color: 'text-green-700 text-2xl font-bold' },
+          ].map((item, i) => (
+            <div key={i} className="px-5 py-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{item.label}</p>
+              <p className={`font-bold mt-1 ${item.color}`}>{formatCLP(item.value)}</p>
+            </div>
+          ))}
+        </div>
+        {ventasList.length > 0 && (
+          <div className="px-5 py-3 bg-gray-50 border-t text-xs text-gray-500">
+            Promedios de últimos 30 días: PV = {formatCLP(pvPromedio)}/venta · CV = {formatCLP(cvPromedio)}/unidad
+            (precargados como referencia — ajusta según tu producto/servicio)
+          </div>
+        )}
+      </div>
+
+      <PuntoEquilibrioCalculator
+        costosFijos={costosFijosTotales}
+        pvPromedio={pvPromedio}
+        cvPromedio={cvPromedio}
+        ventasActualesPeriodo={totalVentasPeriodo}
+        diasPeriodo={diasPeriodo}
+      />
+    </div>
+  )
+}
+
 // ── Tab: Gastos ───────────────────────────────────────────────────────────────
 
 async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
   const supabase = await createClient()
-  const { data: gastos, error } = await supabase
-    .from('gastos')
-    .select('id, concepto, monto, categoria, metodo_pago, fecha, created_at')
-    .gte('fecha', desde)
-    .lte('fecha', hasta)
-    .order('fecha', { ascending: false })
+
+  // Período anterior (misma duración)
+  const diasPeriodo = Math.max(1, Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86400000))
+  const prevHasta = new Date(new Date(desde).getTime() - 86400000).toISOString().split('T')[0]
+  const prevDesde = new Date(new Date(desde).getTime() - diasPeriodo * 86400000).toISOString().split('T')[0]
+
+  const [{ data: gastos, error }, { data: gastosPrev }] = await Promise.all([
+    supabase.from('gastos').select('id, concepto, monto, categoria, metodo_pago, fecha').gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: false }),
+    supabase.from('gastos').select('monto, categoria, fecha').gte('fecha', prevDesde).lte('fecha', prevHasta),
+  ])
 
   if (error?.message.toLowerCase().includes('gastos')) {
     return (
@@ -1329,41 +2041,112 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
     )
   }
 
-  const lista = (gastos ?? []) as { id: string; concepto: string; monto: number; categoria: string; metodo_pago: string; fecha: string }[]
+  type GRow = { id: string; concepto: string; monto: number; categoria: string; metodo_pago: string; fecha: string }
+  const lista = (gastos ?? []) as GRow[]
   const totalGastos = lista.reduce((s, g) => s + g.monto, 0)
+  const totalPrev   = ((gastosPrev ?? []) as { monto: number }[]).reduce((s, g) => s + g.monto, 0)
+
+  const dias = Math.max(1, diasPeriodo + 1)
+  const promDiario = Math.round(totalGastos / dias)
 
   const porCategoria: Record<string, number> = {}
   lista.forEach(g => { porCategoria[g.categoria] = (porCategoria[g.categoria] ?? 0) + g.monto })
-  const catData = Object.entries(porCategoria)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
+  const catData = Object.entries(porCategoria).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
+
+  const porCategoriaPrev: Record<string, number> = {}
+  ;((gastosPrev ?? []) as { monto: number; categoria: string }[]).forEach(g => { porCategoriaPrev[g.categoria] = (porCategoriaPrev[g.categoria] ?? 0) + g.monto })
 
   const porMetodo: Record<string, number> = {}
   lista.forEach(g => { porMetodo[g.metodo_pago] = (porMetodo[g.metodo_pago] ?? 0) + g.monto })
 
-  const dias = Math.max(1, Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86400000) + 1)
-  const promDiario = Math.round(totalGastos / dias)
+  // Tendencia diaria
+  const porDia: Record<string, number> = {}
+  lista.forEach(g => { porDia[g.fecha] = (porDia[g.fecha] ?? 0) + g.monto })
+  const tendenciaDiaria = Object.entries(porDia).sort().map(([fecha, total]) => ({ fecha: fecha.slice(5), total }))
+
+  // Top conceptos
+  const porConcepto: Record<string, number> = {}
+  lista.forEach(g => { porConcepto[g.concepto] = (porConcepto[g.concepto] ?? 0) + g.monto })
+  const topConceptos = Object.entries(porConcepto).sort((a, b) => b[1] - a[1]).slice(0, 10)
+
+  const gVar = variacion(totalGastos, totalPrev)
+  const maxCategoriasComp = [...new Set([...Object.keys(porCategoria), ...Object.keys(porCategoriaPrev)])].slice(0, 8)
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <KpiCard label="Total gastos"     value={formatCLP(totalGastos)} colorIdx={4} />
-        <KpiCard label="N° registros"     value={String(lista.length)}   colorIdx={0} />
-        <KpiCard label="Promedio diario"  value={formatCLP(promDiario)}  colorIdx={2} />
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard label="Total gastos"       value={formatCLP(totalGastos)} colorIdx={4} />
+        <KpiCard label="N° registros"       value={String(lista.length)}   colorIdx={0} />
+        <KpiCard label="Promedio diario"    value={formatCLP(promDiario)}  colorIdx={2} />
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">vs período anterior</p>
+          <p className={`text-2xl font-bold mt-1 ${gVar.color}`}>{gVar.pct}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{formatCLP(totalPrev)} período ant.</p>
+        </div>
       </div>
-      {catData.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Section title="Por categoría">
+
+      {/* Tendencia diaria */}
+      {tendenciaDiaria.length > 1 && (
+        <Section title="Tendencia de gastos diarios">
+          <GraficoBarrasCLP data={tendenciaDiaria} dataKey="total" nameKey="fecha" height={200} />
+        </Section>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Por categoría con comparativa */}
+        {catData.length > 0 && (
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <div className="bg-gray-50 border-b px-4 py-3">
+              <h2 className="font-semibold text-gray-800 text-sm">Por categoría — actual vs anterior</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    {['Categoría', 'Anterior', 'Actual', 'Variación', 'Part. %'].map((h, i) => (
+                      <th key={i} className={`px-3 py-2.5 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {maxCategoriasComp.map(cat => {
+                    const act = porCategoria[cat] ?? 0
+                    const prev = porCategoriaPrev[cat] ?? 0
+                    const v = variacion(act, prev)
+                    return (
+                      <tr key={cat} className="hover:bg-gray-50">
+                        <td className="px-3 py-2.5 font-medium text-gray-900">{cat}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-500">{prev ? formatCLP(prev) : '—'}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold">{formatCLP(act)}</td>
+                        <td className={`px-3 py-2.5 text-right font-bold text-xs ${v.color}`}>{v.pct}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-500">{totalGastos ? `${Math.round(act * 100 / totalGastos)}%` : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Gráfico pastel categorías */}
+        {catData.length > 0 && (
+          <Section title="Distribución por categoría">
             <GraficoPastel data={catData} />
           </Section>
-          <Section title="Detalle por categoría">
-            <Tabla
-              headers={['Categoría', 'Total', 'Part. %']}
-              rows={catData.map(c => [c.name, formatCLP(c.value), `${Math.round(c.value / totalGastos * 100)}%`])}
-            />
-          </Section>
-        </div>
+        )}
+      </div>
+
+      {/* Top conceptos */}
+      {topConceptos.length > 0 && (
+        <Section title="Top 10 conceptos de gasto">
+          <Tabla
+            headers={['Concepto', 'Total', 'Part. %']}
+            rows={topConceptos.map(([c, v]) => [c, formatCLP(v), totalGastos ? `${Math.round(v * 100 / totalGastos)}%` : '—'])}
+          />
+        </Section>
       )}
+
       {Object.keys(porMetodo).length > 0 && (
         <Section title="Por método de pago">
           <Tabla
@@ -1372,12 +2155,169 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
           />
         </Section>
       )}
+
       <Section title="Registro de gastos">
         <Tabla
           headers={['Fecha', 'Concepto', 'Categoría', 'Método', 'Monto']}
           rows={lista.map(g => [g.fecha, g.concepto, g.categoria, g.metodo_pago, formatCLP(g.monto)])}
         />
       </Section>
+    </div>
+  )
+}
+
+// ── Tab: Clientes ─────────────────────────────────────────────────────────────
+
+async function TabClientes({ desde, hasta }: { desde: string; hasta: string }) {
+  const supabase = await createClient()
+  const desdeIso = `${desde}T00:00:00.000Z`
+  const hastaIso = `${hasta}T23:59:59.999Z`
+
+  // Fecha hace 90 días para detectar clientes inactivos
+  const hace90 = new Date(new Date().getTime() - 90 * 86400000).toISOString()
+
+  const [
+    { data: ventas },
+    { data: reparaciones },
+    { data: clientesNuevos },
+    { data: todosClientes },
+  ] = await Promise.all([
+    supabase.from('sales').select('total, customer_id, customers(id, nombre), created_at').eq('anulada', false).gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('repair_orders').select('precio_servicio, presupuesto_estimado, customer_id, customers(id, nombre), created_at, estado').gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('customers').select('id, nombre, created_at').gte('created_at', desdeIso).lte('created_at', hastaIso).order('created_at', { ascending: false }),
+    supabase.from('customers').select('id, nombre, created_at'),
+  ])
+
+  type VRow = { total: number; customer_id: string | null; customers: { id: string; nombre: string } | null; created_at: string }
+  type RRow = { precio_servicio: number | null; presupuesto_estimado: number | null; customer_id: string | null; customers: { id: string; nombre: string } | null; created_at: string; estado: string }
+
+  // Consolidar ingresos por cliente
+  const ingresosPorCliente: Record<string, { id: string; nombre: string; ingresos: number; visitas: number }> = {}
+
+  ;(ventas ?? []).forEach((v: unknown) => {
+    const vv = v as VRow
+    if (!vv.customer_id || !vv.customers) return
+    const k = vv.customer_id
+    if (!ingresosPorCliente[k]) ingresosPorCliente[k] = { id: k, nombre: vv.customers.nombre, ingresos: 0, visitas: 0 }
+    ingresosPorCliente[k].ingresos += vv.total
+    ingresosPorCliente[k].visitas += 1
+  })
+  ;(reparaciones ?? []).forEach((r: unknown) => {
+    const rr = r as RRow
+    if (!rr.customer_id || !rr.customers) return
+    const k = rr.customer_id
+    const monto = rr.precio_servicio ?? rr.presupuesto_estimado ?? 0
+    if (!ingresosPorCliente[k]) ingresosPorCliente[k] = { id: k, nombre: rr.customers.nombre, ingresos: 0, visitas: 0 }
+    ingresosPorCliente[k].ingresos += monto
+    ingresosPorCliente[k].visitas += 1
+  })
+
+  const top10 = Object.values(ingresosPorCliente)
+    .sort((a, b) => b.ingresos - a.ingresos)
+    .slice(0, 10)
+
+  // Clientes inactivos: tienen historial pero ninguna actividad en 90 días
+  // Detectamos consultando quiénes SÍ tienen actividad reciente
+  const { data: activosRecientes } = await supabase
+    .from('repair_orders')
+    .select('customer_id')
+    .gte('created_at', hace90)
+    .not('customer_id', 'is', null)
+  const { data: ventasRecientes } = await supabase
+    .from('sales')
+    .select('customer_id')
+    .gte('created_at', hace90)
+    .eq('anulada', false)
+    .not('customer_id', 'is', null)
+
+  const activosIds = new Set([
+    ...(activosRecientes ?? []).map((r: { customer_id: string | null }) => r.customer_id),
+    ...(ventasRecientes ?? []).map((v: { customer_id: string | null }) => v.customer_id),
+  ])
+
+  // Clientes inactivos = tienen cuenta pero no están en activos recientes
+  const totalClientes = (todosClientes ?? []).length
+  const inactivosCount = Math.max(0, totalClientes - activosIds.size)
+
+  // Visitas frecuentes (top clientes del período)
+  const frecuentes = Object.values(ingresosPorCliente)
+    .sort((a, b) => b.visitas - a.visitas)
+    .slice(0, 10)
+
+  const nuevosList = (clientesNuevos ?? []) as { id: string; nombre: string; created_at: string }[]
+  const totalIngresosPeriodo = Object.values(ingresosPorCliente).reduce((s, c) => s + c.ingresos, 0)
+  const clientesActivosPeriodo = Object.keys(ingresosPorCliente).length
+
+  return (
+    <div className="space-y-5">
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard label="Clientes activos" value={`${clientesActivosPeriodo}`} sub="con transacciones en el período" colorIdx={0} />
+        <KpiCard label="Clientes nuevos" value={`${nuevosList.length}`} sub="registrados en el período" colorIdx={1} />
+        <KpiCard label="Ingresos generados" value={formatCLP(totalIngresosPeriodo)} sub="por clientes identificados" colorIdx={2} />
+        <KpiCard label="Clientes inactivos" value={`${inactivosCount}`} sub="sin actividad en 90 días" colorIdx={inactivosCount > 20 ? 4 : 2} />
+      </div>
+
+      {/* Top 10 por ingresos */}
+      {top10.length > 0 && (
+        <Section title="Top 10 clientes por ingresos en el período">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  {['#', 'Cliente', 'Transacciones', 'Ingresos', '% del total'].map((h, i) => (
+                    <th key={i} className={`px-4 py-2.5 text-xs text-gray-500 font-medium ${i <= 1 ? 'text-left' : 'text-right'}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {top10.map((c, i) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2.5 text-gray-400 font-bold">{i + 1}</td>
+                    <td className="px-4 py-2.5 font-medium text-gray-900">{c.nombre}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">{c.visitas}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-blue-700">{formatCLP(c.ingresos)}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-500">{totalIngresosPeriodo ? `${Math.round(c.ingresos * 100 / totalIngresosPeriodo)}%` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
+
+      {/* Más frecuentes */}
+      {frecuentes.length > 0 && (
+        <Section title="Clientes más frecuentes (por N° de visitas)">
+          <GraficoBarrasNum
+            data={frecuentes.slice(0, 8).map(c => ({ name: c.nombre.split(' ').slice(0, 2).join(' '), value: c.visitas }))}
+            dataKey="value"
+            nameKey="name"
+            height={200}
+          />
+        </Section>
+      )}
+
+      {/* Clientes nuevos */}
+      {nuevosList.length > 0 && (
+        <Section title={`Clientes nuevos en el período (${nuevosList.length})`}>
+          <Tabla
+            headers={['Nombre', 'Registrado el']}
+            rows={nuevosList.slice(0, 30).map(c => [
+              c.nombre,
+              new Date(c.created_at).toLocaleDateString('es-CL'),
+            ])}
+          />
+        </Section>
+      )}
+
+      {nuevosList.length === 0 && clientesActivosPeriodo === 0 && (
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-10 text-center">
+          <p className="text-gray-400 text-sm">No hay datos de clientes para el período seleccionado.</p>
+        </div>
+      )}
+
     </div>
   )
 }
@@ -1411,7 +2351,7 @@ export default async function InformesPage({
   const soloUserId     = soloPropios ? user!.id : undefined
 
   // Tab por defecto según permisos
-  const defaultTab = verVentas ? 'ventas' : verRentab ? 'rentabilidad' : 'inventario'
+  const defaultTab = rolAuth === 'administrador' ? 'resumen' : verVentas ? 'ventas' : verRentab ? 'rentabilidad' : 'inventario'
   const tab = params.tab ?? defaultTab
 
   return (
@@ -1435,6 +2375,7 @@ export default async function InformesPage({
       </div>
 
       <Suspense fallback={<div className="text-center py-16 text-gray-400 text-sm">Cargando datos...</div>}>
+        {tab === 'resumen'      && <TabResumen       desde={desde} hasta={hasta} />}
         {tab === 'ventas'       && verVentas  && <TabVentas       desde={desde} hasta={hasta} />}
         {tab === 'taller'       && <TabTaller        desde={desde} hasta={hasta} />}
         {tab === 'inventario'   && <TabInventario    desde={desde} hasta={hasta} />}
@@ -1443,6 +2384,8 @@ export default async function InformesPage({
         {tab === 'compras'      && <TabCompras   desde={desde} hasta={hasta} />}
         {tab === 'gastos'       && <TabGastos    desde={desde} hasta={hasta} />}
         {tab === 'auditoria'    && rolAuth === 'administrador' && <TabAuditoria desde={desde} hasta={hasta} />}
+        {tab === 'equilibrio'   && <TabEquilibrio desde={desde} hasta={hasta} />}
+        {tab === 'clientes'     && <TabClientes   desde={desde} hasta={hasta} />}
         {/* Mensajes de acceso restringido */}
         {tab === 'ventas'       && !verVentas  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Ventas.</div>}
         {tab === 'rentabilidad' && !verRentab  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Rentabilidad.</div>}

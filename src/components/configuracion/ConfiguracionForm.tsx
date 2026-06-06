@@ -27,6 +27,10 @@ export default function ConfiguracionForm({ config }: Props) {
     comision_transferencia: String(config.comision_transferencia ?? 0),
     dias_garantia_default: String(config.dias_garantia_default ?? 90),
     mostrar_precio_en_presupuesto: config.mostrar_precio_en_presupuesto ?? true,
+    wa_url: config.wa_url ?? '',
+    wa_apikey: config.wa_apikey ?? '',
+    wa_instancia: config.wa_instancia ?? 'default',
+    wa_activo: config.wa_activo ?? false,
   })
 
   function set(k: string, v: string | boolean) { setForm(f => ({ ...f, [k]: v })) }
@@ -48,6 +52,10 @@ export default function ConfiguracionForm({ config }: Props) {
       comision_transferencia: parseFloat(form.comision_transferencia) || 0,
       dias_garantia_default: parseInt(form.dias_garantia_default) || 90,
       mostrar_precio_en_presupuesto: form.mostrar_precio_en_presupuesto,
+      wa_url: form.wa_url.trim() || null,
+      wa_apikey: form.wa_apikey.trim() || null,
+      wa_instancia: form.wa_instancia.trim() || 'default',
+      wa_activo: form.wa_activo,
     }).eq('id', config.id)
 
     if (error) { toast.error(error.message); setLoading(false); return }
@@ -139,6 +147,62 @@ export default function ConfiguracionForm({ config }: Props) {
             <Input type="number" step="0.01" min={0} max={10} value={form.comision_transferencia} onChange={e => set('comision_transferencia', e.target.value)} />
           </div>
         </div>
+      </div>
+
+      {/* WhatsApp API */}
+      <div className="bg-white rounded-xl border p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-800">Mensajería WhatsApp</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Notificaciones automáticas a clientes y proveedores via Evolution API</p>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.wa_activo}
+              onChange={e => set('wa_activo', e.target.checked)}
+              className="w-4 h-4 accent-green-600"
+            />
+            <span className={`text-sm font-semibold ${form.wa_activo ? 'text-green-600' : 'text-gray-400'}`}>
+              {form.wa_activo ? 'Activo' : 'Inactivo'}
+            </span>
+          </label>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label>URL del servidor (Render)</Label>
+            <Input
+              value={form.wa_url}
+              onChange={e => set('wa_url', e.target.value)}
+              placeholder="https://mi-whatsapp.onrender.com"
+              disabled={!form.wa_activo}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>API Key</Label>
+            <Input
+              type="password"
+              value={form.wa_apikey}
+              onChange={e => set('wa_apikey', e.target.value)}
+              placeholder="••••••••••••••••"
+              disabled={!form.wa_activo}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Nombre de instancia</Label>
+            <Input
+              value={form.wa_instancia}
+              onChange={e => set('wa_instancia', e.target.value)}
+              placeholder="default"
+              disabled={!form.wa_activo}
+            />
+          </div>
+        </div>
+        {form.wa_activo && (
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            ⚠ Asegúrate de que el servidor Evolution API en Render esté corriendo y tenga el QR escaneado antes de activar.
+          </p>
+        )}
       </div>
 
       <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loading}>

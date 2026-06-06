@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatCLP } from '@/lib/calculations'
+import { soundAbono, soundError } from '@/lib/sounds'
 
 const METODOS = [
   { value: 'efectivo',      label: '💵 Efectivo' },
@@ -34,6 +35,22 @@ export default function AbonoOTForm({ otId, numeroOt, precioServicio, depositos 
   const [metodo, setMetodo] = useState('efectivo')
   const [nota, setNota] = useState('')
   const [saving, setSaving] = useState(false)
+  // eliminación con razón
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+  const [razonElim, setRazonElim] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function eliminarAbono(id: string, montoAbono: number) {
+    if (!razonElim.trim()) { toast.error('Debes indicar la razón'); return }
+    setDeletingId(id)
+    const { error } = await supabase.from('repair_deposits').delete().eq('id', id)
+    if (error) { toast.error('Error al eliminar: ' + error.message); setDeletingId(null); return }
+    toast.success(`Abono de ${formatCLP(montoAbono)} eliminado — ${razonElim}`)
+    setEliminandoId(null)
+    setRazonElim('')
+    setDeletingId(null)
+    router.refresh()
+  }
 
   const totalAbonado = depositos.reduce((s, d) => s + d.monto, 0)
   const saldoPendiente = precioServicio ? Math.max(0, precioServicio - totalAbonado) : null
@@ -48,7 +65,8 @@ export default function AbonoOTForm({ otId, numeroOt, precioServicio, depositos 
       metodo_pago: metodo,
       nota: nota.trim() || null,
     })
-    if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
+    if (error) { soundError(); toast.error('Error: ' + error.message); setSaving(false); return }
+    soundAbono()
     toast.success(`Abono de ${formatCLP(montoNum)} registrado`)
     setMonto(''); setNota(''); setOpen(false)
     router.refresh()
@@ -121,13 +139,52 @@ export default function AbonoOTForm({ otId, numeroOt, precioServicio, depositos 
       {depositos.length > 0 ? (
         <div className="space-y-1.5">
           {depositos.map(d => (
-            <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
-              <div>
-                <span className="font-semibold text-gray-800">{formatCLP(d.monto)}</span>
-                <span className="text-gray-400 text-xs ml-2">{METODOS.find(m => m.value === d.metodo_pago)?.label ?? d.metodo_pago}</span>
-                {d.nota && <span className="text-gray-500 text-xs ml-2">· {d.nota}</span>}
+            <div key={d.id} className="bg-gray-50 rounded-lg px-3 py-2 space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <div>
+                  <span className="font-semibold text-gray-800">{formatCLP(d.monto)}</span>
+                  <span className="text-gray-400 text-xs ml-2">{METODOS.find(m => m.value === d.metodo_pago)?.label ?? d.metodo_pago}</span>
+                  {d.nota && <span className="text-gray-500 text-xs ml-2">· {d.nota}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">{new Date(d.created_at).toLocaleDateString('es-CL')}</span>
+                  {eliminandoId !== d.id && (
+                    <button
+                      onClick={() => { setEliminandoId(d.id); setRazonElim('') }}
+                      className="text-red-400 hover:text-red-600 text-xs px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors"
+                      title="Eliminar abono"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
               </div>
-              <span className="text-xs text-gray-400">{new Date(d.created_at).toLocaleDateString('es-CL')}</span>
+              {eliminandoId === d.id && (
+                <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Razón de eliminación..."
+                    value={razonElim}
+                    onChange={e => setRazonElim(e.target.value)}
+                    onKeyDown={e => e.key === 'Escape' && setEliminandoId(null)}
+                    className="flex-1 min-w-0 border border-red-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-red-400"
+                  />
+                  <button
+                    onClick={() => eliminarAbono(d.id, d.monto)}
+                    disabled={!razonElim.trim() || deletingId === d.id}
+                    className="text-xs bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-2.5 py-1 rounded transition-colors"
+                  >
+                    {deletingId === d.id ? '...' : 'Confirmar'}
+                  </button>
+                  <button
+                    onClick={() => { setEliminandoId(null); setRazonElim('') }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
             </div>
           ))}
           {!precioServicio && (

@@ -6,9 +6,13 @@ import { Button } from '@/components/ui/button'
 import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
 import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
 import RepuestosOT from '@/components/reparaciones/RepuestosOT'
-import AplicarServicioButton from '@/components/servicios/AplicarServicioButton'
+import ServiciosAplicadosOT from '@/components/reparaciones/ServiciosAplicadosOT'
 import AbonoOTForm from '@/components/reparaciones/AbonoOTForm'
+import ClaveDispositivoOT from '@/components/reparaciones/ClaveDispositivoOT'
+import DescuentoOT from '@/components/reparaciones/DescuentoOT'
 import { Customer, Equipment, RepairOrder, RepairStatusHistory, UserProfile } from '@/types'
+import { labelTipoEquipo } from '@/lib/tipoEquipo'
+import EtiquetaTermica from '@/components/reparaciones/EtiquetaTermica'
 
 const ESTADO_INFO: Record<string, { label: string; color: string }> = {
   recibido:           { label: 'Recibido',           color: 'bg-gray-100 text-gray-700' },
@@ -32,7 +36,7 @@ type OTDetalle = RepairOrder & {
 }
 
 const descEquipo = (eq: OTDetalle['equipment']) =>
-  [eq?.tipo_equipo ? eq.tipo_equipo.charAt(0).toUpperCase() + eq.tipo_equipo.slice(1) : '', eq?.marca, eq?.modelo].filter(Boolean).join(' ')
+  [labelTipoEquipo(eq?.tipo_equipo), eq?.marca, eq?.modelo].filter(Boolean).join(' ')
 
 type HistorialItem = RepairStatusHistory & {
   user_profiles: Pick<UserProfile, 'nombre_completo'> | null
@@ -56,7 +60,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
 
   const [{ data: ot }, { data: historial }, { data: config }, { data: repuestos }, { data: depositos }] = await Promise.all([
     supabase.from('repair_orders')
-      .select('*, customers(*), equipment(*), user_profiles(nombre_completo)')
+      .select('*, customers(*), equipment(*), user_profiles(nombre_completo), clave_dispositivo')
       .eq('id', id)
       .single(),
     supabase.from('repair_status_history')
@@ -65,7 +69,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
       .order('created_at', { ascending: false }),
     supabase.from('system_config').select('*').single(),
     supabase.from('repair_items')
-      .select('id, nombre, cantidad, precio_costo, costo_envio, product_id')
+      .select('id, nombre, cantidad, precio_costo, precio_venta, costo_envio, product_id')
       .eq('repair_order_id', id)
       .order('created_at'),
     supabase.from('repair_deposits')
@@ -79,7 +83,11 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
   const otDetalle = ot as OTDetalle
   const historialItems: HistorialItem[] = (historial ?? []) as HistorialItem[]
 
-  const estado = ESTADO_INFO[otDetalle.estado] ?? { label: otDetalle.estado, color: 'bg-gray-100 text-gray-700' }
+  const resultadoOT = (otDetalle as RepairOrder & { resultado?: string }).resultado
+  const noReparado = resultadoOT === 'no_exitosa' && (otDetalle.estado === 'listo' || otDetalle.estado === 'entregado')
+  const estado = noReparado
+    ? { label: 'Listo — sin reparación', color: 'bg-orange-100 text-orange-700' }
+    : (ESTADO_INFO[otDetalle.estado] ?? { label: otDetalle.estado, color: 'bg-gray-100 text-gray-700' })
   const equipo = otDetalle.equipment
   const cliente = otDetalle.customers
 
@@ -113,7 +121,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         </div>
 
         <div className="flex flex-col gap-2 items-end">
-          {/* Botones de cobro */}
+          {/* Cobrar en caja (solo cuando está listo) */}
           {(otDetalle.estado === 'listo' || otDetalle.estado === 'para_entrega') && (
             <Link href={`/caja/venta-directa?ot=${otDetalle.id}`}>
               <Button className="bg-green-600 hover:bg-green-700 gap-1.5">
@@ -121,20 +129,63 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
               </Button>
             </Link>
           )}
-          <AplicarServicioButton otId={otDetalle.id} />
-          <Link href={`/servicios/nuevo?returnTo=/reparaciones/${otDetalle.id}`}>
-            <Button variant="outline" size="sm" className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50">
-              ➕ Crear servicio
-            </Button>
-          </Link>
-          <Link href={`/reparaciones/${otDetalle.id}/editar`}>
-            <Button variant="outline" size="sm" className="gap-1.5 text-gray-600 border-gray-300 hover:bg-gray-50">
-              ✏️ Editar OT
-            </Button>
-          </Link>
-          <CambiarEstadoOT otId={otDetalle.id} estadoActual={otDetalle.estado} />
+          {/* Editar OT + Cambiar estado en la misma fila */}
+          <div className="flex items-center gap-2">
+            <Link href={`/reparaciones/${otDetalle.id}/editar`}>
+              <Button variant="outline" size="sm" className="gap-1.5 text-gray-600 border-gray-300 hover:bg-gray-50">
+                ✏️ Editar OT
+              </Button>
+            </Link>
+            <CambiarEstadoOT
+              otId={otDetalle.id}
+              estadoActual={otDetalle.estado}
+              fechaEntrega={otDetalle.fecha_entrega ?? null}
+              otNumero={otDetalle.numero_ot}
+              clienteTelefono={otDetalle.customers?.telefono}
+              clienteNombre={otDetalle.customers?.nombre}
+              equipoDesc={descEquipo(otDetalle.equipment)}
+              nombreLocal={(config as unknown as Record<string,unknown>)?.nombre_local as string ?? undefined}
+            />
+          </div>
         </div>
       </div>
+
+      {/* Banner de advertencia: equipo sin reparar */}
+      {noReparado && (
+        <div className="bg-orange-50 border border-orange-300 rounded-xl px-4 py-3 flex items-center gap-3">
+          <span className="text-2xl shrink-0">⚠️</span>
+          <div>
+            <p className="font-bold text-orange-800">Equipo sin reparación</p>
+            <p className="text-sm text-orange-700">Este equipo está listo para retiro pero NO fue reparado. Informar al cliente antes de la entrega.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Banner de vencimiento */}
+      {(() => {
+        const estadosFinales = new Set(['entregado', 'cancelado', 'en_garantia', 'rechazado'])
+        const fe = otDetalle.fecha_estimada_entrega
+        if (!fe || estadosFinales.has(otDetalle.estado)) return null
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+        const fEntrega = new Date(fe + 'T00:00:00')
+        const diffDias = Math.ceil((fEntrega.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
+        if (diffDias > 1) return null
+        const vencida = diffDias < 0
+        return (
+          <div className={`border rounded-xl px-4 py-3 flex items-center gap-3 ${vencida ? 'bg-red-50 border-red-300' : 'bg-amber-50 border-amber-300'}`}>
+            <span className="text-2xl shrink-0">{vencida ? '🔴' : '🟡'}</span>
+            <div>
+              <p className={`font-bold ${vencida ? 'text-red-800' : 'text-amber-800'}`}>
+                {vencida ? `⏰ Entrega vencida hace ${Math.abs(diffDias)} día(s)` : 'Entrega prometida: HOY'}
+              </p>
+              <p className={`text-sm ${vencida ? 'text-red-700' : 'text-amber-700'}`}>
+                Fecha prometida: {fEntrega.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}.
+                {' '}Considera actualizar la fecha o notificar al cliente.
+              </p>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Link a manuales del equipo */}
       {equipo && (
@@ -157,12 +208,26 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
               Link de seguimiento: <span className="font-mono">/seguimiento/{otDetalle.codigo_seguimiento}</span>
             </p>
           </div>
-          <OTBotonesCompartir
-            ot={otDetalle as Parameters<typeof OTBotonesCompartir>[0]['ot']}
-            config={configShare}
-            baseUrl={baseUrl}
-            mostrarTecnico={mostrarTecnico}
-          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <EtiquetaTermica
+              ot={otDetalle}
+              cliente={{ nombre: cliente?.nombre ?? '', telefono: cliente?.telefono ?? '' }}
+              equipo={{
+                tipo_equipo: equipo?.tipo_equipo ?? null,
+                marca: equipo?.marca ?? '',
+                modelo: equipo?.modelo ?? '',
+                falla_reportada: equipo?.falla_reportada ?? null,
+              }}
+              config={{ nombre_local: config?.nombre_local ?? 'TechRepair Pro', telefono: config?.telefono ?? null }}
+              baseUrl={baseUrl}
+            />
+            <OTBotonesCompartir
+              ot={otDetalle as Parameters<typeof OTBotonesCompartir>[0]['ot']}
+              config={configShare}
+              baseUrl={baseUrl}
+              mostrarTecnico={mostrarTecnico}
+            />
+          </div>
         </div>
       </div>
 
@@ -206,6 +271,14 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
               <span className="text-gray-500">Tipo</span>
               <span className="font-medium capitalize">{otDetalle.tipo_reparacion ?? '—'}</span>
             </div>
+            {otDetalle.fecha_estimada_entrega && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Entrega prometida</span>
+                <span className="font-medium text-blue-700">
+                  {new Date(otDetalle.fecha_estimada_entrega + 'T00:00:00').toLocaleDateString('es-CL')}
+                </span>
+              </div>
+            )}
             {otDetalle.presupuesto_estimado ? (
               <div className="flex justify-between">
                 <span className="text-gray-500">Presupuesto</span>
@@ -255,6 +328,19 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
+      {/* Clave del dispositivo */}
+      <ClaveDispositivoOT
+        otId={otDetalle.id}
+        claveInicial={(otDetalle as RepairOrder & { clave_dispositivo?: { tipo: 'patron' | 'pin' | 'texto'; valor: string; notas?: string } | null }).clave_dispositivo}
+      />
+
+      {/* Descuento */}
+      <DescuentoOT
+        otId={otDetalle.id}
+        precioServicio={otDetalle.precio_servicio ?? null}
+        descuentoInicial={(otDetalle as RepairOrder & { descuento?: number }).descuento ?? 0}
+      />
+
       {/* Abonos */}
       <AbonoOTForm
         otId={otDetalle.id}
@@ -263,9 +349,13 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         depositos={(depositos ?? []) as { id: string; monto: number; metodo_pago: string; nota: string | null; created_at: string }[]}
       />
 
+      {/* Servicios aplicados */}
+      <ServiciosAplicadosOT otId={otDetalle.id} />
+
       {/* Repuestos */}
       <RepuestosOT
         otId={otDetalle.id}
+        otNumero={otDetalle.numero_ot}
         repuestosIniciales={(repuestos ?? []) as RepuestoItem[]}
       />
 

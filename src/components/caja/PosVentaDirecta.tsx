@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { labelTipoEquipo } from '@/lib/tipoEquipo'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
@@ -15,8 +16,9 @@ import { imprimirTicketVenta, TICKET_FORMATOS, TicketFormato, TicketVentaData, T
 import { Customer, Product } from '@/types'
 import QRScanner from '@/components/shared/QRScanner'
 import { parseProductoQR } from '@/components/shared/ProductoQRCode'
+import { soundVenta, soundError } from '@/lib/sounds'
 
-interface ItemCarrito { product: Product; cantidad: number }
+interface ItemCarrito { product: Product; cantidad: number; precioCustom?: number }
 
 interface ItemServicioOT {
   id: string
@@ -37,14 +39,20 @@ interface OTListaItem {
 }
 
 function descEquipo(eq: OTListaItem['equipment']): string {
-  const tipo = eq?.tipo_equipo
-  const tipoCapit = tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1) : ''
-  return [tipoCapit, eq?.marca, eq?.modelo].filter(Boolean).join(' ')
+  return [labelTipoEquipo(eq?.tipo_equipo), eq?.marca, eq?.modelo].filter(Boolean).join(' ')
+}
+
+interface ServicioRapido {
+  id: string
+  nombre: string
+  precio_base: number
+  tipo_reparacion: string
 }
 
 interface Props {
   productos: Product[]
   clientes: Pick<Customer, 'id' | 'nombre' | 'telefono' | 'rut'>[]
+  servicios?: ServicioRapido[]
   IVA: number
   PPM: number
   comisionDebito: number
@@ -55,7 +63,7 @@ interface Props {
 
 const METODO_LABELS = { efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia', debito: '💳 Débito', credito: '💳 Crédito' }
 
-export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisionDebito, comisionCredito, otPreload, ticketConfig }: Props) {
+export default function PosVentaDirecta({ productos, clientes, servicios = [], IVA, PPM, comisionDebito, comisionCredito, otPreload, ticketConfig }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [clientesList, setClientesList] = useState(clientes)
@@ -76,6 +84,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     notas: '',
   })
   const [carrito, setCarrito] = useState<ItemCarrito[]>([])
+  const [serviciosRapidos, setServiciosRapidos] = useState<ServicioRapido[]>([])
   const [productosExtra, setProductosExtra] = useState<Product[]>([])
   const [modalNuevoProd, setModalNuevoProd] = useState(false)
   const [categoriasDisp, setCategoriasDisp] = useState<{ id: string; nombre: string }[]>([])
@@ -90,6 +99,8 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const [busqueda, setBusqueda] = useState('')
   const [showScanner, setShowScanner] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [venderSinStock, setVenderSinStock] = useState(false)
+  const [productosExtra2, setProductosExtra2] = useState<Product[]>([]) // sin stock cargados
   // Descuento
   const [descuentoInput, setDescuentoInput] = useState('')
   const [tipoDescuento, setTipoDescuento] = useState<'monto' | 'pct'>('monto')
@@ -140,15 +151,40 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     setNpSaving(false)
   }
 
+  async function toggleSinStock() {
+    const nuevo = !venderSinStock
+    setVenderSinStock(nuevo)
+    if (nuevo && productosExtra2.length === 0) {
+      // Cargar todos los productos activos incluyendo sin stock
+      const { data } = await supabase.from('products').select('*, product_categories(*)').eq('activo', true).order('nombre')
+      setProductosExtra2((data ?? []) as Product[])
+    }
+  }
+
   const q = busqueda.toLowerCase().trim()
-  const productosTodos = [...productos, ...productosExtra]
-  const productosFiltrados = productosTodos.filter(p =>
-    p.stock_actual > 0 && (
-      p.nombre.toLowerCase().includes(q) ||
-      (p.sku && p.sku.toLowerCase().includes(q)) ||
-      (p.codigo_barras && p.codigo_barras.includes(busqueda.trim()))
-    )
-  )
+  const productosTodos = venderSinStock
+    ? [...productosExtra2, ...productosExtra].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
+    : [...productos, ...productosExtra]
+
+  const productosFiltrados = q ? productosTodos.filter(p =>
+    p.nombre.toLowerCase().includes(q) ||
+    (p.sku && p.sku.toLowerCase().includes(q)) ||
+    (p.codigo_barras && p.codigo_barras.includes(busqueda.trim()))
+  ) : []
+
+  const serviciosFiltrados = q ? servicios.filter(s =>
+    s.nombre.toLowerCase().includes(q) ||
+    s.tipo_reparacion.toLowerCase().includes(q)
+  ) : []
+
+  function agregarServicio(s: ServicioRapido) {
+    if (!serviciosRapidos.find(x => x.id === s.id)) {
+      setServiciosRapidos(prev => [...prev, s])
+    }
+    setBusqueda('')
+  }
+
+  function quitarServicio(id: string) { setServiciosRapidos(s => s.filter(x => x.id !== id)) }
 
   function agregarProducto(p: Product) {
     setCarrito(c => {
@@ -166,6 +202,21 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   }
 
   function quitarItem(id: string) { setCarrito(c => c.filter(i => i.product.id !== id)) }
+
+  function actualizarPrecioProducto(id: string, valor: string) {
+    const n = parseInt(valor.replace(/\D/g, '')) || 0
+    setCarrito(c => c.map(i => i.product.id === id ? { ...i, precioCustom: n } : i))
+  }
+
+  function actualizarPrecioServicio(id: string, valor: string) {
+    const n = parseInt(valor.replace(/\D/g, '')) || 0
+    setServiciosRapidos(s => s.map(sv => sv.id === id ? { ...sv, precio_base: n } : sv))
+  }
+
+  function actualizarPrecioOT(id: string, valor: string) {
+    const n = parseInt(valor.replace(/\D/g, '')) || 0
+    setServiciosOT(s => s.map(ot => ot.id === id ? { ...ot, precio: n } : ot))
+  }
 
   // Precargar OT desde URL param
   useEffect(() => {
@@ -222,51 +273,67 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
 
   function quitarOT(id: string) { setServiciosOT(s => s.filter(ot => ot.id !== id)) }
 
-  function handleQRScan(value: string) {
+  async function handleQRScan(value: string) {
     setShowScanner(false)
-    // 1. Intentar QR interno (TR:P:{uuid})
+    const productosTodos = [...productos, ...productosExtra]
+
+    const checkStock = (p: Product) => {
+      if (venderSinStock) return true
+      if (p.stock_actual <= 0) { toast.error(`${p.nombre} sin stock`); return false }
+      return true
+    }
+
+    // 1. QR interno (TR:P:{uuid})
     const productId = parseProductoQR(value)
     if (productId) {
-      const producto = productos.find(p => p.id === productId)
+      const producto = productosTodos.find(p => p.id === productId)
       if (!producto) { toast.error('Producto no encontrado'); return }
-      if (producto.stock_actual <= 0) { toast.error(`${producto.nombre} sin stock`); return }
+      if (!checkStock(producto)) return
       agregarProducto(producto)
       toast.success(`${producto.nombre} agregado`)
       return
     }
-    // 2. Buscar por código de barras EAN-13 / Code128 del producto
-    const porBarcode = productos.find(p =>
-      p.codigo_barras && p.codigo_barras.trim() === value.trim()
+
+    const v = value.trim()
+
+    // 2. Buscar en lista local: código de barras, SKU, IMEI
+    const local = productosTodos.find(p =>
+      (p.codigo_barras && p.codigo_barras.trim() === v) ||
+      (p.sku && p.sku.trim().toLowerCase() === v.toLowerCase()) ||
+      p.imei === v || p.numero_serie === v
     )
-    if (porBarcode) {
-      if (porBarcode.stock_actual <= 0) { toast.error(`${porBarcode.nombre} sin stock`); return }
-      agregarProducto(porBarcode)
-      toast.success(`${porBarcode.nombre} agregado`)
+    if (local) {
+      if (!checkStock(local)) return
+      agregarProducto(local)
+      toast.success(`${local.nombre} agregado`)
       return
     }
-    // 3. Buscar por SKU interno
-    const porSku = productos.find(p =>
-      p.sku && p.sku.trim().toLowerCase() === value.trim().toLowerCase()
-    )
-    if (porSku) {
-      if (porSku.stock_actual <= 0) { toast.error(`${porSku.nombre} sin stock`); return }
-      agregarProducto(porSku)
-      toast.success(`${porSku.nombre} agregado`)
+
+    // 3. Fallback: buscar en DB
+    const { data: dbResult } = await supabase
+      .from('products')
+      .select('*')
+      .or(`codigo_barras.eq.${v},sku.eq.${v}`)
+      .eq('activo', true)
+      .limit(1)
+      .maybeSingle()
+
+    if (dbResult) {
+      const prod = dbResult as Product
+      if (!checkStock(prod)) return
+      setProductosExtra(prev => prev.some(p => p.id === prod.id) ? prev : [...prev, prod])
+      agregarProducto(prod)
+      toast.success(`${prod.nombre} agregado`)
       return
     }
-    // 4. Buscar por IMEI / N° serie
-    const porImei = productos.find(p => p.imei === value || p.numero_serie === value)
-    if (porImei) {
-      agregarProducto(porImei)
-      toast.success(`${porImei.nombre} agregado`)
-      return
-    }
-    toast.error(`Código "${value.slice(0, 20)}…" no encontrado — asigna el código de barras al producto en Inventario`)
+
+    toast.error(`Código no encontrado. Asigna el código de barras al producto en Inventario → Editar producto.`)
   }
 
-  const subtotalProductos = carrito.reduce((s, i) => s + i.product.precio_venta * i.cantidad, 0)
+  const subtotalProductos = carrito.reduce((s, i) => s + (i.precioCustom ?? i.product.precio_venta) * i.cantidad, 0)
   const subtotalOTs = serviciosOT.reduce((s, ot) => s + ot.precio, 0)
-  const subtotal = subtotalProductos + subtotalOTs
+  const subtotalServiciosRapidos = serviciosRapidos.reduce((s, sv) => s + sv.precio_base, 0)
+  const subtotal = subtotalProductos + subtotalOTs + subtotalServiciosRapidos
   // Descuento
   const descuentoNum = parseFloat(descuentoInput) || 0
   const descuentoFinal = tipoDescuento === 'pct' ? Math.round(subtotal * descuentoNum / 100) : Math.round(descuentoNum)
@@ -333,7 +400,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
   const totalFinal = totalFinalConDesc
 
   async function handleVenta() {
-    if (!carrito.length && !serviciosOT.length) { toast.error('Agrega al menos un producto u OT'); return }
+    if (!carrito.length && !serviciosOT.length && !serviciosRapidos.length) { toast.error('Agrega al menos un producto, servicio u OT'); return }
     setLoading(true)
 
     const tipoVenta = serviciosOT.length > 0 && carrito.length === 0 ? 'reparacion' : 'directa'
@@ -354,17 +421,20 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       usuario_id: currentUser?.id ?? null,
     }).select().single()
 
-    if (ve) { toast.error('Error al crear venta: ' + ve.message); setLoading(false); return }
+    if (ve) { soundError(); toast.error('Error al crear venta: ' + ve.message); setLoading(false); return }
 
-    const items = carrito.map(i => ({
-      sale_id: venta.id,
-      product_id: i.product.id,
-      nombre: i.product.nombre,
-      cantidad: i.cantidad,
-      precio_unitario: i.product.precio_venta,
-      precio_costo: (i.product.precio_costo ?? 0) + (i.product.costo_envio ?? 0),
-      subtotal: i.product.precio_venta * i.cantidad,
-    }))
+    const items = carrito.map(i => {
+      const pu = i.precioCustom ?? i.product.precio_venta
+      return {
+        sale_id: venta.id,
+        product_id: i.product.id,
+        nombre: i.product.nombre,
+        cantidad: i.cantidad,
+        precio_unitario: pu,
+        precio_costo: (i.product.precio_costo ?? 0) + (i.product.costo_envio ?? 0),
+        subtotal: pu * i.cantidad,
+      }
+    })
 
     await supabase.from('sale_items').insert(items)
 
@@ -381,6 +451,20 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
         referencia_id: venta.id,
         referencia_tipo: 'sale',
       })
+    }
+
+    // Items de servicios rápidos (del catálogo)
+    if (serviciosRapidos.length > 0) {
+      const svItems = serviciosRapidos.map(sv => ({
+        sale_id: venta.id,
+        product_id: null,
+        nombre: sv.nombre,
+        cantidad: 1,
+        precio_unitario: sv.precio_base,
+        precio_costo: 0,
+        subtotal: sv.precio_base,
+      }))
+      await supabase.from('sale_items').insert(svItems)
     }
 
     // Items de servicios OT
@@ -409,19 +493,25 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
           estado_anterior: 'listo',
           estado_nuevo: 'entregado',
           comentario: `Cobrado en venta ${venta.numero_venta}`,
+          usuario_id: currentUser?.id ?? null,
         })
       }
     }
 
+    soundVenta()
     toast.success(`Venta ${venta.numero_venta} registrada — ${formatCLP(totalFinal)}`)
 
     // Preparar datos del ticket antes de limpiar
     const ticketItems = [
-      ...carrito.map(i => ({
-        nombre: i.product.nombre,
-        cantidad: i.cantidad,
-        precio_unitario: i.product.precio_venta,
-        subtotal: i.product.precio_venta * i.cantidad,
+      ...carrito.map(i => {
+        const pu = i.precioCustom ?? i.product.precio_venta
+        return { nombre: i.product.nombre, cantidad: i.cantidad, precio_unitario: pu, subtotal: pu * i.cantidad }
+      }),
+      ...serviciosRapidos.map(sv => ({
+        nombre: sv.nombre,
+        cantidad: 1,
+        precio_unitario: sv.precio_base,
+        subtotal: sv.precio_base,
       })),
       ...serviciosOT.map(ot => ({
         nombre: `Servicio técnico ${ot.numero_ot} — ${ot.equipo}`,
@@ -448,6 +538,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     // Limpiar todo el POS para la siguiente venta
     setCarrito([])
     setServiciosOT([])
+    setServiciosRapidos([])
     setClienteId('')
     setBusqueda('')
     setDescuentoInput('')
@@ -499,6 +590,12 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
             className="w-full py-2.5 rounded-xl border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors"
           >
             + Nueva venta
+          </button>
+          <button
+            onClick={() => { window.location.href = '/caja' }}
+            className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+          >
+            ← Volver a Caja
           </button>
         </div>
       </div>
@@ -594,23 +691,29 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
               </div>
             ) : (
               <div className="divide-y">
-                {otsFiltradas.map(ot => (
-                  <button key={ot.id} onClick={() => { agregarOT(ot); setShowImportOT(false) }}
-                    className="w-full text-left px-5 py-3 hover:bg-blue-50 transition-colors flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-mono font-semibold text-sm text-gray-900">{ot.numero_ot}</p>
-                        <span className="text-xs text-gray-400">{ot.created_at.split('T')[0]}</span>
+                {otsFiltradas.map(ot => {
+                  const yaEnCobro = serviciosOT.some(s => s.id === ot.id)
+                  return (
+                    <button key={ot.id}
+                      disabled={yaEnCobro}
+                      onClick={() => { if (!yaEnCobro) { agregarOT(ot); setShowImportOT(false) } }}
+                      className={`w-full text-left px-5 py-3 flex items-center justify-between gap-3 transition-colors ${yaEnCobro ? 'bg-green-50 cursor-not-allowed opacity-70' : 'hover:bg-blue-50'}`}>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono font-semibold text-sm text-gray-900">{ot.numero_ot}</p>
+                          <span className="text-xs text-gray-400">{ot.created_at.split('T')[0]}</span>
+                          {yaEnCobro && <span className="text-xs bg-green-100 text-green-700 font-semibold px-1.5 py-0.5 rounded-full">✓ Ya en cobro</span>}
+                        </div>
+                        <p className="text-sm text-gray-700 truncate">{ot.customers?.nombre ?? '—'}</p>
+                        <p className="text-xs text-gray-500">{descEquipo(ot.equipment)}</p>
                       </div>
-                      <p className="text-sm text-gray-700 truncate">{ot.customers?.nombre ?? '—'}</p>
-                      <p className="text-xs text-gray-500">{descEquipo(ot.equipment)}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold text-blue-700 text-sm">{formatCLP(ot.precio_servicio ?? ot.presupuesto_estimado ?? 0)}</p>
-                      <p className="text-xs text-green-600">Listo ✓</p>
-                    </div>
-                  </button>
-                ))}
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-blue-700 text-sm">{formatCLP(ot.precio_servicio ?? ot.presupuesto_estimado ?? 0)}</p>
+                        <p className="text-xs text-green-600">Listo ✓</p>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -622,9 +725,20 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
       {/* Buscador de productos */}
       <div className="lg:col-span-3 space-y-3">
         <div className="bg-white rounded-xl border p-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-base font-semibold">Buscar producto</Label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={toggleSinStock}
+                className={`flex items-center gap-1.5 text-xs border rounded-lg px-3 py-1.5 transition-colors font-medium ${
+                  venderSinStock
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'text-amber-600 border-amber-300 hover:bg-amber-50'
+                }`}
+              >
+                📦 {venderSinStock ? 'Sin stock: ON' : 'Sin stock'}
+              </button>
               <button
                 type="button"
                 onClick={abrirImportOT}
@@ -633,10 +747,10 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
                 🔧 Importar OT
               </button>
               <button
-              type="button"
-              onClick={() => setShowScanner(true)}
-              className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors"
-            >
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors"
+              >
                 📷 Escanear código
               </button>
             </div>
@@ -648,8 +762,8 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
             autoFocus
           />
           {busqueda && (
-            <div className="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
-              {productosFiltrados.length === 0 ? (
+            <div className="border rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+              {productosFiltrados.length === 0 && serviciosFiltrados.length === 0 ? (
                 <div className="text-center py-4 space-y-2">
                   <p className="text-gray-400 text-sm">Sin resultados para &quot;{busqueda}&quot;</p>
                   <button
@@ -661,22 +775,75 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
                   </button>
                 </div>
               ) : (
-                productosFiltrados.map(p => (
-                  <button key={p.id} onClick={() => agregarProducto(p)}
-                    className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b last:border-0 transition-colors">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{p.nombre}</p>
-                        <p className="text-xs text-gray-400">Stock: {p.stock_actual}</p>
+                <>
+                  {serviciosFiltrados.map(s => (
+                    <button key={s.id} onClick={() => agregarServicio(s)}
+                      className="w-full text-left px-4 py-3 border-b last:border-0 hover:bg-purple-50 transition-colors bg-purple-50/40">
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{s.nombre}</p>
+                          <span className="text-xs text-purple-600 font-medium">🔩 Servicio</span>
+                        </div>
+                        <p className="font-bold text-purple-700 shrink-0">{formatCLP(s.precio_base)}</p>
                       </div>
-                      <p className="font-bold text-blue-700">{formatCLP(p.precio_venta)}</p>
-                    </div>
-                  </button>
-                ))
+                    </button>
+                  ))}
+                  {productosFiltrados.map(p => (
+                    <button key={p.id} onClick={() => agregarProducto(p)}
+                      className={`w-full text-left px-4 py-3 border-b last:border-0 transition-colors ${p.stock_actual <= 0 ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-blue-50'}`}>
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{p.nombre}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {p.stock_actual <= 0
+                              ? <span className="text-xs font-medium text-amber-600">⚠ Sin stock</span>
+                              : <span className="text-xs text-gray-400">Stock: {p.stock_actual}</span>
+                            }
+                            {p.sku && <span className="text-xs text-gray-400">{p.sku}</span>}
+                          </div>
+                        </div>
+                        <p className="font-bold text-blue-700 shrink-0">{formatCLP(p.precio_venta)}</p>
+                      </div>
+                    </button>
+                  ))}
+                </>
               )}
             </div>
           )}
         </div>
+
+        {/* Servicios rápidos del catálogo */}
+        {serviciosRapidos.length > 0 && (
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <div className="bg-purple-50 px-4 py-3 border-b">
+              <p className="font-semibold text-purple-800 text-sm">🔩 Servicios ({serviciosRapidos.length})</p>
+            </div>
+            <table className="w-full text-sm">
+              <tbody className="divide-y">
+                {serviciosRapidos.map(sv => (
+                  <tr key={sv.id}>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">{sv.nombre}</p>
+                      <p className="text-xs text-gray-500">{sv.tipo_reparacion}</p>
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={sv.precio_base}
+                        onChange={e => actualizarPrecioServicio(sv.id, e.target.value)}
+                        className="w-24 text-right border rounded-lg px-2 py-1 text-sm font-bold text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => quitarServicio(sv.id)} className="text-red-400 hover:text-red-600 text-lg">×</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Servicios OT */}
         {serviciosOT.length > 0 && (
@@ -692,7 +859,15 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
                       <p className="font-mono font-semibold text-gray-900">{ot.numero_ot}</p>
                       <p className="text-xs text-gray-500">{ot.cliente_nombre} · {ot.equipo}</p>
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-orange-700">{formatCLP(ot.precio)}</td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={ot.precio}
+                        onChange={e => actualizarPrecioOT(ot.id, e.target.value)}
+                        className="w-24 text-right border rounded-lg px-2 py-1 text-sm font-bold text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <button onClick={() => quitarOT(ot.id)} className="text-red-400 hover:text-red-600 text-lg">×</button>
                     </td>
@@ -706,7 +881,7 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
         {/* Carrito */}
         <div className="bg-white rounded-xl border overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b">
-            <p className="font-semibold text-gray-800">Productos en venta ({carrito.length + serviciosOT.length})</p>
+            <p className="font-semibold text-gray-800">Productos en venta ({carrito.length + serviciosOT.length + serviciosRapidos.length})</p>
           </div>
           {carrito.length === 0 ? (
             <p className="text-center text-gray-400 py-10 text-sm">Busca y agrega productos...</p>
@@ -722,23 +897,34 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {carrito.map(({ product: p, cantidad }) => (
-                  <tr key={p.id}>
-                    <td className="px-4 py-3 font-medium">{p.nombre}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => cambiarCantidad(p.id, -1)} className="w-6 h-6 rounded-full border hover:bg-gray-100 text-lg leading-none">−</button>
-                        <span className="w-8 text-center font-bold">{cantidad}</span>
-                        <button onClick={() => cambiarCantidad(p.id, 1)} disabled={cantidad >= p.stock_actual} className="w-6 h-6 rounded-full border hover:bg-gray-100 text-lg leading-none disabled:opacity-40">+</button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">{formatCLP(p.precio_venta)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{formatCLP(p.precio_venta * cantidad)}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => quitarItem(p.id)} className="text-red-400 hover:text-red-600 text-lg">×</button>
-                    </td>
-                  </tr>
-                ))}
+                {carrito.map(({ product: p, cantidad, precioCustom }) => {
+                  const precio = precioCustom ?? p.precio_venta
+                  return (
+                    <tr key={p.id}>
+                      <td className="px-4 py-3 font-medium text-sm">{p.nombre}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => cambiarCantidad(p.id, -1)} className="w-6 h-6 rounded-full border hover:bg-gray-100 text-lg leading-none">−</button>
+                          <span className="w-8 text-center font-bold">{cantidad}</span>
+                          <button onClick={() => cambiarCantidad(p.id, 1)} className="w-6 h-6 rounded-full border hover:bg-gray-100 text-lg leading-none">+</button>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={precio}
+                          onChange={e => actualizarPrecioProducto(p.id, e.target.value)}
+                          className="w-24 text-right border rounded-lg px-2 py-1 text-sm font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold">{formatCLP(precio * cantidad)}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => quitarItem(p.id)} className="text-red-400 hover:text-red-600 text-lg">×</button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}
@@ -968,3 +1154,4 @@ export default function PosVentaDirecta({ productos, clientes, IVA, PPM, comisio
     </>
   )
 }
+

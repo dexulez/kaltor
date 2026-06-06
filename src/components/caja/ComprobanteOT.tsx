@@ -1,6 +1,7 @@
-'use client'
+﻿'use client'
 
 import { formatCLP } from '@/lib/calculations'
+import { labelTipoEquipo } from '@/lib/tipoEquipo'
 
 const TIPO_LABELS: Record<string, string> = {
   pantalla: 'Pantalla', bateria: 'Batería', placa: 'Placa madre',
@@ -28,7 +29,7 @@ export interface ComprobanteData {
     iva_aplicado?: number | null
     customers?: { nombre: string; telefono: string; rut?: string | null; email?: string | null } | null
     equipment?: {
-      marca: string; modelo: string; color?: string | null; capacidad?: string | null
+      tipo_equipo?: string | null; marca: string; modelo: string; color?: string | null; capacidad?: string | null
       imei?: string | null; accesorios?: string[]; condicion_visual?: string[]
       falla_reportada: string
     } | null
@@ -166,7 +167,7 @@ export default function ComprobanteOT({ ot, config, totalFinal, descuento = 0 }:
           <div style={{ marginBottom: '2mm' }}>
             <div className="section-title">Equipo</div>
             <table><tbody>
-              <tr><td style={{ width: '35%' }}><strong>Equipo:</strong></td><td><strong>{ot.equipment?.marca} {ot.equipment?.modelo}</strong></td></tr>
+              <tr><td style={{ width: '35%' }}><strong>Equipo:</strong></td><td><strong>{[labelTipoEquipo(ot.equipment?.tipo_equipo), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</strong></td></tr>
               {(ot.equipment?.color || ot.equipment?.capacidad) && (
                 <tr><td><strong>Características:</strong></td><td>{[ot.equipment?.color, ot.equipment?.capacidad].filter(Boolean).join(' · ')}</td></tr>
               )}
@@ -248,3 +249,4 @@ export default function ComprobanteOT({ ot, config, totalFinal, descuento = 0 }:
     </div>
   )
 }
+

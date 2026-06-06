@@ -201,7 +201,37 @@ export default function ProductoForm({ producto, categorias, proveedores, return
           nombre_usuario: nombreUsuario,
         }).then(r => r)
       }
-      toast.success('Producto creado correctamente')
+
+      // Si venimos de una OT, agregar el repuesto automáticamente
+      const otId = returnTo?.match(/\/reparaciones\/([^/?]+)/)?.[1]
+      if (otId && prod) {
+        await supabase.from('repair_items').insert({
+          repair_order_id: otId,
+          product_id: prod.id,
+          nombre: payload.nombre,
+          cantidad: 1,
+          precio_costo: payload.precio_costo,
+          precio_venta: payload.precio_venta,
+          costo_envio: payload.costo_envio,
+        })
+        // Recalcular precio_servicio de la OT
+        const [{ data: itsData }, { data: srvRows }] = await Promise.all([
+          supabase.from('repair_items').select('precio_venta, precio_costo, cantidad').eq('repair_order_id', otId),
+          supabase.from('repair_order_services').select('service_id').eq('repair_order_id', otId),
+        ])
+        const totalItems = (itsData ?? []).reduce((s: number, r: { precio_venta?: number; precio_costo: number; cantidad: number }) =>
+          s + ((r.precio_venta ?? r.precio_costo) * r.cantidad), 0)
+        const srvIds = (srvRows ?? []).map((r: { service_id: string }) => r.service_id)
+        let totalServicios = 0
+        if (srvIds.length > 0) {
+          const { data: srvData } = await supabase.from('repair_services').select('precio_base').in('id', srvIds)
+          totalServicios = (srvData ?? []).reduce((s: number, srv: { precio_base: number }) => s + (srv.precio_base ?? 0), 0)
+        }
+        await supabase.from('repair_orders').update({ precio_servicio: totalItems + totalServicios }).eq('id', otId)
+        toast.success('Repuesto creado y agregado a la OT')
+      } else {
+        toast.success('Producto creado correctamente')
+      }
     }
 
     router.push(returnTo ?? '/inventario')

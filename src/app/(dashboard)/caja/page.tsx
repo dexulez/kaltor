@@ -1,9 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCLP } from '@/lib/calculations'
 import { Customer, Equipment, RepairOrder } from '@/types'
+import { labelTipoEquipo } from '@/lib/tipoEquipo'
 import SesionCajaPanel from '@/components/caja/SesionCajaPanel'
 import AnularVentaBtn from '@/components/caja/AnularVentaBtn'
 import ReprintVentaBtn from '@/components/caja/ReprintVentaBtn'
@@ -54,6 +55,8 @@ export default async function CajaPage() {
   const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
   const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
   const puedeAnular = tieneSubPermiso('caja.anular', rolNombre, permisos)
+  const verResumenSesion = tieneSubPermiso('caja.ver_resumen_sesion', rolNombre, permisos)
+  const verComisiones = tieneSubPermiso('caja.ver_comisiones', rolNombre, permisos)
   const cfgRaw = sysConfig as { pin_autorizacion?: string; nombre_local?: string; rut_local?: string; direccion?: string; telefono?: string; email?: string; logo_url?: string; iva?: number; comision_debito?: number; comision_credito?: number } | null
   const pinAdmin = cfgRaw?.pin_autorizacion ?? null
   const ticketCfg = {
@@ -110,46 +113,48 @@ export default async function CajaPage() {
 
       <SesionCajaPanel />
 
-      {/* Comisiones del técnico logueado */}
-      <MisComisionesHoy
-        userId={user!.id}
-        ivaRate={cfgRaw?.iva ?? 19}
-        comisionDebito={cfgRaw?.comision_debito ?? 1.5}
-        comisionCredito={cfgRaw?.comision_credito ?? 2.5}
-      />
+      {/* Comisiones — según permiso caja.ver_comisiones */}
+      {verComisiones && (
+        <MisComisionesHoy
+          userId={user!.id}
+          ivaRate={cfgRaw?.iva ?? 19}
+          comisionDebito={cfgRaw?.comision_debito ?? 1.5}
+          comisionCredito={cfgRaw?.comision_credito ?? 2.5}
+        />
+      )}
 
-      {/* Resumen de la sesión */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">Total sesión</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-gray-900">{formatCLP(totalHoy)}</p>
-            {sesionActiva && <p className="text-xs text-gray-400 mt-0.5">desde {new Date(sesionActiva.apertura_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">Neto</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-blue-700">{formatCLP(netoHoy)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">IVA (19%)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-gray-700">{formatCLP(ivaHoy)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">PPM (3%)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-gray-700">{formatCLP(ppmHoy)}</p></CardContent>
-        </Card>
-      </div>
-
-      {/* Por método de pago */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {totalesPorMetodo.map(({ metodo, total }) => (
-          <div key={metodo} className="bg-white rounded-xl border p-4">
-            <p className="text-xs text-gray-500 mb-1">{METODO_LABELS[metodo]}</p>
-            <p className="text-lg font-bold text-gray-800">{formatCLP(total)}</p>
-          </div>
-        ))}
-      </div>
+      {/* Resumen de la sesión — según permiso caja.ver_resumen_sesion */}
+      {verResumenSesion && <>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">Total sesión</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-gray-900">{formatCLP(totalHoy)}</p>
+              {sesionActiva && <p className="text-xs text-gray-400 mt-0.5">desde {new Date(sesionActiva.apertura_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</p>}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">Neto</CardTitle></CardHeader>
+            <CardContent><p className="text-2xl font-bold text-blue-700">{formatCLP(netoHoy)}</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">IVA (19%)</CardTitle></CardHeader>
+            <CardContent><p className="text-2xl font-bold text-gray-700">{formatCLP(ivaHoy)}</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1"><CardTitle className="text-xs text-gray-500 uppercase tracking-wide">PPM (3%)</CardTitle></CardHeader>
+            <CardContent><p className="text-2xl font-bold text-gray-700">{formatCLP(ppmHoy)}</p></CardContent>
+          </Card>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {totalesPorMetodo.map(({ metodo, total }) => (
+            <div key={metodo} className="bg-white rounded-xl border p-4">
+              <p className="text-xs text-gray-500 mb-1">{METODO_LABELS[metodo]}</p>
+              <p className="text-lg font-bold text-gray-800">{formatCLP(total)}</p>
+            </div>
+          ))}
+        </div>
+      </>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* OTs listas para cobrar */}
@@ -165,7 +170,7 @@ export default async function CajaPage() {
                     <div>
                       <p className="font-mono font-bold text-blue-700 text-sm">{ot.numero_ot}</p>
                       <p className="text-sm text-gray-700">{ot.customers?.nombre}</p>
-                      <p className="text-xs text-gray-400">{[ot.equipment?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
+                      <p className="text-xs text-gray-400">{[labelTipoEquipo(ot.equipment?.tipo_equipo), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
                     </div>
                     <Link href={`/caja/venta-directa?ot=${ot.id}`}>
                       <Button size="sm" className="bg-green-600 hover:bg-green-700 shrink-0">Cobrar</Button>
@@ -192,7 +197,7 @@ export default async function CajaPage() {
                   // Preview inline de lo que se vendió
                   const ot = v.repair_orders
                   const eq = ot?.equipment
-                  const equipoDesc = eq ? [eq.tipo_equipo?.replace(/^./, c => c.toUpperCase()), eq.marca, eq.modelo].filter(Boolean).join(' ') : null
+                  const equipoDesc = eq ? [labelTipoEquipo(eq.tipo_equipo), eq.marca, eq.modelo].filter(Boolean).join(' ') : null
                   const items = v.sale_items ?? []
                   const preview = v.tipo === 'reparacion' && equipoDesc
                     ? `${ot?.numero_ot ?? ''} · ${equipoDesc}`
@@ -258,3 +263,4 @@ export default async function CajaPage() {
     </div>
   )
 }
+

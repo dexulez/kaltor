@@ -30,7 +30,9 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/auth')
   // Siempre accesible: no requiere sesión previa ni redirige si ya tiene sesión
   const isOpenRoute = request.nextUrl.pathname.startsWith('/crear-password')
-  const isPublicRoute = request.nextUrl.pathname.startsWith('/seguimiento')
+  const isPublicRoute = request.nextUrl.pathname.startsWith('/seguimiento') ||
+    request.nextUrl.pathname.startsWith('/pedido') ||
+    request.nextUrl.pathname.startsWith('/pagar')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
   if (!user && !isAuthRoute && !isPublicRoute && !isApiRoute && !isOpenRoute) {

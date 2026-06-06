@@ -71,6 +71,10 @@ export interface SystemConfig {
   dias_garantia_default: number
   moneda: string
   mostrar_precio_en_presupuesto: boolean
+  wa_url?: string | null
+  wa_apikey?: string | null
+  wa_instancia?: string | null
+  wa_activo?: boolean
 }
 
 export interface Customer {
@@ -125,6 +129,7 @@ export interface RepairOrder {
   created_at: string
   updated_at: string
   fecha_entrega?: string
+  fecha_estimada_entrega?: string | null
   customers?: Customer
   equipment?: Equipment
   user_profiles?: UserProfile
@@ -278,14 +283,21 @@ export interface PurchaseOrder {
   id: string
   numero_oc: string
   supplier_id: string
-  estado: 'pendiente' | 'en_transito' | 'recibida_parcial' | 'recibida_completa' | 'cancelada'
-  metodo_pago?: PaymentMethod
+  estado: 'pendiente' | 'enviada' | 'proveedor_respondio' | 'confirmada' | 'en_transito' | 'recibida_parcial' | 'recibida_completa' | 'cancelada'
+  metodo_pago?: string
+  plazo_pago_dias?: number
+  fecha_vencimiento_pago?: string
+  monto_total_confirmado?: number
+  monto_pagado?: number
+  fecha_respuesta_proveedor?: string
+  fecha_confirmacion_admin?: string
   costo_envio_total: number
   total: number
   fecha_estimada_llegada?: string
   fecha_recepcion?: string
   notas?: string
   usuario_id?: string
+  comprobante_pago_urls?: string[] | null
   created_at: string
   updated_at: string
   suppliers?: Supplier
@@ -302,6 +314,18 @@ export interface PurchaseOrderItem {
   precio_unitario: number
   costo_envio_prorrateado: number
   subtotal: number
+  // campos del proveedor
+  disponible_proveedor?: boolean | null
+  cantidad_disponible_proveedor?: number | null
+  precio_cotizado?: number | null
+  nota_proveedor?: string | null
+  alternativa?: string | null
+  precio_alternativa?: number | null
+  cantidad_alternativa?: number | null
+  // campos de confirmación admin
+  aceptado_admin?: boolean | null
+  cantidad_aceptada?: number | null
+  precio_aceptado?: number | null
 }
 
 export interface CashClosing {

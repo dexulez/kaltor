@@ -1,16 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { formatCLP } from '@/lib/calculations'
 
 const TZ = 'America/Santiago'
 
-export default function AbrirCajaInline() {
+export default function AbrirCajaInline({ returnUrl }: { returnUrl?: string }) {
   const supabase = createClient()
-  const router = useRouter()
   const [fondo, setFondo] = useState('0')
   const [saving, setSaving] = useState(false)
 
@@ -25,8 +23,7 @@ export default function AbrirCajaInline() {
     })
     if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
     toast.success('Caja abierta — puedes procesar ventas')
-    router.refresh()
-    setSaving(false)
+    window.location.reload()
   }
 
   return (

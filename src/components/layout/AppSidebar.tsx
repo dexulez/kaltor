@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { MODULOS, tieneAccesoModulo } from '@/lib/modulos'
+import NotificacionesBell from '@/components/layout/NotificacionesBell'
 
 const ROL_LABEL: Record<string, string> = {
   administrador:     'Administrador',
@@ -18,10 +19,11 @@ const ROL_LABEL: Record<string, string> = {
   supervisor_ventas: 'Supervisor Ventas',
 }
 
-export default function AppSidebar({ user, logoUrl, nombreLocal }: {
+export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
   user: UserProfile | null
   logoUrl?: string | null
   nombreLocal?: string
+  alertas?: { compras: number }
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -82,26 +84,48 @@ export default function AppSidebar({ user, logoUrl, nombreLocal }: {
           {visibleItems.map((item) => {
             const isActive = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            // Badge de alerta para compras (solicitudes pendientes)
+            const badgeCompras = item.href === '/compras' && !isActive && (alertas?.compras ?? 0) > 0
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative',
                     isActive
                       ? 'bg-blue-700 text-white'
                       : 'text-blue-200 hover:bg-blue-800 hover:text-white'
                   )}
                   title={collapsed ? item.label : undefined}
                 >
-                  <span className="text-lg shrink-0">{item.icon}</span>
-                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  <span className="text-lg shrink-0 relative">
+                    {item.icon}
+                    {badgeCompras && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center text-white font-bold animate-pulse"
+                        style={{ fontSize: '9px', lineHeight: '1' }}>
+                        {(alertas?.compras ?? 0) > 9 ? '9+' : alertas?.compras}
+                      </span>
+                    )}
+                  </span>
+                  {!collapsed && (
+                    <span className="truncate flex-1">{item.label}</span>
+                  )}
+                  {!collapsed && badgeCompras && (
+                    <span className="ml-auto bg-orange-400 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center animate-pulse">
+                      {(alertas?.compras ?? 0) > 9 ? '9+' : alertas?.compras}
+                    </span>
+                  )}
                 </Link>
               </li>
             )
           })}
         </ul>
       </nav>
+
+      {/* Notificaciones */}
+      <div className="px-2 pb-2 relative">
+        <NotificacionesBell collapsed={collapsed} />
+      </div>
 
       {/* User info */}
       <div className="border-t border-blue-800 p-3">

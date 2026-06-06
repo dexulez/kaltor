@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import { Equipment, RepairOrder } from '@/types'
+import { labelTipoEquipo } from '@/lib/tipoEquipo'
 
 const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
   recibido:           { label: 'Recibido',           color: 'bg-gray-100 text-gray-700' },
@@ -186,7 +187,7 @@ export default async function ClienteDetallePage({
                   return (
                     <tr key={ot.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono font-medium text-blue-700">{ot.numero_ot}</td>
-                      <td className="px-4 py-3 text-gray-700">{[ot.equipment?.tipo_equipo?.replace(/^./, c => c.toUpperCase()), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</td>
+                      <td className="px-4 py-3 text-gray-700">{[labelTipoEquipo(ot.equipment?.tipo_equipo), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.color}`}>{estado.label}</span>
                       </td>

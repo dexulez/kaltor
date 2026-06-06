@@ -14,9 +14,9 @@ const TIPO_LABEL: Record<string, string> = {
 export default async function ServiciosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tipo?: string }>
+  searchParams: Promise<{ q?: string; tipo?: string; todos?: string }>
 }) {
-  const { q, tipo } = await searchParams
+  const { q, tipo, todos } = await searchParams
   const supabase = await createClient()
 
   // Servicios con items y conteo de uso
@@ -39,15 +39,25 @@ export default async function ServiciosPage({
   if (q) lista = lista.filter(s => s.nombre.toLowerCase().includes(q.toLowerCase()) || (s.descripcion ?? '').toLowerCase().includes(q.toLowerCase()))
   if (tipo) lista = lista.filter(s => s.tipo_reparacion === tipo)
 
-  const activos = lista.filter(s => s.activo).length
+  // Sin filtros activos: mostrar top 6 más usados
+  const hayFiltro = !!(q || tipo || todos)
+  const listaCompleta = lista
+  if (!hayFiltro) {
+    lista = [...lista]
+      .sort((a, b) => (usosMap[b.id] ?? 0) - (usosMap[a.id] ?? 0))
+      .slice(0, 6)
+  }
+
+  const activos = listaCompleta.filter(s => s.activo).length
   const tipos = [...new Set((servicios ?? []).map(s => s.tipo_reparacion))]
+  const hayMas = !hayFiltro && listaCompleta.length > 6
 
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">🔩 Servicios</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{activos} activo(s) · {lista.length} en total</p>
+          <p className="text-gray-500 text-sm mt-0.5">{activos} activo(s) · {listaCompleta.length} en total{!hayFiltro ? ' · mostrando top 6' : ''}</p>
         </div>
         <Link href="/servicios/nuevo">
           <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo servicio</Button>
@@ -150,6 +160,22 @@ export default async function ServiciosPage({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Ver todos / colapsar */}
+      {hayMas && (
+        <div className="text-center">
+          <Link href="/servicios?todos=1">
+            <Button variant="outline" className="text-gray-600">Ver todos los servicios ({listaCompleta.length})</Button>
+          </Link>
+        </div>
+      )}
+      {todos && !q && !tipo && listaCompleta.length > 6 && (
+        <div className="text-center">
+          <Link href="/servicios">
+            <Button variant="outline" className="text-gray-600">Mostrar solo top 6</Button>
+          </Link>
         </div>
       )}
     </div>

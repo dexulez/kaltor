@@ -1,10 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCLP } from '@/lib/calculations'
 import VerVentaBtn from '@/components/caja/VerVentaBtn'
 import ReprintVentaBtn from '@/components/caja/ReprintVentaBtn'
+import { labelTipoEquipo } from '@/lib/tipoEquipo'
 
 const TZ = 'America/Santiago'
 
@@ -121,7 +122,7 @@ export default function VentasSesionModal({ aperturaAt, cierreAt, fecha, ticketC
                     const cliente = Array.isArray(v.customers) ? (v.customers as {nombre:string}[])[0] : v.customers
                     const ot = Array.isArray(v.repair_orders) ? (v.repair_orders as typeof v.repair_orders[])[0] : v.repair_orders
                     const eq = ot?.equipment
-                    const equipoDesc = eq ? [eq.tipo_equipo?.replace(/^./, c => c.toUpperCase()), eq.marca, eq.modelo].filter(Boolean).join(' ') : null
+                    const equipoDesc = eq ? [labelTipoEquipo(eq.tipo_equipo), eq.marca, eq.modelo].filter(Boolean).join(' ') : null
                     const items = Array.isArray(v.sale_items) ? v.sale_items : []
                     const preview = v.tipo === 'reparacion' && ot
                       ? `${ot.numero_ot}${equipoDesc ? ' · ' + equipoDesc : ''}`
@@ -187,3 +188,4 @@ export default function VentasSesionModal({ aperturaAt, cierreAt, fecha, ticketC
     </>
   )
 }
+
