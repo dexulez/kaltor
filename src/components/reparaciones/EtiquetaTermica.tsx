@@ -126,15 +126,15 @@ export default function EtiquetaTermica({ ot, cliente, equipo, config, baseUrl }
 <style>
   @page { size: ${ancho}mm auto; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #fff; }
+  body { background: #fff; width: 100%; }
 </style>
 </head>
 <body>
-<div style="width:${labelWidth};font-family:monospace;font-size:${fontSize};line-height:1.3;padding:2mm;background:#fff;color:#000;">
+<div style="width:100%;font-family:monospace;font-size:${fontSize};line-height:1.3;padding:2mm;background:#fff;color:#000;">
   <div style="text-align:center;font-weight:bold;font-size:${titleSize};border-bottom:1px solid #000;padding-bottom:1mm;margin-bottom:1.5mm;">${config.nombre_local}</div>
   <div style="text-align:center;font-weight:bold;font-size:${otSize};letter-spacing:0.5mm;margin-bottom:1.5mm;">${ot.numero_ot}</div>
   <div style="display:flex;justify-content:center;margin-bottom:1.5mm;">
-    <img src="${qrDataUrl}" width="${qrSize}" height="${qrSize}" style="display:block;" />
+    <img src="${qrDataUrl}" style="display:block;width:${qrSize}px;height:${qrSize}px;max-width:90%;" />
   </div>
   <div style="border-bottom:1px dashed #555;margin-bottom:1.5mm;"></div>
   <div style="margin-bottom:1mm;"><strong>CLIENTE: </strong>${cliente.nombre}</div>
