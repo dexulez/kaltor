@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { formatCLP } from '@/lib/calculations'
 import GastoRapidoModal from '@/components/dashboard/GastoRapidoModal'
+import QRScannerOT from '@/components/dashboard/QRScannerOT'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
 
 const TZ = 'America/Santiago'
@@ -195,6 +196,7 @@ export default async function DashboardPage() {
               🛒 Venta directa
             </button>
           </Link>
+          <QRScannerOT />
           <GastoRapidoModal />
           <Link href="/compras/orden/nueva">
             <button className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-100 text-sm px-3 py-2 rounded-xl font-medium transition-colors">
