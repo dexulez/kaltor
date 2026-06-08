@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
+import AgregarFotosOT from '@/components/reparaciones/AgregarFotosOT'
 import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
 import RepuestosOT from '@/components/reparaciones/RepuestosOT'
 import ServiciosAplicadosOT from '@/components/reparaciones/ServiciosAplicadosOT'
@@ -358,6 +359,17 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         otNumero={otDetalle.numero_ot}
         repuestosIniciales={(repuestos ?? []) as RepuestoItem[]}
       />
+
+      {/* Fotos del equipo — se adjuntan al estado actual y el cliente las ve en su seguimiento */}
+      <div className="bg-white rounded-xl border px-4 py-3 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">📷 Fotos del equipo</p>
+          <p className="text-xs text-gray-400">
+            Se adjuntan al estado actual (<span className="font-medium text-gray-500">{estado.label}</span>) — el cliente las verá en su seguimiento
+          </p>
+        </div>
+        <AgregarFotosOT otId={otDetalle.id} estadoActual={otDetalle.estado} />
+      </div>
 
       {/* Historial */}
       <div>
