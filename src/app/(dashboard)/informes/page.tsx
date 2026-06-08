@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 import { formatCLP } from '@/lib/calculations'
 import { Suspense, type ReactNode } from 'react'
 import FiltroFechas from '@/components/informes/FiltroFechas'
@@ -31,14 +32,16 @@ function kpiColor(idx: number) {
 
 // ── Shared UI ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, colorIdx = 0 }: { label: string; value: string; sub?: string; colorIdx?: number }) {
-  return (
-    <div className="bg-white rounded-xl border p-4">
+function KpiCard({ label, value, sub, colorIdx = 0, href }: { label: string; value: string; sub?: string; colorIdx?: number; href?: string }) {
+  const content = (
+    <div className={`bg-white rounded-xl border p-4 h-full ${href ? 'hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer' : ''}`}>
       <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${kpiColor(colorIdx)}`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      {href && <p className="text-xs text-blue-600 mt-2">Ver detalle →</p>}
     </div>
   )
+  return href ? <Link href={href}>{content}</Link> : content
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -90,12 +93,12 @@ function variacion(actual: number, anterior: number): { pct: string; color: stri
   }
 }
 
-function KpiCardComp({ label, value, sub, colorIdx = 0, prev, prevLabel }: {
+function KpiCardComp({ label, value, sub, colorIdx = 0, prev, prevLabel, href }: {
   label: string; value: string; sub?: string; colorIdx?: number
-  prev?: { value: string; pct: string; color: string }; prevLabel?: string
+  prev?: { value: string; pct: string; color: string }; prevLabel?: string; href?: string
 }) {
-  return (
-    <div className="bg-white rounded-xl border p-4">
+  const content = (
+    <div className={`bg-white rounded-xl border p-4 h-full ${href ? 'hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer' : ''}`}>
       <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${kpiColor(colorIdx)}`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
@@ -105,8 +108,10 @@ function KpiCardComp({ label, value, sub, colorIdx = 0, prev, prevLabel }: {
           <span className="text-xs text-gray-400">vs {prevLabel ?? 'período anterior'}</span>
         </div>
       )}
+      {href && <p className="text-xs text-blue-600 mt-2">Ver detalle →</p>}
     </div>
   )
+  return href ? <Link href={href}>{content}</Link> : content
 }
 
 // ── Tab: Resumen General ──────────────────────────────────────────────────────
@@ -190,6 +195,9 @@ async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
   const uVar = variacion(utilidadEst, utilidadPrev)
   const gVar = variacion(gastosActTotal, gastosPrevTotal)
 
+  const rango = `desde=${desde}&hasta=${hasta}`
+  const tabHref = (tab: string) => `/informes?tab=${tab}&${rango}`
+
   return (
     <div className="space-y-5">
 
@@ -199,29 +207,33 @@ async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
           label="Ventas brutas" value={formatCLP(ventaActTotal)}
           sub={`${(ventasAct ?? []).length} transacciones`} colorIdx={0}
           prev={{ value: formatCLP(ventaPrevTotal), pct: vVar.pct, color: vVar.color }}
+          href={tabHref('ventas')}
         />
         <KpiCardComp
           label="Utilidad estimada" value={formatCLP(utilidadEst)}
           sub="neto − PPM − repuestos" colorIdx={1}
           prev={{ value: formatCLP(utilidadPrev), pct: uVar.pct, color: uVar.color }}
+          href={tabHref('rentabilidad')}
         />
         <KpiCardComp
           label="Gastos del período" value={formatCLP(gastosActTotal)}
           sub="gastos operacionales" colorIdx={4}
           prev={{ value: formatCLP(gastosPrevTotal), pct: gVar.pct, color: gVar.color }}
+          href={tabHref('gastos')}
         />
         <KpiCardComp
           label="Balance estimado" value={formatCLP(utilidadEst - gastosActTotal)}
           sub="utilidad − gastos" colorIdx={utilidadEst - gastosActTotal >= 0 ? 1 : 4}
+          href={tabHref('equilibrio')}
         />
       </div>
 
       {/* KPIs operacionales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="OTs recibidas" value={`${reps.length}`} sub={`${entregadasP} entregadas`} colorIdx={0} />
-        <KpiCard label="Tasa de éxito" value={tasaP !== null ? `${tasaP}%` : '—'} sub={`${exitosasP} de ${conResult.length} con resultado`} colorIdx={tasaP !== null && tasaP >= 80 ? 1 : tasaP !== null && tasaP >= 60 ? 2 : 4} />
-        <KpiCard label="Clientes nuevos" value={`${(clientesNuevos ?? []).length}`} sub="registrados en el período" colorIdx={5} />
-        <KpiCard label="Stock crítico" value={`${(stockCrit ?? []).length}`} sub="productos con stock ≤ 5" colorIdx={4} />
+        <KpiCard label="OTs recibidas" value={`${reps.length}`} sub={`${entregadasP} entregadas`} colorIdx={0} href={tabHref('taller')} />
+        <KpiCard label="Tasa de éxito" value={tasaP !== null ? `${tasaP}%` : '—'} sub={`${exitosasP} de ${conResult.length} con resultado`} colorIdx={tasaP !== null && tasaP >= 80 ? 1 : tasaP !== null && tasaP >= 60 ? 2 : 4} href={tabHref('taller')} />
+        <KpiCard label="Clientes nuevos" value={`${(clientesNuevos ?? []).length}`} sub="registrados en el período" colorIdx={5} href={tabHref('clientes')} />
+        <KpiCard label="Stock crítico" value={`${(stockCrit ?? []).length}`} sub="productos con stock ≤ 5" colorIdx={4} href={tabHref('inventario')} />
       </div>
 
       {/* Estado actual del taller */}
@@ -231,16 +243,16 @@ async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0">
           {[
-            { label: 'OTs en proceso', value: activasAhora.length - listasAhora, icon: '🔧', color: 'text-blue-700' },
-            { label: 'Listas para cobrar', value: listasAhora, icon: '✅', color: 'text-green-700' },
-            { label: 'Fuera de plazo', value: fueraPlazoAhora, icon: '⏰', color: fueraPlazoAhora > 0 ? 'text-red-600' : 'text-gray-400' },
-            { label: 'Total activas', value: activasAhora.length, icon: '📋', color: 'text-gray-700' },
+            { label: 'OTs en proceso', value: activasAhora.length - listasAhora, icon: '🔧', color: 'text-blue-700', href: '/reparaciones' },
+            { label: 'Listas para cobrar', value: listasAhora, icon: '✅', color: 'text-green-700', href: '/reparaciones?vista=por_cobrar' },
+            { label: 'Fuera de plazo', value: fueraPlazoAhora, icon: '⏰', color: fueraPlazoAhora > 0 ? 'text-red-600' : 'text-gray-400', href: '/reparaciones?vista=fuera_plazo' },
+            { label: 'Total activas', value: activasAhora.length, icon: '📋', color: 'text-gray-700', href: '/reparaciones' },
           ].map((item, i) => (
-            <div key={i} className="px-5 py-4 text-center">
+            <Link key={i} href={item.href} className="px-5 py-4 text-center hover:bg-gray-50 transition-colors">
               <p className="text-2xl mb-1">{item.icon}</p>
               <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
               <p className="text-xs text-gray-500 mt-1">{item.label}</p>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
