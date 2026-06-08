@@ -2357,7 +2357,7 @@ export default async function InformesPage({
   const rolAuth = (Array.isArray(rolesAuth) ? rolesAuth[0]?.nombre : rolesAuth?.nombre) ?? ''
   const permisosAuth = profileAuth?.permisos_modulos as Record<string, boolean> | null
 
-  const soloPropios    = tieneSubPermiso('informes.solo_propios',     rolAuth, permisosAuth)
+  const soloPropios    = rolAuth !== 'administrador' && tieneSubPermiso('informes.solo_propios', rolAuth, permisosAuth)
   const verVentas      = rolAuth === 'administrador' || tieneSubPermiso('informes.ver_ventas',       rolAuth, permisosAuth)
   const verRentab      = rolAuth === 'administrador' || tieneSubPermiso('informes.ver_rentabilidad', rolAuth, permisosAuth)
   const soloUserId     = soloPropios ? user!.id : undefined
