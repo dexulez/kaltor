@@ -73,6 +73,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   const [incluirTC, setIncluirTC] = useState(true)
   const [copias, setCopias] = useState<1 | 2>(2)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
+  const [qrOtDataUrl, setQrOtDataUrl] = useState<string>('')
   const detallesRef = useRef<{ servicios: string[]; repuestos: string[] }>({ servicios: [], repuestos: [] })
 
   // Carga servicios y repuestos para el ticket
@@ -95,12 +96,19 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   }, [ot.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const trackingUrl = `${baseUrl}/seguimiento/${ot.codigo_seguimiento}`
+  const otInternaUrl = `${baseUrl}/reparaciones/${ot.id}`
 
   useEffect(() => {
     QRCode.toDataURL(trackingUrl, { width: 160, margin: 1, color: { dark: '#1e3a5f', light: '#ffffff' } })
       .then(setQrDataUrl)
       .catch(() => {})
   }, [trackingUrl])
+
+  useEffect(() => {
+    QRCode.toDataURL(otInternaUrl, { width: 160, margin: 1, color: { dark: '#1e3a5f', light: '#ffffff' } })
+      .then(setQrOtDataUrl)
+      .catch(() => {})
+  }, [otInternaUrl])
   const cliente = ot.customers
   const equipo = ot.equipment
   const fechaHoraRecibido = new Date(ot.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -257,6 +265,19 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     </div>`
   }
 
+  function trackHtmlOT() {
+    const qrImg = qrOtDataUrl
+      ? `<img src="${qrOtDataUrl}" style="width:22mm;height:22mm;display:block;flex-shrink:0" alt="QR acceso a la OT">`
+      : `<div style="width:22mm;height:22mm;flex-shrink:0;border:1px dashed #9ca3af;display:flex;align-items:center;justify-content:center;font-size:7pt;color:#9ca3af">QR</div>`
+    return `<div class="track">
+      ${qrImg}
+      <div>
+        <div style="font-size:7pt;color:#6b7280;margin-bottom:1mm">Escanear para abrir la OT en el sistema</div>
+        <div style="font-size:7pt;color:#9ca3af">Uso interno · técnicos</div>
+      </div>
+    </div>`
+  }
+
   function firmasHtml() {
     return `<div class="sig-row">
       <div class="sig">Firma y RUT cliente</div>
@@ -307,7 +328,15 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         <hr class="separator">
         ${cabeceraHtml()}
         ${dosColumnas('1.5mm', '44%')}
-        ${firmaRow()}`
+        <div style="display:flex;align-items:center;gap:2mm;margin-top:1.5mm">
+          ${qrOtDataUrl ? `<img src="${qrOtDataUrl}" style="width:14mm;height:14mm;display:block;flex-shrink:0">` : ''}
+          <div style="font-size:6pt;color:#6b7280">
+            <div>Escanear para abrir la OT en el sistema</div>
+            <div style="color:#9ca3af">Uso interno · técnicos</div>
+          </div>
+          <div style="flex:1"></div>
+          ${firmaRow()}
+        </div>`
       return unaHoja + copia2
     }
 
@@ -318,7 +347,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         <div class="title-line">COMPROBANTE DE RECEPCIÓN</div>
         ${dosColumnas('2mm', '44%')}
         ${trackHtml()}${firmasHtml()}`
-      const copia2 = copias === 2 ? `<hr class="separator">${cabeceraHtml()}${dosColumnas('2mm', '44%')}${firmasHtml()}` : ''
+      const copia2 = copias === 2 ? `<hr class="separator">${cabeceraHtml()}${dosColumnas('2mm', '44%')}${trackHtmlOT()}${firmasHtml()}` : ''
       return una + copia2 + tcHtml
     }
 
@@ -331,6 +360,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         <hr class="separator">
         ${cabeceraHtml()}
         ${dosColumnas('3mm', '44%')}
+        ${trackHtmlOT()}
         ${firmasHtml()}
         ${tcHtml}`
     }
