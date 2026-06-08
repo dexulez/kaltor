@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
 import AgregarFotosOT from '@/components/reparaciones/AgregarFotosOT'
+import AgregarComentarioOT from '@/components/reparaciones/AgregarComentarioOT'
 import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
 import RepuestosOT from '@/components/reparaciones/RepuestosOT'
 import ServiciosAplicadosOT from '@/components/reparaciones/ServiciosAplicadosOT'
@@ -371,19 +372,35 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
         <AgregarFotosOT otId={otDetalle.id} estadoActual={otDetalle.estado} />
       </div>
 
+      {/* Comentario libre — visible en el historial y en el seguimiento del cliente */}
+      <div className="bg-white rounded-xl border px-4 py-3 flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">💬 Comentarios</p>
+          <p className="text-xs text-gray-400">Agrega una nota al historial — el cliente la verá en su seguimiento</p>
+        </div>
+        <AgregarComentarioOT otId={otDetalle.id} estadoActual={otDetalle.estado} />
+      </div>
+
       {/* Historial */}
       <div>
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Historial de estados</h2>
         <div className="space-y-2">
           {historialItems.map((h) => {
-            const est = ESTADO_INFO[h.estado_nuevo]
+            const esMeta = h.estado_anterior === h.estado_nuevo
+            const esFoto = esMeta && h.comentario === 'Foto agregada al estado actual'
+            const esComentario = esMeta && !esFoto
+
+            const badge = esComentario
+              ? <span className="px-2 py-0.5 rounded-full text-xs font-medium shrink-0 bg-amber-100 text-amber-700">💬 Comentario</span>
+              : esFoto
+                ? <span className="px-2 py-0.5 rounded-full text-xs font-medium shrink-0 bg-blue-100 text-blue-700">📷 Foto</span>
+                : (() => { const est = ESTADO_INFO[h.estado_nuevo]; return <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${est?.color ?? 'bg-gray-100'}`}>{est?.label ?? h.estado_nuevo}</span> })()
+
             return (
               <div key={h.id} className="bg-white rounded-lg border px-4 py-3 flex items-start gap-3">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${est?.color ?? 'bg-gray-100'}`}>
-                  {est?.label ?? h.estado_nuevo}
-                </span>
+                {badge}
                 <div className="flex-1 min-w-0">
-                  {h.comentario && <p className="text-sm text-gray-700">{h.comentario}</p>}
+                  {h.comentario && !esFoto && <p className="text-sm text-gray-700">{h.comentario}</p>}
                   <p className="text-xs text-gray-400 mt-0.5">
                     {new Date(h.created_at).toLocaleString('es-CL')}
                     {h.user_profiles?.nombre_completo && ` · ${h.user_profiles.nombre_completo}`}
