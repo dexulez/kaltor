@@ -156,7 +156,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     .title-line{text-align:center;font-size:9pt;font-weight:bold;letter-spacing:2px;text-transform:uppercase;padding:1mm 0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;margin:1.5mm 0}
     .cobro-tbl td:last-child{text-align:right;font-weight:600}
     .cobro-total{border-top:2px solid #111;font-size:9pt;font-weight:bold}
-    .separator{border:none;border-top:3px dashed #d1d5db;margin:6mm 0}`
+    .separator{border:none;height:0;margin:0;page-break-before:always;break-before:page}`
 
   // ── Cabecera profesional (igual en todos los formatos) ─────────────────────
   function cabeceraHtml() {
@@ -690,7 +690,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
                       </button>
                     ))}
                   </div>
-                  <p className="text-xs text-gray-400">{copias === 2 ? 'Una para el cliente, una para el taller (separadas por línea punteada)' : 'Solo una copia en la hoja'}</p>
+                  <p className="text-xs text-gray-400">{copias === 2 ? 'Una para el cliente, una para el taller — cada una se imprime en una hoja distinta' : 'Solo una copia en la hoja'}</p>
                 </div>
               )}
 
