@@ -21,7 +21,7 @@ export default function BuscadorOTs({ q }: { q: string }) {
       <input
         type="text"
         defaultValue={q}
-        placeholder="🔍 Buscar por nombre, teléfono, RUT o N° OT..."
+        placeholder="🔍 Buscar por nombre, teléfono, N° OT, equipo o marca..."
         onChange={e => handleChange(e.target.value)}
         className="w-full border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
       />

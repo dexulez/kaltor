@@ -452,7 +452,11 @@ export default async function ReparacionesPage({
     otList = otList.filter(ot =>
       ot.numero_ot?.toLowerCase().includes(q) ||
       (ot.customers?.nombre ?? '').toLowerCase().includes(q) ||
-      (ot.customers?.telefono ?? '').toLowerCase().includes(q)
+      (ot.customers?.telefono ?? '').toLowerCase().includes(q) ||
+      (ot.equipment?.marca ?? '').toLowerCase().includes(q) ||
+      (ot.equipment?.modelo ?? '').toLowerCase().includes(q) ||
+      (ot.equipment?.tipo_equipo ?? '').toLowerCase().includes(q) ||
+      (ot.equipment?.falla_reportada ?? '').toLowerCase().includes(q)
     )
   }
 
