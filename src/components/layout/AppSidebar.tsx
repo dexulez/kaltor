@@ -101,7 +101,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
                   <span className="text-lg shrink-0 relative">
                     {item.icon}
                     {badgeCompras && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center text-white font-bold animate-pulse"
+                      <span className="absolute -top-1 -left-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center text-white font-bold animate-pulse"
                         style={{ fontSize: '9px', lineHeight: '1' }}>
                         {(alertas?.compras ?? 0) > 9 ? '9+' : alertas?.compras}
                       </span>

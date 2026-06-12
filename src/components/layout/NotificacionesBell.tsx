@@ -169,7 +169,7 @@ export default function NotificacionesBell({ collapsed }: { collapsed?: boolean 
         <span className="text-lg relative shrink-0">
           🔔
           {noLeidas > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white font-bold animate-pulse"
+            <span className="absolute -top-1 -left-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white font-bold animate-pulse"
               style={{ fontSize: '9px' }}>
               {noLeidas > 9 ? '9+' : noLeidas}
             </span>

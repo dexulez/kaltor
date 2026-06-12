@@ -109,7 +109,7 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
                     )}
                   >
                     {badgeCompras && (
-                      <span className="absolute top-2 right-2 bg-orange-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                      <span className="absolute top-2 left-2 bg-orange-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
                         {(alertas?.compras ?? 0) > 9 ? '9+' : alertas?.compras}
                       </span>
                     )}
@@ -222,7 +222,7 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
               <span className="text-xl leading-none relative">
                 •••
                 {drawerActivo && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-400 rounded-full" />
+                  <span className="absolute -top-1 -left-1 w-2 h-2 bg-orange-400 rounded-full" />
                 )}
               </span>
               <span className="text-[10px] font-medium leading-tight">Más</span>
