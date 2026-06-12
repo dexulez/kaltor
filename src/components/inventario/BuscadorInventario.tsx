@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import QRScanner from '@/components/shared/QRScanner'
 
 export default function BuscadorInventario({ defaultValue }: { defaultValue?: string }) {
@@ -11,21 +11,35 @@ export default function BuscadorInventario({ defaultValue }: { defaultValue?: st
   const [valor, setValor] = useState(defaultValue ?? '')
   const [showScanner, setShowScanner] = useState(false)
 
-  useEffect(() => {
-    setValor(defaultValue ?? '')
-  }, [defaultValue])
+  // Registra los valores que nosotros mismos pusheamos a la URL,
+  // para no resetear el input cuando llegue la respuesta del servidor.
+  const inFlightRef = useRef(new Set<string>())
 
+  // Detecta cambios externos en la URL (botón atrás, filtros de categoría, etc.)
+  // pero ignora los cambios que nosotros mismos generamos con router.push.
+  const urlQ = searchParams.get('q') ?? ''
+  useEffect(() => {
+    if (inFlightRef.current.has(urlQ)) {
+      inFlightRef.current.delete(urlQ)
+    } else {
+      setValor(urlQ)
+    }
+  }, [urlQ])
+
+  // Debounce: espera 350ms desde la última tecla antes de buscar
   useEffect(() => {
     const timer = setTimeout(() => {
+      const trimmed = valor.trim()
       const params = new URLSearchParams(searchParams.toString())
-      if (valor.trim()) {
-        params.set('q', valor.trim())
+      if (trimmed) {
+        params.set('q', trimmed)
       } else {
         params.delete('q')
       }
       params.delete('page')
+      inFlightRef.current.add(trimmed)
       router.push(`${pathname}?${params.toString()}`)
-    }, 300)
+    }, 350)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valor])
