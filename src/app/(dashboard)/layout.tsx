@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import AppSidebar from '@/components/layout/AppSidebar'
 import MobileNav from '@/components/layout/MobileNav'
 import InactivityRedirect from '@/components/layout/InactivityRedirect'
+import RealtimeRefresh from '@/components/layout/RealtimeRefresh'
 
 export default async function DashboardLayout({
   children,
@@ -30,6 +31,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <InactivityRedirect />
+      <RealtimeRefresh />
       <AppSidebar user={profile} logoUrl={logoUrl} nombreLocal={nombreLocal} alertas={alertas} />
       <main className="flex-1 overflow-auto pb-16 md:pb-0">
         {children}
