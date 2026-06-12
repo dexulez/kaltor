@@ -129,6 +129,14 @@ export default function SesionCajaPanel() {
 
   async function abrirCaja() {
     setSaving(true)
+    // Verificar que no haya ya una sesión abierta en la BD (previene duplicados)
+    const { data: existente } = await supabase.from('sesiones_caja').select('id').eq('estado', 'abierta').limit(1).maybeSingle()
+    if (existente) {
+      toast.error('Ya existe una sesión de caja abierta — recarga la página')
+      setSaving(false)
+      await cargar()
+      return
+    }
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     const { data, error } = await supabase.from('sesiones_caja').insert({
       fecha: hoy,
