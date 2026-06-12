@@ -52,9 +52,9 @@ export const ESTADO_LABEL_MAP: Partial<Record<RepairStatus, string>> = {
 // ── Grupo de OT (0 = en proceso, 1 = listo para entregar, 2 = entregado/cerrado)
 const GRUPO_ESTADO: Partial<Record<RepairStatus, 0 | 1 | 2>> = {
   recibido: 0, en_diagnostico: 0, presupuestado: 0, aprobado: 0,
-  esperando_repuesto: 0, en_reparacion: 0,
+  esperando_repuesto: 0, en_reparacion: 0, en_garantia: 0,
   listo: 1, para_entrega: 1,
-  entregado: 2, en_garantia: 2, cancelado: 2, rechazado: 2,
+  entregado: 2, cancelado: 2, rechazado: 2,
 }
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -481,7 +481,7 @@ export default async function ReparacionesPage({
   const { data: todosParaAlarmas } = await supabase
     .from('repair_orders')
     .select('estado, fecha_estimada_entrega, updated_at, fecha_entrega')
-    .not('estado', 'in', '(entregado,cancelado,en_garantia)')
+    .not('estado', 'in', '(entregado,cancelado)')
     .limit(500)
   const alarmasData = (todosParaAlarmas ?? []) as OTRow[]
   const { fueraPlazo, sinRetirar, sinRespuesta } = calcAlarmas(alarmasData)
