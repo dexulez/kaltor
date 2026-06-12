@@ -62,7 +62,7 @@ const FORMAT_INFO: Record<PrintFormat, { label: string; desc: string; icon: stri
   a5h: { label: 'A5 Horizontal', desc: '210 × 148 mm · 2 columnas', icon: '📄' },
   a5v: { label: 'A5 Vertical',   desc: '148 × 210 mm · columna única', icon: '📃' },
   a4:  { label: 'A4',            desc: '210 × 297 mm · 2 copias', icon: '🗒️' },
-  ticket: { label: 'Ticket térmico', desc: '80 mm × continuo', icon: '🧾' },
+  ticket: { label: 'Ticket térmico', desc: '57 / 80 mm × continuo', icon: '🧾' },
 }
 
 export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico = true }: Props) {
@@ -72,6 +72,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   const [formato, setFormato] = useState<PrintFormat>('a5h')
   const [incluirTC, setIncluirTC] = useState(true)
   const [copias, setCopias] = useState<1 | 2>(2)
+  const [anchoTicket, setAnchoTicket] = useState<57 | 80>(80)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
   const [qrOtDataUrl, setQrOtDataUrl] = useState<string>('')
   const detallesRef = useRef<{ servicios: string[]; repuestos: string[] }>({ servicios: [], repuestos: [] })
@@ -131,6 +132,14 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       <ul style="font-size:5.5pt;column-count:2;column-gap:4mm;line-height:1.3;padding-left:8px">
         ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:1px">${l.replace(/^•\s*/, '')}</li>`).join('')}
       </ul>
+    </div>` : ''
+
+  const tcTicketHtml = incluirTC ? `
+    <div style="border-top:1.5px dashed #000;margin-top:4mm;padding-top:3mm">
+      <div style="font-weight:bold;text-align:center;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2mm">TÉRMINOS Y CONDICIONES</div>
+      <ol style="font-size:7pt;line-height:1.45;padding-left:5mm;margin:0">
+        ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:1.5mm">${l.replace(/^•\s*/, '')}</li>`).join('')}
+      </ol>
     </div>` : ''
 
   // ── CSS base compartido ────────────────────────────────────────────────────
@@ -447,12 +456,16 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         <div style="font-size:7.5pt;font-family:monospace;word-break:break-all;color:#1e3a5f">${trackingUrl}</div>
       </div>
 
-      <!-- Firmas -->
+      <!-- Firma técnico -->
       <div style="margin-top:3mm">
         <div style="height:14mm;border-bottom:1.5px solid #000;margin-bottom:1.5mm"></div>
-        <div style="text-align:center;font-size:8pt;color:#555">Firma y RUT cliente</div>
-        <div style="height:14mm;border-bottom:1.5px solid #000;margin:4mm 0 1.5mm"></div>
         <div style="text-align:center;font-size:8pt;color:#555">Firma técnico / Sello empresa</div>
+      </div>
+      ${tcTicketHtml}
+      <!-- Firma cliente -->
+      <div style="margin-top:4mm">
+        <div style="height:14mm;border-bottom:1.5px solid #000;margin-bottom:1.5mm"></div>
+        <div style="text-align:center;font-size:8pt;color:#555">${incluirTC ? 'Firma y RUT cliente — acepta los T&amp;C' : 'Firma y RUT cliente'}</div>
       </div>
       <div style="height:14mm"></div>`
   }
@@ -465,7 +478,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       @media print { body { zoom: 0.92; } }`
     if (formato === 'a5v') return `@page { size: A5 portrait; margin: 6mm; }`
     if (formato === 'a4')  return `@page { size: A4; margin: 10mm; }`
-    return `@page { size: 80mm auto; margin: 3mm; }` // ticket
+    return `@page { size: ${anchoTicket}mm auto; margin: 3mm; }` // ticket
   }
 
   function handleImprimir() {
@@ -678,6 +691,21 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
                 </div>
               </div>
 
+              {/* Ancho impresora (solo para ticket) */}
+              {formato === 'ticket' && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-700">Ancho impresora</p>
+                  <div className="flex gap-2">
+                    {([57, 80] as const).map(w => (
+                      <button key={w} onClick={() => setAnchoTicket(w)}
+                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${anchoTicket === w ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'}`}>
+                        {w}mm
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Copias (solo para no-ticket) */}
               {formato !== 'ticket' && (
                 <div className="space-y-2">
@@ -695,29 +723,27 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
               )}
 
               {/* T&C */}
-              {formato !== 'ticket' && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-700">Términos y condiciones</p>
-                  <label className="flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input type="checkbox" checked={incluirTC} onChange={e => setIncluirTC(e.target.checked)} className="w-4 h-4 accent-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Imprimir T&C al dorso</p>
-                      <p className="text-xs text-gray-400">Se imprime en hoja separada, parte trasera del comprobante</p>
-                    </div>
-                  </label>
-                  {!incluirTC && (
-                    <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
-                      Solo si tu papel ya tiene los T&C pre-impresos al dorso
-                    </p>
-                  )}
-                </div>
-              )}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-700">Términos y condiciones</p>
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input type="checkbox" checked={incluirTC} onChange={e => setIncluirTC(e.target.checked)} className="w-4 h-4 accent-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{formato === 'ticket' ? 'Imprimir T&C al final del ticket' : 'Imprimir T&C al dorso'}</p>
+                    <p className="text-xs text-gray-400">{formato === 'ticket' ? 'Se imprime al final del ticket con espacio para firma del cliente' : 'Se imprime en hoja separada, parte trasera del comprobante'}</p>
+                  </div>
+                </label>
+                {!incluirTC && formato !== 'ticket' && (
+                  <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
+                    Solo si tu papel ya tiene los T&C pre-impresos al dorso
+                  </p>
+                )}
+              </div>
 
               {/* Resumen */}
               <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-500 space-y-0.5">
-                <p>• Formato: <strong className="text-gray-700">{FORMAT_INFO[formato].label}</strong></p>
+                <p>• Formato: <strong className="text-gray-700">{FORMAT_INFO[formato].label}{formato === 'ticket' ? ` ${anchoTicket}mm` : ''}</strong></p>
                 {formato !== 'ticket' && <p>• Copias: <strong className="text-gray-700">{copias}</strong></p>}
-                {formato !== 'ticket' && <p>• T&C al dorso: <strong className="text-gray-700">{incluirTC ? 'Sí' : 'No'}</strong></p>}
+                <p>• T&C: <strong className="text-gray-700">{incluirTC ? 'Sí' : 'No'}</strong></p>
               </div>
             </div>
 
