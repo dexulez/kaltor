@@ -264,6 +264,10 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       toast.error('Ingresa el teléfono del cliente')
       return
     }
+    if (!nuevoCliente.rut.trim()) {
+      toast.error('El RUT / DNI es obligatorio')
+      return
+    }
 
     setGuardandoCliente(true)
 
@@ -508,9 +512,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                     <Input
                       value={nuevoCliente.rut}
                       onChange={e => setNuevoCliente(v => ({ ...v, rut: e.target.value }))}
-                      placeholder="26595544-4"
-                      inputMode="numeric"
-                      required
+                      placeholder="RUT, pasaporte o cédula extranjera"
                     />
                   </div>
                   <div className="sm:col-span-2 space-y-1.5">

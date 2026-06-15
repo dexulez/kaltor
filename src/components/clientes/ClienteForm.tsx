@@ -31,6 +31,10 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.rut.trim()) {
+      toast.error('El RUT / DNI es obligatorio')
+      return
+    }
     setLoading(true)
 
     const payload = {
@@ -90,13 +94,14 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="rut">RUT / DNI</Label>
+          <Label htmlFor="rut">RUT / DNI <span className="text-red-500">*</span></Label>
           <Input
             id="rut"
             value={form.rut}
             onChange={e => setForm(f => ({ ...f, rut: e.target.value }))}
-            placeholder="176589-7"
+            placeholder="RUT, pasaporte o cédula extranjera"
           />
+          <p className="text-xs text-gray-400">Acepta cualquier formato: RUT, pasaporte, cédula extranjera</p>
         </div>
 
         <div className="sm:col-span-2 space-y-1.5">
