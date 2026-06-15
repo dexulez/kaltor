@@ -102,6 +102,66 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     setUploadingLogo(false)
   }
 
+  function handleImprimirTC() {
+    const win = window.open('', '_blank', 'width=700,height=900')
+    if (!win) { toast.error('Permite popups para imprimir'); return }
+
+    const clausulas = form.terminos_condiciones.split('\n').filter(Boolean)
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Términos y Condiciones — ${form.nombre_local}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#111;background:#fff;padding:10mm}
+  @page{size:A5 landscape;margin:10mm}
+</style>
+</head>
+<body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1e3a5f;padding-bottom:3mm;margin-bottom:4mm">
+    <div style="display:flex;align-items:center;gap:3mm">
+      ${form.logo_url ? `<img src="${form.logo_url}" style="max-height:12mm;max-width:40mm;object-fit:contain" alt="Logo">` : '<span style="font-size:18pt">🔧</span>'}
+      <div>
+        <div style="font-size:11pt;font-weight:bold">${form.nombre_local}</div>
+        ${form.rut_local  ? `<div style="font-size:7.5pt">RUT: ${form.rut_local}</div>`  : ''}
+        ${form.direccion  ? `<div style="font-size:7.5pt">${form.direccion}</div>`        : ''}
+        ${form.telefono   ? `<div style="font-size:7.5pt">Tel: ${form.telefono}</div>`    : ''}
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:7pt;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px">Orden de Trabajo N°</div>
+      <div style="font-size:16pt;font-weight:bold;font-family:monospace;color:#1e3a5f;border-bottom:1px solid #9ca3af;min-width:40mm;padding-bottom:1mm">&nbsp;</div>
+      <div style="font-size:7pt;color:#9ca3af;margin-top:1mm">Completar al momento de la entrega</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:11pt;font-weight:bold;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4mm;color:#1e3a5f">
+    Cláusulas y Condiciones de Servicio
+  </div>
+
+  <ol style="font-size:8.5pt;line-height:1.6;padding-left:5mm;column-count:2;column-gap:8mm">
+    ${clausulas.map(l => `<li style="margin-bottom:2mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
+  </ol>
+
+  <div style="margin-top:6mm;display:flex;gap:16mm;border-top:1px solid #e5e7eb;padding-top:4mm">
+    <div style="flex:1;text-align:center">
+      <div style="height:14mm;border-bottom:1.5px solid #111;margin-bottom:2mm"></div>
+      <div style="font-size:7.5pt;color:#555">Firma y RUT cliente — Acepta las condiciones</div>
+    </div>
+    <div style="flex:1;text-align:center">
+      <div style="height:14mm;border-bottom:1.5px solid #111;margin-bottom:2mm"></div>
+      <div style="font-size:7.5pt;color:#555">Firma técnico / Sello empresa</div>
+    </div>
+  </div>
+</body>
+</html>`
+
+    win.document.write(html)
+    win.document.close()
+    setTimeout(() => { win.focus(); win.print() }, 400)
+  }
+
   async function handleSave() {
     if (!config.id) { toast.error('No se encontró configuración'); return }
     setLoading(true)
@@ -265,17 +325,27 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
 
       {/* Términos y condiciones */}
       <div className="bg-white rounded-xl border p-5 space-y-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold text-gray-800">Términos y condiciones</h2>
             <p className="text-xs text-gray-500 mt-0.5">Se imprimen en el comprobante de recepción de equipos</p>
           </div>
-          <button
-            onClick={() => set('terminos_condiciones', TC_DEFAULT)}
-            className="text-xs text-blue-600 hover:underline shrink-0"
-          >
-            Restaurar predeterminado
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={handleImprimirTC}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors"
+            >
+              🖨️ Imprimir T&C
+            </button>
+            <button
+              type="button"
+              onClick={() => set('terminos_condiciones', TC_DEFAULT)}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              Restaurar predeterminado
+            </button>
+          </div>
         </div>
         <textarea
           value={form.terminos_condiciones}
