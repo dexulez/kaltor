@@ -152,17 +152,6 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
   <ol style="line-height:1.6;padding-left:5mm;column-count:${cols};column-gap:8mm;margin:0">
     ${clausulas.map(l => `<li style="margin-bottom:2mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
   </ol>
-
-  <div style="margin-top:6mm;display:flex;gap:16mm;border-top:1px solid #e5e7eb;padding-top:4mm">
-    <div style="flex:1;text-align:center">
-      <div style="height:14mm;border-bottom:1.5px solid #111;margin-bottom:2mm"></div>
-      <div style="font-size:7.5pt;color:#555">Firma y RUT cliente — Acepta las condiciones</div>
-    </div>
-    <div style="flex:1;text-align:center">
-      <div style="height:14mm;border-bottom:1.5px solid #111;margin-bottom:2mm"></div>
-      <div style="font-size:7.5pt;color:#555">Firma técnico / Sello empresa</div>
-    </div>
-  </div>
 </body>
 </html>`
 
@@ -238,7 +227,13 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
           </div>
           <div className="space-y-1.5">
             <Label>RUT local</Label>
-            <Input value={form.rut_local} onChange={e => set('rut_local', e.target.value)} placeholder="76123456-7" />
+            <input
+              type="text"
+              value={form.rut_local}
+              onChange={e => set('rut_local', e.target.value)}
+              placeholder="ej: 76123456-7"
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 placeholder:text-muted-foreground"
+            />
           </div>
           <div className="sm:col-span-2 space-y-1.5">
             <Label>Dirección</Label>
