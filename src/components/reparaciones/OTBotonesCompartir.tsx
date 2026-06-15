@@ -502,6 +502,71 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     setShowPrintModal(false)
   }
 
+  function handleImprimirSoloTC() {
+    const win = window.open('', '_blank', 'width=700,height=900')
+    if (!win) { alert('Permite popups para imprimir'); return }
+
+    const clausulas = tc.split('\n').filter(Boolean)
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>T&C ${ot.numero_ot}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#111;background:#fff;padding:10mm}
+  @page{size:A5 landscape;margin:10mm}
+</style>
+</head>
+<body>
+  <!-- Cabecera -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1e3a5f;padding-bottom:3mm;margin-bottom:4mm">
+    <div style="display:flex;align-items:center;gap:3mm">
+      ${config.logo_url ? `<img src="${config.logo_url}" style="max-height:12mm;max-width:40mm;object-fit:contain" alt="Logo">` : '<span style="font-size:18pt">🔧</span>'}
+      <div>
+        <div style="font-size:11pt;font-weight:bold">${config.nombre_local}</div>
+        ${config.rut_local  ? `<div style="font-size:7.5pt">RUT: ${config.rut_local}</div>`  : ''}
+        ${config.direccion  ? `<div style="font-size:7.5pt">${config.direccion}</div>`        : ''}
+        ${config.telefono   ? `<div style="font-size:7.5pt">Tel: ${config.telefono}</div>`    : ''}
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:7pt;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px">Orden de Trabajo</div>
+      <div style="font-size:14pt;font-weight:bold;font-family:monospace;color:#1e3a5f">${ot.numero_ot}</div>
+      <div style="font-size:7.5pt;color:#374151">${cliente?.nombre ?? ''}</div>
+    </div>
+  </div>
+
+  <!-- Título -->
+  <div style="text-align:center;font-size:11pt;font-weight:bold;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4mm;color:#1e3a5f">
+    Cláusulas y Condiciones de Servicio
+  </div>
+
+  <!-- Cláusulas en 2 columnas -->
+  <ol style="font-size:8.5pt;line-height:1.6;padding-left:5mm;column-count:2;column-gap:8mm">
+    ${clausulas.map(l => `<li style="margin-bottom:2mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
+  </ol>
+
+  <!-- Firma -->
+  <div style="margin-top:6mm;display:flex;gap:16mm;border-top:1px solid #e5e7eb;padding-top:4mm">
+    <div style="flex:1;text-align:center">
+      <div style="height:14mm;border-bottom:1.5px solid #111;margin-bottom:2mm"></div>
+      <div style="font-size:7.5pt;color:#555">Firma y RUT cliente — Acepta las condiciones</div>
+    </div>
+    <div style="flex:1;text-align:center">
+      <div style="height:14mm;border-bottom:1.5px solid #111;margin-bottom:2mm"></div>
+      <div style="font-size:7.5pt;color:#555">Firma técnico / Sello empresa</div>
+    </div>
+  </div>
+</body>
+</html>`
+
+    win.document.write(html)
+    win.document.close()
+    setTimeout(() => { win.focus(); win.print() }, 400)
+    setShowPrintModal(false)
+  }
+
   // ── WhatsApp / Email ───────────────────────────────────────────────────────
   function getWhatsAppUrl(destino: 'cliente' | 'empresa') {
     const phone = (destino === 'cliente' ? (cliente?.telefono ?? '') : (config.whatsapp ?? '')).replace(/\D/g, '')
@@ -747,14 +812,21 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
               </div>
             </div>
 
-            <div className="px-5 pb-5 flex gap-3">
-              <button onClick={() => setShowPrintModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                Cancelar
-              </button>
-              <button onClick={handleImprimir}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm">
-                🖨️ Imprimir ahora
+            <div className="px-5 pb-5 space-y-2">
+              <div className="flex gap-3">
+                <button onClick={() => setShowPrintModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  Cancelar
+                </button>
+                <button onClick={handleImprimir}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm">
+                  🖨️ Imprimir ahora
+                </button>
+              </div>
+              <button onClick={handleImprimirSoloTC}
+                className="w-full py-2.5 rounded-xl border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+                📄 Imprimir solo cláusulas y condiciones
+                <span className="text-xs text-gray-400">(sin impresora doble cara)</span>
               </button>
             </div>
           </div>
