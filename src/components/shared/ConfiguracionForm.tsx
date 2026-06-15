@@ -45,6 +45,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [tcFormat, setTcFormat] = useState<'a5h' | 'a5v' | 'a4'>('a5h')
 
   const [form, setForm] = useState({
     nombre_local: config.nombre_local,
@@ -107,6 +108,14 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     if (!win) { toast.error('Permite popups para imprimir'); return }
 
     const clausulas = form.terminos_condiciones.split('\n').filter(Boolean)
+    const pageCSS = tcFormat === 'a5h'
+      ? '@page{size:A5 landscape;margin:10mm}'
+      : tcFormat === 'a5v'
+      ? '@page{size:A5 portrait;margin:10mm}'
+      : '@page{size:A4;margin:12mm}'
+    const cols = tcFormat === 'a5v' ? 1 : 2
+    const fontSize = tcFormat === 'a4' ? '9pt' : '8.5pt'
+
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -114,8 +123,8 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
 <title>Términos y Condiciones — ${form.nombre_local}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#111;background:#fff;padding:10mm}
-  @page{size:A5 landscape;margin:10mm}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:${fontSize};color:#111;background:#fff}
+  ${pageCSS}
 </style>
 </head>
 <body>
@@ -124,9 +133,9 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
       ${form.logo_url ? `<img src="${form.logo_url}" style="max-height:12mm;max-width:40mm;object-fit:contain" alt="Logo">` : '<span style="font-size:18pt">🔧</span>'}
       <div>
         <div style="font-size:11pt;font-weight:bold">${form.nombre_local}</div>
-        ${form.rut_local  ? `<div style="font-size:7.5pt">RUT: ${form.rut_local}</div>`  : ''}
-        ${form.direccion  ? `<div style="font-size:7.5pt">${form.direccion}</div>`        : ''}
-        ${form.telefono   ? `<div style="font-size:7.5pt">Tel: ${form.telefono}</div>`    : ''}
+        ${form.rut_local ? `<div style="font-size:7.5pt">RUT: ${form.rut_local}</div>` : ''}
+        ${form.direccion ? `<div style="font-size:7.5pt">${form.direccion}</div>`       : ''}
+        ${form.telefono  ? `<div style="font-size:7.5pt">Tel: ${form.telefono}</div>`   : ''}
       </div>
     </div>
     <div style="text-align:right">
@@ -140,7 +149,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     Cláusulas y Condiciones de Servicio
   </div>
 
-  <ol style="font-size:8.5pt;line-height:1.6;padding-left:5mm;column-count:2;column-gap:8mm">
+  <ol style="line-height:1.6;padding-left:5mm;column-count:${cols};column-gap:8mm;margin:0">
     ${clausulas.map(l => `<li style="margin-bottom:2mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
   </ol>
 
@@ -330,7 +339,19 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
             <h2 className="font-semibold text-gray-800">Términos y condiciones</h2>
             <p className="text-xs text-gray-500 mt-0.5">Se imprimen en el comprobante de recepción de equipos</p>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
+            <div className="flex items-center gap-1">
+              {(['a5h', 'a5v', 'a4'] as const).map(f => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setTcFormat(f)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${tcFormat === f ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}
+                >
+                  {f === 'a5h' ? 'A5 Horiz.' : f === 'a5v' ? 'A5 Vert.' : 'A4'}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               onClick={handleImprimirTC}
