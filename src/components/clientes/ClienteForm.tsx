@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Customer } from '@/types'
-import { formatRut, validarRut } from '@/lib/calculations'
 
 interface Props {
   cliente?: Customer
@@ -20,7 +19,6 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
-  const [rutError, setRutError] = useState('')
 
   const [form, setForm] = useState({
     nombre: cliente?.nombre ?? '',
@@ -31,26 +29,8 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
     notas: cliente?.notas ?? '',
   })
 
-  function handleRutChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const formatted = formatRut(e.target.value)
-    setForm(f => ({ ...f, rut: formatted }))
-    if (formatted && !validarRut(formatted)) {
-      setRutError('RUT inválido')
-    } else {
-      setRutError('')
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.rut.trim()) {
-      toast.error('El RUT es obligatorio')
-      return
-    }
-    if (!validarRut(form.rut)) {
-      toast.error('El RUT ingresado no es válido')
-      return
-    }
     setLoading(true)
 
     const payload = {
@@ -110,22 +90,13 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="rut">RUT / DNI <span className="text-red-500">*</span></Label>
+          <Label htmlFor="rut">RUT / DNI</Label>
           <Input
             id="rut"
             value={form.rut}
-            onChange={handleRutChange}
-            placeholder="26595544-4"
-            inputMode="numeric"
-            required
-            className={rutError ? 'border-red-400' : form.rut && !rutError ? 'border-green-400' : ''}
+            onChange={e => setForm(f => ({ ...f, rut: e.target.value }))}
+            placeholder="176589-7"
           />
-          {rutError
-            ? <p className="text-xs text-red-500">⚠ {rutError}</p>
-            : form.rut
-              ? <p className="text-xs text-green-600">✓ RUT válido</p>
-              : <p className="text-xs text-gray-400">Requerido · El guión se agrega solo</p>
-          }
         </div>
 
         <div className="sm:col-span-2 space-y-1.5">

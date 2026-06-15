@@ -264,15 +264,6 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       toast.error('Ingresa el teléfono del cliente')
       return
     }
-    if (!nuevoCliente.rut.trim()) {
-      toast.error('El RUT es obligatorio')
-      return
-    }
-    const { validarRut: vRut } = await import('@/lib/calculations')
-    if (!vRut(nuevoCliente.rut)) {
-      toast.error('RUT inválido — revisa el formato')
-      return
-    }
 
     setGuardandoCliente(true)
 
@@ -516,7 +507,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                     <Label>RUT / DNI <span className="text-red-500">*</span></Label>
                     <Input
                       value={nuevoCliente.rut}
-                      onChange={e => setNuevoCliente(v => ({ ...v, rut: formatRut(e.target.value) }))}
+                      onChange={e => setNuevoCliente(v => ({ ...v, rut: e.target.value }))}
                       placeholder="26595544-4"
                       inputMode="numeric"
                       required
