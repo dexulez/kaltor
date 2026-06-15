@@ -124,15 +124,34 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     ? `<img src="${config.logo_url}" style="max-height:11mm;max-width:42mm;display:block;object-fit:contain" alt="Logo">`
     : `<span style="font-size:18pt">🔧</span>`
 
-  const tcHtml = incluirTC ? `
-    <div style="margin-top:3mm;border-top:1px solid #ccc;padding-top:2mm">
-      <div style="background:#374151;color:#fff;text-align:center;padding:1mm 2mm;font-size:6pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1mm">
-        Cláusulas y Condiciones
+  // A4/Carta: T&C en la misma página, fluye bajo el contenido OT
+  const tcSamePageHtml = incluirTC ? `
+    <div style="margin-top:4mm;border-top:1.5px solid #374151;padding-top:2.5mm">
+      <div style="background:#374151;color:#fff;text-align:center;padding:1.5mm 3mm;font-size:6.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2mm">
+        Cláusulas y Condiciones de Servicio
       </div>
-      <ul style="font-size:5.5pt;column-count:2;column-gap:4mm;line-height:1.3;padding-left:8px">
-        ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:1px">${l.replace(/^•\s*/, '')}</li>`).join('')}
-      </ul>
+      <ol style="font-size:6pt;column-count:2;column-gap:5mm;line-height:1.4;padding-left:5mm;margin:0">
+        ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:1.5mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
+      </ol>
     </div>` : ''
+
+  // A5: T&C en página trasera (salto de página), sin líneas de firma
+  function tcBackPageHtml(cols: number): string {
+    if (!incluirTC) return ''
+    return `
+    <div style="page-break-before:always">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1e3a5f;padding-bottom:2.5mm;margin-bottom:4mm">
+        <div style="font-size:9pt;font-weight:bold;color:#1e3a5f">${config.nombre_local}</div>
+        <div style="font-size:7.5pt;font-family:monospace;color:#374151">${ot.numero_ot}</div>
+      </div>
+      <div style="text-align:center;font-size:10pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:4mm;color:#1e3a5f">
+        Cláusulas y Condiciones de Servicio
+      </div>
+      <ol style="font-size:8.5pt;column-count:${cols};column-gap:6mm;line-height:1.6;padding-left:5mm;margin:0">
+        ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:2.5mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
+      </ol>
+    </div>`
+  }
 
   const tcTicketHtml = incluirTC ? `
     <div style="border-top:1.5px dashed #000;margin-top:4mm;padding-top:3mm">
@@ -331,7 +350,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
           ${firmaRow()}
         </div>`
 
-      if (copias === 1) return unaHoja
+      if (copias === 1) return unaHoja + tcBackPageHtml(2)
 
       const copia2 = `
         <hr class="separator">
@@ -346,7 +365,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
           <div style="flex:1"></div>
           ${firmaRow()}
         </div>`
-      return unaHoja + copia2
+      return unaHoja + copia2 + tcBackPageHtml(2)
     }
 
     // ── A5 Vertical ────────────────────────────────────────────────────────────
@@ -357,7 +376,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${dosColumnas('2mm', '44%')}
         ${trackHtml()}${firmasHtml()}`
       const copia2 = copias === 2 ? `<hr class="separator">${cabeceraHtml()}${dosColumnas('2mm', '44%')}${trackHtmlOT()}${firmasHtml()}` : ''
-      return una + copia2 + tcHtml
+      return una + copia2 + tcBackPageHtml(1)
     }
 
     if (formato === 'a4') {
@@ -371,7 +390,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         ${dosColumnas('3mm', '44%')}
         ${trackHtmlOT()}
         ${firmasHtml()}
-        ${tcHtml}`
+        ${tcSamePageHtml}`
     }
 
     // ── Ticket 80mm — datos completos ──────────────────────────────────────
