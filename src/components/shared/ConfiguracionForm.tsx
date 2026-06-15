@@ -109,48 +109,33 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
 
     const clausulas = form.terminos_condiciones.split('\n').filter(Boolean)
     const pageCSS = tcFormat === 'a5h'
-      ? '@page{size:A5 landscape;margin:10mm}'
+      ? '@page{size:A5 landscape;margin:8mm}'
       : tcFormat === 'a5v'
-      ? '@page{size:A5 portrait;margin:10mm}'
-      : '@page{size:A4;margin:12mm}'
-    const cols = tcFormat === 'a5v' ? 1 : 2
-    const fontSize = tcFormat === 'a4' ? '9pt' : '8.5pt'
+      ? '@page{size:A5 portrait;margin:8mm}'
+      : '@page{size:A4;margin:10mm}'
+    const cols  = tcFormat === 'a5v' ? 1 : 2
+    const fSize = tcFormat === 'a4' ? '10pt' : '9pt'
+    const lh    = tcFormat === 'a4' ? '1.7'  : '1.6'
+    const mb    = tcFormat === 'a4' ? '3mm'  : '2.5mm'
 
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Términos y Condiciones — ${form.nombre_local}</title>
+<title>Términos y Condiciones</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:${fontSize};color:#111;background:#fff}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:${fSize};color:#111;background:#fff}
   ${pageCSS}
 </style>
 </head>
 <body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1e3a5f;padding-bottom:3mm;margin-bottom:4mm">
-    <div style="display:flex;align-items:center;gap:3mm">
-      ${form.logo_url ? `<img src="${form.logo_url}" style="max-height:12mm;max-width:40mm;object-fit:contain" alt="Logo">` : '<span style="font-size:18pt">🔧</span>'}
-      <div>
-        <div style="font-size:11pt;font-weight:bold">${form.nombre_local}</div>
-        ${form.rut_local ? `<div style="font-size:7.5pt">RUT: ${form.rut_local}</div>` : ''}
-        ${form.direccion ? `<div style="font-size:7.5pt">${form.direccion}</div>`       : ''}
-        ${form.telefono  ? `<div style="font-size:7.5pt">Tel: ${form.telefono}</div>`   : ''}
-      </div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:7pt;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px">Orden de Trabajo N°</div>
-      <div style="font-size:16pt;font-weight:bold;font-family:monospace;color:#1e3a5f;border-bottom:1px solid #9ca3af;min-width:40mm;padding-bottom:1mm">&nbsp;</div>
-      <div style="font-size:7pt;color:#9ca3af;margin-top:1mm">Completar al momento de la entrega</div>
-    </div>
-  </div>
-
-  <div style="text-align:center;font-size:11pt;font-weight:bold;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4mm;color:#1e3a5f">
+  <div style="text-align:center;font-size:12pt;font-weight:bold;text-transform:uppercase;letter-spacing:1.5px;border-bottom:2px solid #1e3a5f;padding-bottom:3mm;margin-bottom:5mm;color:#1e3a5f">
     Cláusulas y Condiciones de Servicio
   </div>
 
-  <ol style="line-height:1.6;padding-left:5mm;column-count:${cols};column-gap:8mm;margin:0">
-    ${clausulas.map(l => `<li style="margin-bottom:2mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
+  <ol style="line-height:${lh};padding-left:5mm;column-count:${cols};column-gap:8mm;margin:0">
+    ${clausulas.map(l => `<li style="margin-bottom:${mb};break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
   </ol>
 </body>
 </html>`
