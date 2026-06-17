@@ -463,14 +463,18 @@ export default async function ReparacionesPage({
   // Filtros de vista especiales
   if (vista === 'fuera_plazo') {
     const hoy = new Date().toISOString().split('T')[0]
-    const estadosFinales = new Set<string>(['entregado', 'cancelado', 'en_garantia', 'rechazado'])
+    const excluir = new Set<string>(['entregado', 'cancelado', 'en_garantia'])
     otList = otList.filter(ot =>
       ot.fecha_estimada_entrega &&
       ot.fecha_estimada_entrega < hoy &&
-      !estadosFinales.has(ot.estado)
+      !excluir.has(ot.estado)
     )
     otList.sort((a, b) => (a.fecha_estimada_entrega ?? '').localeCompare(b.fecha_estimada_entrega ?? ''))
   }
+
+  const ESTADOS_LISTOS_ENTREGAR = new Set(['listo', 'para_entrega', 'rechazado'])
+  const otsFuera_EnProceso = vista === 'fuera_plazo' ? otList.filter(ot => !ESTADOS_LISTOS_ENTREGAR.has(ot.estado)) : []
+  const otsFuera_Listos    = vista === 'fuera_plazo' ? otList.filter(ot =>  ESTADOS_LISTOS_ENTREGAR.has(ot.estado)) : []
 
   if (vista === 'por_cobrar') {
     otList = otList.filter(ot => ot.estado === 'listo' || ot.estado === 'para_entrega')
@@ -579,13 +583,46 @@ export default async function ReparacionesPage({
             expandida={grupo2.length > 0}
           />
         </div>
-      ) : (
-        <div className="bg-white rounded-xl border overflow-hidden">
-          {vista === 'fuera_plazo' && (
-            <div className="bg-red-50 border-b px-4 py-2.5">
-              <p className="font-semibold text-red-800 text-sm">⏰ OTs con fecha de entrega vencida ({otList.length})</p>
+      ) : vista === 'fuera_plazo' ? (
+        <div className="space-y-4">
+          {otsFuera_EnProceso.length > 0 && (
+            <div className="bg-white rounded-xl border overflow-hidden">
+              <div className="bg-red-50 border-b px-4 py-2.5 flex items-center justify-between">
+                <p className="font-semibold text-red-800 text-sm">⏰ En proceso — fuera de plazo ({otsFuera_EnProceso.length})</p>
+                <p className="text-xs text-red-500">La reparación aún no está lista</p>
+              </div>
+              <OTTable
+                ots={otsFuera_EnProceso}
+                userId={user!.id}
+                puedeAdjudicar={puedeAdjudicar}
+                puedeCobrar={puedeCobrar}
+                mostrarFecha="prometida"
+              />
             </div>
           )}
+          {otsFuera_Listos.length > 0 && (
+            <div className="bg-white rounded-xl border overflow-hidden">
+              <div className="bg-amber-50 border-b px-4 py-2.5 flex items-center justify-between">
+                <p className="font-semibold text-amber-800 text-sm">📦 Listos — pendientes de retiro ({otsFuera_Listos.length})</p>
+                <p className="text-xs text-amber-600">El equipo está listo, cliente no ha retirado</p>
+              </div>
+              <OTTable
+                ots={otsFuera_Listos}
+                userId={user!.id}
+                puedeAdjudicar={false}
+                puedeCobrar={puedeCobrar}
+                mostrarFecha="prometida"
+              />
+            </div>
+          )}
+          {otsFuera_EnProceso.length === 0 && otsFuera_Listos.length === 0 && (
+            <div className="bg-white rounded-xl border p-8 text-center text-gray-400 text-sm">
+              Sin OTs fuera de plazo
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border overflow-hidden">
           {vista === 'por_cobrar' && (
             <div className="bg-green-50 border-b px-4 py-2.5">
               <p className="font-semibold text-green-800 text-sm">💰 Listos para cobrar / pendientes de retiro ({otList.length})</p>
@@ -596,7 +633,7 @@ export default async function ReparacionesPage({
             userId={user!.id}
             puedeAdjudicar={puedeAdjudicar}
             puedeCobrar={puedeCobrar}
-            mostrarFecha={vista === 'fecha_prometida' || vista === 'fuera_plazo' ? 'prometida' : 'recibido'}
+            mostrarFecha={vista === 'fecha_prometida' ? 'prometida' : 'recibido'}
           />
         </div>
       )}
