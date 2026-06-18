@@ -268,31 +268,44 @@ function SeccionGrupo({
 
 // ── Banner de alarmas ────────────────────────────────────────────────────────
 
-function BannerAlarmas({ fueraPlazo, sinRetirar, sinRespuesta, vistaActual }: {
-  fueraPlazo: number; sinRetirar: number; sinRespuesta: number; vistaActual: Vista
+function BannerAlarmas({ fueraPlazo, sinRetirar, sinRespuesta, vistaActual, estadoActivo }: {
+  fueraPlazo: number; sinRetirar: number; sinRespuesta: number; vistaActual: Vista; estadoActivo: string
 }) {
   if (!fueraPlazo && !sinRetirar && !sinRespuesta) return null
+
+  // Cada aviso funciona como un interruptor: si ya está activo, el mismo clic
+  // lo desmarca y vuelve a la vista anterior (conservando el filtro de estado
+  // si había uno); si no está activo, lo aplica.
+  const hrefSinFiltro = estadoActivo !== 'todas' ? `/reparaciones?estado=${estadoActivo}` : '/reparaciones'
+  function hrefVista(v: Vista) {
+    if (vistaActual === v) return hrefSinFiltro
+    const estadoQ = estadoActivo !== 'todas' ? `&estado=${estadoActivo}` : ''
+    return `/reparaciones?vista=${v}${estadoQ}`
+  }
+  const estadoPresupuestadoActivo = estadoActivo === 'presupuestado'
+  const hrefSinRespuesta = estadoPresupuestadoActivo ? '/reparaciones' : '/reparaciones?estado=presupuestado'
+
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
       <p className="text-xs font-semibold text-amber-700 mb-2 uppercase tracking-wide">Avisos del sistema</p>
       <div className="flex flex-wrap gap-2">
         {fueraPlazo > 0 && (
-          <Link href="/reparaciones?vista=fuera_plazo">
+          <Link href={hrefVista('fuera_plazo')}>
             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer transition-all ${vistaActual === 'fuera_plazo' ? 'bg-red-600 text-white border-red-600' : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'}`}>
               ⏰ {fueraPlazo} fuera de plazo
             </span>
           </Link>
         )}
         {sinRetirar > 0 && (
-          <Link href="/reparaciones?vista=sin_retirar">
+          <Link href={hrefVista('sin_retirar')}>
             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer transition-all ${vistaActual === 'sin_retirar' ? 'bg-amber-600 text-white border-amber-600' : 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'}`}>
               📦 {sinRetirar} sin retirar (+3 días)
             </span>
           </Link>
         )}
         {sinRespuesta > 0 && (
-          <Link href="/reparaciones?estado=presupuestado">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200 cursor-pointer transition-all">
+          <Link href={hrefSinRespuesta}>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer transition-all ${estadoPresupuestadoActivo ? 'bg-blue-600 text-white border-blue-600' : 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200'}`}>
               💬 {sinRespuesta} sin respuesta de cliente (+3 días)
             </span>
           </Link>
@@ -391,7 +404,7 @@ export default async function ReparacionesPage({
           )}
         </div>
 
-        <BannerAlarmas fueraPlazo={fueraPlazo.length} sinRetirar={sinRetirar.length} sinRespuesta={sinRespuesta.length} vistaActual={vista} />
+        <BannerAlarmas fueraPlazo={fueraPlazo.length} sinRetirar={sinRetirar.length} sinRespuesta={sinRespuesta.length} vistaActual={vista} estadoActivo={estadoActivo} />
 
         <div className="flex flex-wrap gap-2">
           {ESTADOS.map(e => (
@@ -533,6 +546,7 @@ export default async function ReparacionesPage({
         sinRetirar={sinRetirar.length}
         sinRespuesta={sinRespuesta.length}
         vistaActual={vista}
+        estadoActivo={estadoActivo}
       />
 
       {/* Buscador */}
