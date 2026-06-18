@@ -68,7 +68,7 @@ type OTRow = RepairOrder & {
   fecha_estimada_entrega?: string | null
 }
 
-type Vista = 'defecto' | 'fecha_prometida' | 'recibidos' | 'fuera_plazo' | 'por_cobrar'
+type Vista = 'defecto' | 'fecha_prometida' | 'recibidos' | 'fuera_plazo' | 'por_cobrar' | 'sin_retirar'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,31 +77,34 @@ function getGrupo(ot: OTRow): 0 | 1 | 2 {
   return GRUPO_ESTADO[ot.estado] ?? 2
 }
 
-function calcAlarmas(ots: OTRow[]) {
-  const hoy = new Date().toISOString().split('T')[0]
-  const hace3dias = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-  const estadosFinales = new Set<string>(['entregado', 'cancelado', 'en_garantia', 'rechazado'])
+// Únicas fuentes de verdad para estas condiciones — se usan tanto para contar
+// las alarmas como para filtrar las listas, de modo que el conteo del aviso
+// siempre coincida con lo que se ve al hacer clic en él.
+const ESTADOS_FINALES_PLAZO = new Set<string>(['entregado', 'cancelado', 'en_garantia', 'rechazado'])
 
-  const fueraPlazo = ots.filter(ot =>
-    ot.fecha_estimada_entrega &&
-    ot.fecha_estimada_entrega < hoy &&
-    !estadosFinales.has(ot.estado)
-  )
-  const sinRetirar = ots.filter(ot =>
-    (ot.estado === 'listo' || ot.estado === 'para_entrega') &&
-    new Date(ot.updated_at) < hace3dias
-  )
+function isFueraPlazo(ot: OTRow): boolean {
+  const hoy = new Date().toISOString().split('T')[0]
+  return !!(ot.fecha_estimada_entrega && ot.fecha_estimada_entrega < hoy && !ESTADOS_FINALES_PLAZO.has(ot.estado))
+}
+
+function esSinRetirar(ot: OTRow, hace3dias: Date): boolean {
+  return (ot.estado === 'listo' || ot.estado === 'para_entrega') && new Date(ot.updated_at) < hace3dias
+}
+
+function hace3DiasDesdeAhora(): Date {
+  return new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+}
+
+function calcAlarmas(ots: OTRow[]) {
+  const hace3dias = hace3DiasDesdeAhora()
+
+  const fueraPlazo = ots.filter(isFueraPlazo)
+  const sinRetirar = ots.filter(ot => esSinRetirar(ot, hace3dias))
   const sinRespuesta = ots.filter(ot =>
     ot.estado === 'presupuestado' &&
     new Date(ot.updated_at) < hace3dias
   )
   return { fueraPlazo, sinRetirar, sinRespuesta }
-}
-
-function isFueraPlazo(ot: OTRow): boolean {
-  const hoy = new Date().toISOString().split('T')[0]
-  const estadosFinales = new Set<string>(['entregado', 'cancelado', 'en_garantia', 'rechazado'])
-  return !!(ot.fecha_estimada_entrega && ot.fecha_estimada_entrega < hoy && !estadosFinales.has(ot.estado))
 }
 
 function diasRestantes(fecha: string): number {
@@ -281,8 +284,8 @@ function BannerAlarmas({ fueraPlazo, sinRetirar, sinRespuesta, vistaActual }: {
           </Link>
         )}
         {sinRetirar > 0 && (
-          <Link href="/reparaciones?vista=por_cobrar">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer transition-all ${vistaActual === 'por_cobrar' ? 'bg-amber-600 text-white border-amber-600' : 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'}`}>
+          <Link href="/reparaciones?vista=sin_retirar">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer transition-all ${vistaActual === 'sin_retirar' ? 'bg-amber-600 text-white border-amber-600' : 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'}`}>
               📦 {sinRetirar} sin retirar (+3 días)
             </span>
           </Link>
@@ -462,13 +465,7 @@ export default async function ReparacionesPage({
 
   // Filtros de vista especiales
   if (vista === 'fuera_plazo') {
-    const hoy = new Date().toISOString().split('T')[0]
-    const excluir = new Set<string>(['entregado', 'cancelado', 'en_garantia'])
-    otList = otList.filter(ot =>
-      ot.fecha_estimada_entrega &&
-      ot.fecha_estimada_entrega < hoy &&
-      !excluir.has(ot.estado)
-    )
+    otList = otList.filter(isFueraPlazo)
     otList.sort((a, b) => (a.fecha_estimada_entrega ?? '').localeCompare(b.fecha_estimada_entrega ?? ''))
   }
 
@@ -478,6 +475,14 @@ export default async function ReparacionesPage({
 
   if (vista === 'por_cobrar') {
     otList = otList.filter(ot => ot.estado === 'listo' || ot.estado === 'para_entrega')
+    otList.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())
+  }
+
+  // "Sin retirar (+3 días)" — misma condición que el aviso del banner, para que
+  // el conteo del aviso y esta lista siempre coincidan.
+  if (vista === 'sin_retirar') {
+    const hace3dias = hace3DiasDesdeAhora()
+    otList = otList.filter(ot => esSinRetirar(ot, hace3dias))
     otList.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())
   }
 
@@ -503,7 +508,8 @@ export default async function ReparacionesPage({
     fecha_prometida: 'Por fecha prometida',
     recibidos: 'Por fecha recibido',
     fuera_plazo: 'Fuera de plazo',
-    por_cobrar: 'Por cobrar / sin retirar',
+    por_cobrar: 'Por cobrar',
+    sin_retirar: 'Sin retirar (+3 días)',
   }
 
   return (
@@ -625,7 +631,13 @@ export default async function ReparacionesPage({
         <div className="bg-white rounded-xl border overflow-hidden">
           {vista === 'por_cobrar' && (
             <div className="bg-green-50 border-b px-4 py-2.5">
-              <p className="font-semibold text-green-800 text-sm">💰 Listos para cobrar / pendientes de retiro ({otList.length})</p>
+              <p className="font-semibold text-green-800 text-sm">💰 Listos para cobrar / retirar ({otList.length})</p>
+            </div>
+          )}
+          {vista === 'sin_retirar' && (
+            <div className="bg-amber-50 border-b px-4 py-2.5">
+              <p className="font-semibold text-amber-800 text-sm">📦 Sin retirar hace más de 3 días ({otList.length})</p>
+              <p className="text-xs text-amber-600">Listas para cobrar/entregar, sin movimiento desde hace más de 3 días</p>
             </div>
           )}
           <OTTable
