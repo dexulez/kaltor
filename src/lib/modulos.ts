@@ -10,6 +10,8 @@ export const MODULOS = [
   { key: 'servicios',     label: 'Servicios',       icon: '🔩', href: '/servicios' },
   { key: 'manuales',      label: 'Manuales',        icon: '🧠', href: '/manuales' },
   { key: 'configuracion', label: 'Configuración',   icon: '⚙️', href: '/configuracion' },
+  { key: 'catalogo_b2b',  label: 'Catálogo B2B',    icon: '🛍️', href: '/catalogo-b2b' },
+  { key: 'pedidos_b2b',   label: 'Pedidos B2B',     icon: '📥', href: '/pedidos-b2b' },
 ] as const
 
 export type ModuloKey = typeof MODULOS[number]['key']
@@ -48,10 +50,11 @@ export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: strin
 
 // ── Acceso a módulo por defecto según rol ────────────────────────────────────
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
-  administrador:     ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'usuarios', 'informes', 'servicios', 'manuales', 'configuracion'],
+  administrador:     ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'usuarios', 'informes', 'servicios', 'manuales', 'configuracion', 'pedidos_b2b'],
   tecnico:           ['dashboard', 'reparaciones', 'inventario', 'servicios', 'manuales', 'informes'],
-  vendedor:          ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'servicios', 'informes'],
-  supervisor_ventas: ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'servicios', 'manuales', 'informes'],
+  vendedor:          ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'servicios', 'informes', 'pedidos_b2b'],
+  supervisor_ventas: ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'servicios', 'manuales', 'informes', 'pedidos_b2b'],
+  comprador_externo: ['catalogo_b2b', 'pedidos_b2b'],
 }
 
 // ── Sub-permisos por defecto según rol ───────────────────────────────────────

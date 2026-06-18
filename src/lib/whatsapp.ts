@@ -40,3 +40,16 @@ export function msgOCProveedor(proveedor: string, items: { nombre: string; canti
   const lista = items.map(i => `  • ${i.cantidad}× ${i.nombre}`).join('\n')
   return `Hola *${proveedor}* 👋\n\nSomos *${local}*. Necesitamos cotizar los siguientes repuestos:\n\n${lista}\n\n📋 OC: *${ocNumero}*\n\nPor favor confirmar disponibilidad y precios. ¡Gracias!\n\n_${local}_`
 }
+
+export function msgNuevoPedidoB2B(comprador: string, items: { nombre: string; cantidad: number }[], numeroPedido: string, totalEstimado: number) {
+  const lista = items.map(i => `  • ${i.cantidad}× ${i.nombre}`).join('\n')
+  return `🛍️ *Nuevo pedido de ${comprador}*\n\n${lista}\n\n📋 Pedido: *${numeroPedido}*\nTotal estimado: *$${totalEstimado.toLocaleString('es-CL')}*\n\nRevísalo y confírmalo en el sistema.`
+}
+
+export function msgPedidoB2BConfirmado(nombre: string, numeroPedido: string, total: number, local: string) {
+  return `Hola ${nombre} ✅\n\nTu pedido *${numeroPedido}* fue confirmado.\nTotal: *$${total.toLocaleString('es-CL')}*\n\nCoordina con nosotros el retiro/envío.\n\n_${local}_`
+}
+
+export function msgPedidoB2BRechazado(nombre: string, numeroPedido: string, motivo: string | null, local: string) {
+  return `Hola ${nombre},\n\nLamentablemente no pudimos procesar tu pedido *${numeroPedido}*.${motivo ? `\nMotivo: ${motivo}` : ''}\n\nEscríbenos si tienes dudas.\n\n_${local}_`
+}

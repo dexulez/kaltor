@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import InvitarUsuarioDialog from '@/components/usuarios/InvitarUsuarioDialog'
+import InvitarCompradorDialog from '@/components/usuarios/InvitarCompradorDialog'
 import UsuarioAcciones from '@/components/usuarios/UsuarioAcciones'
 import { Role, UserProfile } from '@/types'
 
@@ -10,6 +11,7 @@ const ROL_COLOR: Record<string, string> = {
   tecnico:           'bg-blue-100 text-blue-700',
   vendedor:          'bg-green-100 text-green-700',
   supervisor_ventas: 'bg-orange-100 text-orange-700',
+  comprador_externo: 'bg-cyan-100 text-cyan-700',
 }
 
 const ROL_LABEL: Record<string, string> = {
@@ -17,6 +19,7 @@ const ROL_LABEL: Record<string, string> = {
   tecnico:           'Técnico',
   vendedor:          'Vendedor',
   supervisor_ventas: 'Supervisor Ventas',
+  comprador_externo: 'Comprador externo',
 }
 
 type RoleRelation = Pick<Role, 'id' | 'nombre'> | Pick<Role, 'id' | 'nombre'>[] | null
@@ -39,7 +42,11 @@ export default async function UsuariosPage() {
     supabase.from('roles').select('id, nombre').order('nombre'),
   ])
 
-  const usuariosList = (usuarios ?? []) as UsuarioListItem[]
+  const todosLosUsuarios = (usuarios ?? []) as UsuarioListItem[]
+  const usuariosList = todosLosUsuarios.filter(u => getRoleName(u.roles) !== 'comprador_externo')
+  const compradoresList = todosLosUsuarios.filter(u => getRoleName(u.roles) === 'comprador_externo')
+  const rolesStaff = (roles ?? []).filter(r => r.nombre !== 'comprador_externo')
+  const rolCompradorId = (roles ?? []).find(r => r.nombre === 'comprador_externo')?.id ?? null
 
   const total = usuariosList.length
   const activos = usuariosList.filter(u => u.activo).length
@@ -53,7 +60,7 @@ export default async function UsuariosPage() {
           <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
           <p className="text-gray-500 text-sm">{total} usuario(s) en el sistema</p>
         </div>
-        <InvitarUsuarioDialog roles={roles ?? []} />
+        <InvitarUsuarioDialog roles={rolesStaff} />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -140,6 +147,67 @@ export default async function UsuariosPage() {
                   </tr>
                 )
               })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Compradores externos (B2B) */}
+      <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Compradores externos</h2>
+          <p className="text-gray-500 text-sm">{compradoresList.length} cuenta(s) — otros talleres con acceso al catálogo B2B</p>
+        </div>
+        <InvitarCompradorDialog rolId={rolCompradorId} />
+      </div>
+
+      <div className="bg-white rounded-xl border overflow-hidden">
+        {!compradoresList.length ? (
+          <div className="text-center py-10 text-gray-400">
+            <span className="text-4xl block mb-2">🛍️</span>
+            <p className="text-sm">Sin compradores externos invitados todavía</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Comprador</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Email</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Teléfono</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {compradoresList.map(u => (
+                <tr key={u.id} className={`hover:bg-gray-50 ${!u.activo ? 'opacity-50' : ''}`}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-700 font-bold text-sm shrink-0">
+                        {u.nombre_completo?.[0]?.toUpperCase() ?? '?'}
+                      </div>
+                      <p className="font-medium text-gray-900">{u.nombre_completo || '(sin nombre)'}</p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{u.email}</td>
+                  <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{u.telefono ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium ${u.activo ? 'text-green-600' : 'text-red-400'}`}>
+                      {u.activo ? '● Activo' : '○ Inactivo'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <UsuarioAcciones
+                      userId={u.id}
+                      nombreUsuario={u.nombre_completo || u.email || 'este comprador'}
+                      rolActualId={u.rol_id ?? null}
+                      activo={u.activo}
+                      roles={roles ?? []}
+                      esPropio={false}
+                    />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}

@@ -17,13 +17,21 @@ const ROL_LABEL: Record<string, string> = {
   tecnico:           'Técnico',
   vendedor:          'Vendedor',
   supervisor_ventas: 'Supervisor Ventas',
+  comprador_externo: 'Comprador externo',
+}
+
+interface Alertas { compras: number; pedidosB2B: number }
+
+const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
+  '/compras': 'compras',
+  '/pedidos-b2b': 'pedidosB2B',
 }
 
 export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
   user: UserProfile | null
   logoUrl?: string | null
   nombreLocal?: string
-  alertas?: { compras: number }
+  alertas?: Alertas
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -84,8 +92,9 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
           {visibleItems.map((item) => {
             const isActive = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href))
-            // Badge de alerta para compras (solicitudes pendientes)
-            const badgeCompras = item.href === '/compras' && !isActive && (alertas?.compras ?? 0) > 0
+            const alertaKey = ALERTA_POR_HREF[item.href]
+            const cantidadAlerta = alertaKey ? (alertas?.[alertaKey] ?? 0) : 0
+            const badgeCompras = !isActive && cantidadAlerta > 0
             return (
               <li key={item.href}>
                 <Link
@@ -103,7 +112,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
                     {badgeCompras && (
                       <span className="absolute -top-1 -left-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center text-white font-bold animate-pulse"
                         style={{ fontSize: '9px', lineHeight: '1' }}>
-                        {(alertas?.compras ?? 0) > 9 ? '9+' : alertas?.compras}
+                        {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
                       </span>
                     )}
                   </span>
@@ -112,7 +121,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
                   )}
                   {!collapsed && badgeCompras && (
                     <span className="ml-auto bg-orange-400 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center animate-pulse">
-                      {(alertas?.compras ?? 0) > 9 ? '9+' : alertas?.compras}
+                      {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
                     </span>
                   )}
                 </Link>
@@ -122,10 +131,12 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         </ul>
       </nav>
 
-      {/* Notificaciones */}
-      <div className="px-2 pb-2 relative">
-        <NotificacionesBell collapsed={collapsed} />
-      </div>
+      {/* Notificaciones (no disponible para compradores externos) */}
+      {roleName !== 'comprador_externo' && (
+        <div className="px-2 pb-2 relative">
+          <NotificacionesBell collapsed={collapsed} />
+        </div>
+      )}
 
       {/* User info */}
       <div className="border-t border-blue-800 p-3">

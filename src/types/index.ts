@@ -39,6 +39,7 @@ export interface UserProfile {
   email: string
   telefono?: string
   rol_id?: string
+  customer_id?: string | null
   comision_base: number
   comision_pantalla: number
   comision_bateria: number
@@ -203,6 +204,8 @@ export interface Product {
   costo_envio: number
   precio_venta: number
   precio_incluye_iva: boolean
+  precio_mayorista?: number | null
+  visible_compradores?: boolean
   ubicacion_bodega?: string
   numero_serie?: string
   imei?: string

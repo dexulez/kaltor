@@ -1,4 +1,5 @@
 ﻿import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { formatCLP } from '@/lib/calculations'
 import GastoRapidoModal from '@/components/dashboard/GastoRapidoModal'
@@ -49,6 +50,14 @@ function KpiCard({ label, value, sub, colorClass, href }: {
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+
+  // Compradores externos no tienen un dashboard administrativo — van directo al catálogo.
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profileRol } = await supabase.from('user_profiles').select('roles(nombre)').eq('id', user!.id).single()
+  const rolesRel = profileRol?.roles as { nombre?: string } | { nombre?: string }[] | null | undefined
+  const rolActual = (Array.isArray(rolesRel) ? rolesRel[0]?.nombre : rolesRel?.nombre) ?? ''
+  if (rolActual === 'comprador_externo') redirect('/catalogo-b2b')
+
   const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
   const hoyStart = `${hoy}T00:00:00`
   const ahora    = new Date().toISOString()

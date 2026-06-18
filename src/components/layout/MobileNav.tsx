@@ -27,12 +27,21 @@ const SHORT_LABEL: Record<string, string> = {
   informes:     'Informes',
   manuales:     'Manuales',
   configuracion:'Config',
+  catalogo_b2b: 'Catálogo',
+  pedidos_b2b:  'Pedidos',
 }
 
 // Módulos que siempre van en la barra inferior (los más usados)
 const BARRA_KEYS = ['dashboard', 'reparaciones', 'caja', 'inventario']
 
-export default function MobileNav({ user, alertas }: { user: UserProfile | null; alertas?: { compras: number } }) {
+const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
+  '/compras': 'compras',
+  '/pedidos-b2b': 'pedidosB2B',
+}
+
+interface Alertas { compras: number; pedidosB2B: number }
+
+export default function MobileNav({ user, alertas }: { user: UserProfile | null; alertas?: Alertas }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -95,7 +104,9 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
               {drawerItems.map(item => {
                 const isActive = pathname === item.href ||
                   (item.href !== '/dashboard' && pathname.startsWith(item.href))
-                const badgeCompras = item.href === '/compras' && !isActive && (alertas?.compras ?? 0) > 0
+                const alertaKey = ALERTA_POR_HREF[item.href]
+                const cantidadAlerta = alertaKey ? (alertas?.[alertaKey] ?? 0) : 0
+                const mostrarBadge = !isActive && cantidadAlerta > 0
                 return (
                   <Link
                     key={item.href}
@@ -108,9 +119,9 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
                         : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
                     )}
                   >
-                    {badgeCompras && (
+                    {mostrarBadge && (
                       <span className="absolute top-2 left-2 bg-orange-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
-                        {(alertas?.compras ?? 0) > 9 ? '9+' : alertas?.compras}
+                        {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
                       </span>
                     )}
                     <span className="text-2xl leading-none">{item.icon}</span>

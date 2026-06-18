@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
   const rol = getRoleName(profile as ProfileRoleResult | null)
   if (rol !== 'administrador') return NextResponse.json({ error: 'Solo los administradores pueden invitar usuarios' }, { status: 403 })
 
-  const { email, nombre, rol_id } = await req.json()
+  const { email, nombre, rol_id, telefono, vincular_cliente } = await req.json()
   if (!email || !nombre) return NextResponse.json({ error: 'Email y nombre son requeridos' }, { status: 400 })
+  if (vincular_cliente && !telefono) return NextResponse.json({ error: 'El teléfono es requerido para compradores externos' }, { status: 400 })
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? req.nextUrl.origin
 
@@ -39,8 +40,23 @@ export async function POST(req: NextRequest) {
   if (data.user) {
     await admin.from('user_profiles').update({
       nombre_completo: nombre.trim(),
+      ...(telefono ? { telefono: telefono.trim() } : {}),
       ...(rol_id ? { rol_id } : {}),
     }).eq('id', data.user.id)
+
+    // Compradores externos: vincular (o crear) una ficha de cliente, para que
+    // sus compras también aparezcan en Clientes/Informes.
+    if (vincular_cliente) {
+      const { data: cliente, error: clienteErr } = await admin.from('customers').insert({
+        nombre: nombre.trim(),
+        telefono: telefono.trim(),
+        email,
+      }).select('id').single()
+
+      if (!clienteErr && cliente) {
+        await admin.from('user_profiles').update({ customer_id: cliente.id }).eq('id', data.user.id)
+      }
+    }
   }
 
   return NextResponse.json({ ok: true })

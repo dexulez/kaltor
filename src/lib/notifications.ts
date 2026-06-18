@@ -8,6 +8,7 @@ export type TipoNotificacion =
   | 'ot_entregada'
   | 'stock_bajo'
   | 'nuevo_abono'
+  | 'pedido_b2b'
   | 'sistema'
 
 export const NOTIF_ICONS: Record<TipoNotificacion, string> = {
@@ -18,6 +19,7 @@ export const NOTIF_ICONS: Record<TipoNotificacion, string> = {
   ot_entregada:      '🎉',
   stock_bajo:        '⚠️',
   nuevo_abono:       '💰',
+  pedido_b2b:        '🛍️',
   sistema:           '🔔',
 }
 
@@ -29,6 +31,7 @@ export const NOTIF_COLORS: Record<TipoNotificacion, string> = {
   ot_entregada:      'bg-purple-100 text-purple-700',
   stock_bajo:        'bg-red-100 text-red-700',
   nuevo_abono:       'bg-yellow-100 text-yellow-700',
+  pedido_b2b:        'bg-cyan-100 text-cyan-700',
   sistema:           'bg-gray-100 text-gray-700',
 }
 

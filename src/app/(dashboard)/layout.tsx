@@ -16,19 +16,23 @@ export default async function DashboardLayout({
 
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { data: config }, { count: solicitudesPendientes }] = await Promise.all([
+  const [{ data: profile }, { data: config }, { count: solicitudesPendientes }, { count: pedidosB2BPendientes }] = await Promise.all([
     supabase.from('user_profiles').select('*, roles(*)').eq('id', user.id).single(),
     supabase.from('system_config').select('*').single(),
     supabase.from('purchase_orders')
       .select('id', { count: 'exact', head: true })
       .eq('estado', 'pendiente')
       .like('notas', '[SOLICITUD]%'),
+    supabase.from('sales_orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('estado', 'pendiente')
+      .then(r => r.error ? { count: 0 } : r),
   ])
 
   const logoUrl = (config as { logo_url?: string | null } | null)?.logo_url ?? null
   const nombreLocal = (config as { nombre_local?: string } | null)?.nombre_local ?? 'TechRepair Pro'
   const mayusculasActivas = (config as { mayusculas_automaticas?: boolean } | null)?.mayusculas_automaticas === true
-  const alertas = { compras: solicitudesPendientes ?? 0 }
+  const alertas = { compras: solicitudesPendientes ?? 0, pedidosB2B: pedidosB2BPendientes ?? 0 }
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">

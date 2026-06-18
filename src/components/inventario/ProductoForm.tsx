@@ -45,6 +45,8 @@ export default function ProductoForm({ producto, categorias, proveedores, return
     costo_envio: String(producto?.costo_envio ?? 0),
     precio_venta: String(producto?.precio_venta ?? 0),
     precio_incluye_iva: producto?.precio_incluye_iva ?? true,
+    precio_mayorista: String(producto?.precio_mayorista ?? ''),
+    visible_compradores: producto?.visible_compradores ?? false,
     ubicacion_bodega: producto?.ubicacion_bodega ?? '',
     numero_serie: producto?.numero_serie ?? '',
     imei: producto?.imei ?? '',
@@ -149,6 +151,8 @@ export default function ProductoForm({ producto, categorias, proveedores, return
       costo_envio: parseFloat(form.costo_envio) || 0,
       precio_venta: parseFloat(form.precio_venta) || 0,
       precio_incluye_iva: form.precio_incluye_iva,
+      precio_mayorista: form.precio_mayorista.trim() ? parseFloat(form.precio_mayorista) : null,
+      visible_compradores: form.visible_compradores,
       ubicacion_bodega: form.ubicacion_bodega.trim() || null,
       numero_serie: form.numero_serie.trim() || null,
       imei: form.imei.trim() || null,
@@ -487,6 +491,32 @@ export default function ProductoForm({ producto, categorias, proveedores, return
               </p>
               <p className="text-gray-400 text-xs">sobre precio neto</p>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border p-5 space-y-4">
+          <div>
+            <h2 className="font-semibold text-gray-800">Venta a compradores externos (B2B)</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Otros talleres con cuenta de comprador externo ven este producto con este precio en su catálogo.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="space-y-1.5">
+              <Label>Precio mayorista (CLP)</Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={form.precio_mayorista}
+                onChange={e => {
+                  const v = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                  set('precio_mayorista', v)
+                }}
+                placeholder="0.00"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 pb-2">
+              <input type="checkbox" checked={form.visible_compradores} onChange={e => set('visible_compradores', e.target.checked)} />
+              Mostrar en el catálogo B2B
+            </label>
           </div>
         </div>
 
