@@ -9,7 +9,7 @@ import {
   GraficoPastel,
   GraficoArea,
 } from '@/components/informes/Charts'
-import InformesExportActions from '@/components/informes/InformesExportActions'
+import ExportButtons from '@/components/informes/ExportButtons'
 import ImprimirInformeTecnico from '@/components/informes/ImprimirInformeTecnico'
 import { tieneSubPermiso } from '@/lib/modulos'
 
@@ -198,8 +198,45 @@ async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
   const rango = `desde=${desde}&hasta=${hasta}`
   const tabHref = (tab: string) => `/informes?tab=${tab}&${rango}`
 
+  const comparativaData = [
+    { label: 'Ventas brutas',      actual: ventaActTotal, prev: ventaPrevTotal, fmt: 'clp' as const },
+    { label: 'Utilidad estimada',  actual: utilidadEst,   prev: utilidadPrev,   fmt: 'clp' as const },
+    { label: 'Gastos',             actual: gastosActTotal, prev: gastosPrevTotal, fmt: 'clp' as const },
+    { label: 'OTs recibidas',      actual: reps.length,   prev: 0, fmt: 'num' as const },
+  ]
+  const comparativaRows = comparativaData.map(row => {
+    const v = variacion(row.actual, row.prev)
+    return [
+      row.label,
+      row.fmt === 'clp' ? formatCLP(row.prev) : (row.prev || '—'),
+      row.fmt === 'clp' ? formatCLP(row.actual) : row.actual,
+      v.pct,
+    ]
+  })
+  const kpiRows = [
+    ['Ventas brutas', formatCLP(ventaActTotal)],
+    ['Utilidad estimada', formatCLP(utilidadEst)],
+    ['Gastos del período', formatCLP(gastosActTotal)],
+    ['Balance estimado', formatCLP(utilidadEst - gastosActTotal)],
+    ['OTs recibidas', reps.length],
+    ['Tasa de éxito', tasaP !== null ? `${tasaP}%` : '—'],
+    ['Clientes nuevos', (clientesNuevos ?? []).length],
+    ['Stock crítico', (stockCrit ?? []).length],
+  ]
+
   return (
     <div className="space-y-5">
+
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Resumen general"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'KPIs', headers: ['Métrica', 'Valor'], rows: kpiRows },
+            { titulo: 'Comparativa vs período anterior', headers: ['Métrica', 'Período anterior', 'Período actual', 'Variación'], rows: comparativaRows },
+          ]}
+        />
+      </div>
 
       {/* KPIs financieros con comparativa */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -280,12 +317,7 @@ async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {[
-                { label: '💰 Ventas brutas', actual: ventaActTotal, prev: ventaPrevTotal, fmt: 'clp' },
-                { label: '📈 Utilidad estimada', actual: utilidadEst, prev: utilidadPrev, fmt: 'clp' },
-                { label: '💸 Gastos', actual: gastosActTotal, prev: gastosPrevTotal, fmt: 'clp' },
-                { label: '🔧 OTs recibidas', actual: reps.length, prev: 0, fmt: 'num' },
-              ].map((row, i) => {
+              {comparativaData.map((row, i) => {
                 const v = variacion(row.actual, row.prev)
                 return (
                   <tr key={i} className="hover:bg-gray-50">
@@ -445,8 +477,73 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
     else { porDocCanal[d].directa += v.total as number; porDocCanal[d].directaN++ }
   })
 
+  // ── Datos hoisteados para que la tabla visual y la exportación coincidan ──
+  const tallerVsDirectaData = [
+    { icono: '🔧', label: 'Taller',        count: reparaciones.length, bruto: totRep, neto: netoRep, iva: ivaRep, ppm: ppmRep, costo: costoRepTaller, banco: comBancoTaller, util: utilRealTaller },
+    { icono: '🛒', label: 'Venta directa', count: directas.length,     bruto: totDir, neto: netoDir, iva: ivaDir, ppm: ppmDir, costo: costoProdDir,  banco: comBancoDir,  util: utilRealDir  },
+    { icono: '',   label: 'TOTAL',         count: activas.length,      bruto: totalBruto, neto, iva, ppm, costo: costoTotal, banco: comBancoTotal, util: utilRealTotal },
+  ]
+  const metodoCanalOrdenado = Object.entries(porMetodoCanal).sort((a, b) => (b[1].taller + b[1].directa) - (a[1].taller + a[1].directa))
+  const docCanalOrdenado = Object.entries(porDocCanal).sort((a, b) => (b[1].taller + b[1].directa) - (a[1].taller + a[1].directa))
+  const porDiaCostosOrdenado = Object.entries(porDiaCostos).sort()
+  const anuladasRows = anuladas.map((v: Record<string, unknown>) => [(v.created_at as string).split('T')[0], formatCLP(v.total as number), (v.metodo_pago as string) ?? '—'])
+
+  type DetalleOpRow = { fecha: string; tipo: string; numero: string; cliente: string; bruto: number; pieza: number; envio: number; banco: number; util: number }
+  const detalleOperacionesData: DetalleOpRow[] = activas.map((v: Record<string, unknown>) => {
+    const esReparacion = v.tipo === 'reparacion'
+    const bruto  = v.total as number
+    const pieza  = esReparacion ? (costoPiezasPorOT[v.repair_order_id as string] ?? 0) : (costoPorVenta[v.id as string] ?? 0)
+    const envio  = esReparacion ? (costoEnvioPorOT[v.repair_order_id as string] ?? 0) : 0
+    const banco  = (v.comision_bancaria as number) ?? 0
+    const netoV  = Math.round(bruto / 1.19)
+    const ppmV   = Math.round(netoV * 0.03)
+    const util   = netoV - ppmV - pieza - envio - banco
+    const cli    = v.customers as Record<string, unknown> | null
+    const nombre = Array.isArray(cli) ? ((cli[0]?.nombre as string) ?? '—') : ((cli?.nombre as string) ?? '—')
+    return { fecha: (v.created_at as string).substring(0, 10), tipo: esReparacion ? 'OT' : 'Directa', numero: v.numero_venta as string, cliente: nombre, bruto, pieza, envio, banco, util }
+  })
+
+  const clienteMap: Record<string, { nombre: string; total: number; visitas: number }> = {}
+  activas.forEach((v: Record<string, unknown>) => {
+    const cid = v.customer_id as string | null
+    if (!cid) return
+    const cli = v.customers as { nombre?: string } | null
+    const nom = cli?.nombre ?? '—'
+    if (!clienteMap[cid]) clienteMap[cid] = { nombre: nom, total: 0, visitas: 0 }
+    clienteMap[cid].total += v.total as number
+    clienteMap[cid].visitas += 1
+  })
+  const topClientesRows = Object.values(clienteMap).sort((a, b) => b.total - a.total).slice(0, 10)
+
+  const resumenVentasRows = [
+    ['Total bruto', formatCLP(totalBruto)],
+    ['Transacciones', activas.length],
+    ['Neto (sin IVA 19%)', formatCLP(neto)],
+    ['IVA 19%', formatCLP(iva)],
+    ['PPM 3%', formatCLP(ppm)],
+    ['Ticket promedio', formatCLP(ticket)],
+    ['Utilidad real', formatCLP(utilRealTotal)],
+  ]
+
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Ventas"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'Resumen', headers: ['Métrica', 'Valor'], rows: resumenVentasRows },
+            { titulo: 'Taller vs Venta directa', headers: ['Canal', 'Transacc.', 'Bruto', 'Neto', 'IVA', 'PPM', 'Costo', 'Com. banco', 'Utilidad real'], rows: tallerVsDirectaData.map(r => [r.label, r.count, formatCLP(r.bruto), formatCLP(r.neto), formatCLP(r.iva), formatCLP(r.ppm), formatCLP(r.costo), formatCLP(r.banco), formatCLP(r.util)]) },
+            { titulo: 'Por método de pago', headers: ['Método', 'Taller', 'Venta directa', 'Total'], rows: [...metodoCanalOrdenado.map(([m, v]) => [METODO_LABEL[m] ?? m, formatCLP(v.taller), formatCLP(v.directa), formatCLP(v.taller + v.directa)]), ['TOTAL', formatCLP(totRep), formatCLP(totDir), formatCLP(totalBruto)]] },
+            { titulo: 'Por tipo de documento', headers: ['Tipo', 'Taller', 'Venta directa', 'Total'], rows: [...docCanalOrdenado.map(([d, v]) => [DOC_LABEL[d] ?? d, formatCLP(v.taller), formatCLP(v.directa), formatCLP(v.taller + v.directa)]), ['TOTAL', formatCLP(totRep), formatCLP(totDir), formatCLP(totalBruto)]] },
+            { titulo: 'Top productos', headers: ['Producto', 'Unidades', 'Total'], rows: topProdRows },
+            { titulo: 'Utilidad real por día', headers: ['Día', 'Bruto', 'Costo', 'Com. banco', 'Utilidad real'], rows: porDiaCostosOrdenado.map(([dia, r]) => [dia, formatCLP(r.bruto), formatCLP(r.costo), formatCLP(r.banco), formatCLP(r.util)]) },
+            { titulo: 'Detalle por operación', headers: ['Fecha', 'Tipo', 'N° Venta', 'Cliente', 'Cobrado', 'Costo piezas', 'Envío', 'Com. banco', 'Utilidad'], rows: detalleOperacionesData.map(d => [d.fecha, d.tipo, d.numero, d.cliente, formatCLP(d.bruto), d.pieza > 0 ? formatCLP(d.pieza) : '—', d.envio > 0 ? formatCLP(d.envio) : '—', d.banco > 0 ? formatCLP(d.banco) : '—', formatCLP(d.util)]) },
+            { titulo: 'Top clientes', headers: ['#', 'Cliente', 'N° ventas', 'Total cobrado', '% del bruto'], rows: topClientesRows.map((c, i) => [i + 1, c.nombre, c.visitas, formatCLP(c.total), totalBruto ? `${Math.round(c.total * 100 / totalBruto)}%` : '—']) },
+            ...(anuladasRows.length ? [{ titulo: 'Ventas anuladas', headers: ['Fecha', 'Monto', 'Método'], rows: anuladasRows }] : []),
+          ]}
+        />
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard label="Total Bruto" value={formatCLP(totalBruto)} sub={`${activas.length} ventas`} colorIdx={0} />
         <KpiCard label="Neto (sin IVA 19%)" value={formatCLP(neto)} colorIdx={1} />
@@ -498,13 +595,9 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {[
-                { label: '🔧 Taller',        count: reparaciones.length, bruto: totRep, neto: netoRep, iva: ivaRep, ppm: ppmRep, costo: costoRepTaller, banco: comBancoTaller, util: utilRealTaller },
-                { label: '🛒 Venta directa', count: directas.length,     bruto: totDir, neto: netoDir, iva: ivaDir, ppm: ppmDir, costo: costoProdDir,  banco: comBancoDir,  util: utilRealDir  },
-                { label: 'TOTAL',            count: activas.length,      bruto: totalBruto, neto, iva, ppm, costo: costoTotal, banco: comBancoTotal, util: utilRealTotal },
-              ].map((row, i) => (
+              {tallerVsDirectaData.map((row, i) => (
                 <tr key={i} className={i === 2 ? 'bg-gray-50 font-semibold border-t-2 border-gray-300' : 'hover:bg-gray-50'}>
-                  <td className="px-3 py-2.5">{row.label}</td>
+                  <td className="px-3 py-2.5">{row.icono} {row.label}</td>
                   <td className="px-3 py-2.5 text-right">{row.count}</td>
                   <td className="px-3 py-2.5 text-right font-medium text-gray-900">{formatCLP(row.bruto)}</td>
                   <td className="px-3 py-2.5 text-right text-blue-700">{formatCLP(row.neto)}</td>
@@ -540,7 +633,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {Object.entries(porMetodoCanal).sort((a, b) => (b[1].taller + b[1].directa) - (a[1].taller + a[1].directa)).map(([m, v]) => (
+                {metodoCanalOrdenado.map(([m, v]) => (
                   <tr key={m} className="hover:bg-gray-50">
                     <td className="px-3 py-2">{METODO_LABEL[m] ?? m}</td>
                     <td className="px-3 py-2 text-right">
@@ -580,7 +673,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {Object.entries(porDocCanal).sort((a, b) => (b[1].taller + b[1].directa) - (a[1].taller + a[1].directa)).map(([d, v]) => (
+                {docCanalOrdenado.map(([d, v]) => (
                   <tr key={d} className="hover:bg-gray-50">
                     <td className="px-3 py-2">{DOC_LABEL[d] ?? d}</td>
                     <td className="px-3 py-2 text-right">
@@ -617,7 +710,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
       </Section>
       {anuladas.length > 0 && (
         <Section title={`Ventas anuladas (${anuladas.length})`}>
-          <Tabla headers={['Fecha', 'Monto', 'Método']} rows={anuladas.map(v => [v.created_at.split('T')[0], formatCLP(v.total), v.metodo_pago ?? '—'])} />
+          <Tabla headers={['Fecha', 'Monto', 'Método']} rows={anuladasRows} />
         </Section>
       )}
 
@@ -637,7 +730,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {Object.entries(porDiaCostos).sort().map(([dia, r]) => (
+              {porDiaCostosOrdenado.map(([dia, r]) => (
                 <tr key={dia} className="hover:bg-gray-50">
                   <td className="px-3 py-2 font-medium text-gray-700">{dia}</td>
                   <td className="px-3 py-2 text-right font-medium text-gray-900">{formatCLP(r.bruto)}</td>
@@ -674,30 +767,21 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {activas.length === 0 ? (
+              {detalleOperacionesData.length === 0 ? (
                 <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-400 text-xs">Sin ventas en el período</td></tr>
-              ) : activas.map((v: Record<string, unknown>) => {
-                const esReparacion = v.tipo === 'reparacion'
-                const bruto  = v.total as number
-                const pieza  = esReparacion ? (costoPiezasPorOT[v.repair_order_id as string] ?? 0) : (costoPorVenta[v.id as string] ?? 0)
-                const envio  = esReparacion ? (costoEnvioPorOT[v.repair_order_id as string] ?? 0) : 0
-                const banco  = (v.comision_bancaria as number) ?? 0
-                const neto   = Math.round(bruto / 1.19)
-                const ppm    = Math.round(neto * 0.03)
-                const util   = neto - ppm - pieza - envio - banco
-                const cli    = v.customers as Record<string, unknown> | null
-                const nombre = Array.isArray(cli) ? ((cli[0]?.nombre as string) ?? '—') : ((cli?.nombre as string) ?? '—')
+              ) : detalleOperacionesData.map((d, i) => {
+                const esReparacion = d.tipo === 'OT'
                 return (
-                  <tr key={v.id as string} className={`hover:bg-gray-50 ${util < 0 ? 'bg-red-50' : ''}`}>
-                    <td className="px-3 py-2 text-xs text-gray-500">{(v.created_at as string).substring(0, 10)}</td>
+                  <tr key={i} className={`hover:bg-gray-50 ${d.util < 0 ? 'bg-red-50' : ''}`}>
+                    <td className="px-3 py-2 text-xs text-gray-500">{d.fecha}</td>
                     <td className="px-3 py-2"><span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${esReparacion ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{esReparacion ? '🔧 OT' : '🛒 Directa'}</span></td>
-                    <td className="px-3 py-2 font-mono text-xs text-right">{v.numero_venta as string}</td>
-                    <td className="px-3 py-2 text-xs max-w-[120px] truncate">{nombre}</td>
-                    <td className="px-3 py-2 text-right font-medium">{formatCLP(bruto)}</td>
-                    <td className="px-3 py-2 text-right text-red-600">{pieza > 0 ? formatCLP(pieza) : '—'}</td>
-                    <td className="px-3 py-2 text-right text-red-400">{envio > 0 ? formatCLP(envio) : '—'}</td>
-                    <td className="px-3 py-2 text-right text-orange-600">{banco > 0 ? formatCLP(banco) : '—'}</td>
-                    <td className={`px-3 py-2 text-right font-bold ${util >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCLP(util)}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-right">{d.numero}</td>
+                    <td className="px-3 py-2 text-xs max-w-[120px] truncate">{d.cliente}</td>
+                    <td className="px-3 py-2 text-right font-medium">{formatCLP(d.bruto)}</td>
+                    <td className="px-3 py-2 text-right text-red-600">{d.pieza > 0 ? formatCLP(d.pieza) : '—'}</td>
+                    <td className="px-3 py-2 text-right text-red-400">{d.envio > 0 ? formatCLP(d.envio) : '—'}</td>
+                    <td className="px-3 py-2 text-right text-orange-600">{d.banco > 0 ? formatCLP(d.banco) : '—'}</td>
+                    <td className={`px-3 py-2 text-right font-bold ${d.util >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCLP(d.util)}</td>
                   </tr>
                 )
               })}
@@ -707,46 +791,32 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
       </div>
 
       {/* ── Top 10 clientes por ingresos ─────────────────────────────────── */}
-      {(() => {
-        const clienteMap: Record<string, { nombre: string; total: number; visitas: number }> = {}
-        activas.forEach((v: Record<string, unknown>) => {
-          const cid = v.customer_id as string | null
-          if (!cid) return
-          const cli = v.customers as { nombre?: string } | null
-          const nom = cli?.nombre ?? '—'
-          if (!clienteMap[cid]) clienteMap[cid] = { nombre: nom, total: 0, visitas: 0 }
-          clienteMap[cid].total += v.total as number
-          clienteMap[cid].visitas += 1
-        })
-        const rows = Object.values(clienteMap).sort((a, b) => b.total - a.total).slice(0, 10)
-        if (!rows.length) return null
-        return (
-          <Section title="Top 10 clientes por ingresos en ventas">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    {['#', 'Cliente', 'N° ventas', 'Total cobrado', '% del bruto'].map((h, i) => (
-                      <th key={i} className={`px-4 py-2.5 text-xs text-gray-500 font-medium ${i <= 1 ? 'text-left' : 'text-right'}`}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {rows.map((c, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-2.5 text-gray-400 font-bold">{i + 1}</td>
-                      <td className="px-4 py-2.5 font-medium text-gray-900">{c.nombre}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-600">{c.visitas}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold text-blue-700">{formatCLP(c.total)}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-500">{totalBruto ? `${Math.round(c.total * 100 / totalBruto)}%` : '—'}</td>
-                    </tr>
+      {topClientesRows.length > 0 && (
+        <Section title="Top 10 clientes por ingresos en ventas">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  {['#', 'Cliente', 'N° ventas', 'Total cobrado', '% del bruto'].map((h, i) => (
+                    <th key={i} className={`px-4 py-2.5 text-xs text-gray-500 font-medium ${i <= 1 ? 'text-left' : 'text-right'}`}>{h}</th>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </Section>
-        )
-      })()}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {topClientesRows.map((c, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-2.5 text-gray-400 font-bold">{i + 1}</td>
+                    <td className="px-4 py-2.5 font-medium text-gray-900">{c.nombre}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">{c.visitas}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-blue-700">{formatCLP(c.total)}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-500">{totalBruto ? `${Math.round(c.total * 100 / totalBruto)}%` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
 
     </div>
   )
@@ -911,8 +981,33 @@ async function TabTaller({ desde, hasta }: { desde: string; hasta: string }) {
       vencida ? '⚠️ Vencida' : (o.fecha_estimada_entrega ?? '—'),
     ])
 
+  const kpiTallerRows = [
+    ['Total OTs', lista.length],
+    ['Entregadas', entregadas.length],
+    ['Tiempo promedio (días)', promDias],
+    ['Ingresos taller', formatCLP(ingresosTotal)],
+    ['Reparadas OK', exitosas.length],
+    ['Sin reparación', sinReparacion.length],
+    ['En proceso', activas.length],
+    ['Fuera de plazo', fueraPlazo.length],
+    ['Tasa de éxito', tasaExito !== null ? `${tasaExito}%` : '—'],
+  ]
+
   return (
     <div className="space-y-5">
+
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Taller"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'KPIs', headers: ['Métrica', 'Valor'], rows: kpiTallerRows },
+            { titulo: 'Tasa de éxito por tipo', headers: ['Tipo', 'Total', 'OK', 'Sin rep.', 'Éxito'], rows: tasaExitoRows },
+            { titulo: 'Rendimiento por técnico', headers: ['Técnico', 'Asignadas', 'Entregadas', 'Tasa éxito', 'T. prom.', 'Ingresos', 'Prom./OT'], rows: tecRows },
+            { titulo: 'OTs activas sin resolver', headers: ['Técnico', 'Tipo', 'Equipo', 'Estado', 'Días abierta', 'Entrega est.'], rows: enProcesoRows },
+          ]}
+        />
+      </div>
 
       {/* ── KPIs principales ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1082,8 +1177,43 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
     .sort((a, b) => a.diasStock - b.diasStock)
     .slice(0, 15)
 
+  const sinMovimientoRows = sinMovimiento.map(p => [
+    p.nombre,
+    p.sku ?? '—',
+    `${p.stock_actual ?? 0}`,
+    formatCLP(p.precio_costo ?? 0),
+    formatCLP((p.stock_actual ?? 0) * (p.precio_costo ?? 0)),
+  ])
+  const rotacionExportRows = rotacionRows.map(r => [
+    r.nombre, r.stock, r.vendidos60, r.diasStock === 999 ? '∞' : r.diasStock,
+    r.diasStock <= 15 ? 'Reponer pronto' : r.diasStock <= 30 ? 'Vigilar' : 'OK',
+  ])
+  const kpiInventarioRows = [
+    ['Valorización costo', formatCLP(valorizacionCosto)],
+    ['Valorización venta', formatCLP(valorizacionVenta)],
+    ['Margen potencial', `${margen}%`],
+    ['Total OCs recibidas', formatCLP(totalComprasRecibidas)],
+    ['Utilidad neta potencial', formatCLP(utilidadNetaInv)],
+    ['Productos críticos', criticos.length],
+    ['Entradas del período', entradas],
+    ['Salidas del período', salidas],
+    ['Ajustes del período', ajustes],
+  ]
+
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Inventario"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'KPIs', headers: ['Métrica', 'Valor'], rows: kpiInventarioRows },
+            { titulo: 'Stock crítico', headers: ['Producto', 'SKU', 'Stock actual', 'Stock mínimo', 'Precio venta'], rows: criticosRows },
+            { titulo: 'Rotación de stock', headers: ['Producto', 'Stock actual', 'Vendidos (60d)', 'Días de stock', 'Alerta'], rows: rotacionExportRows },
+            { titulo: 'Sin ventas en 60 días', headers: ['Producto', 'SKU', 'Stock', 'Costo unitario', 'Capital inmovilizado'], rows: sinMovimientoRows },
+          ]}
+        />
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard label="Valorización costo" value={formatCLP(valorizacionCosto)} sub="stock actual × costo unitario" colorIdx={0} />
         <KpiCard label="Valorización venta" value={formatCLP(valorizacionVenta)} sub="stock actual × precio venta" colorIdx={1} />
@@ -1161,13 +1291,7 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
         <Section title={`Productos sin ventas en los últimos 60 días (${sinMovimiento.length})`}>
           <Tabla
             headers={['Producto', 'SKU', 'Stock', 'Costo unitario', 'Capital inmovilizado']}
-            rows={sinMovimiento.map(p => [
-              p.nombre,
-              p.sku ?? '—',
-              `${p.stock_actual ?? 0}`,
-              formatCLP(p.precio_costo ?? 0),
-              formatCLP((p.stock_actual ?? 0) * (p.precio_costo ?? 0)),
-            ])}
+            rows={sinMovimientoRows}
           />
           <p className="text-xs text-gray-400 mt-2 px-1">Productos con stock disponible pero sin ninguna venta registrada en los últimos 60 días.</p>
         </Section>
@@ -1401,6 +1525,21 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
     formatCLP(o.gananciaNegocio),
   ])
 
+  const kpiRentabRows = [
+    ['Ingresos brutos', formatCLP(totBruto)],
+    ['Ganancia del negocio', formatCLP(totGanancia)],
+    ['Total comisiones técnicos', formatCLP(totComTec)],
+    ['IVA a reservar', formatCLP(totIva)],
+    ['Costo repuestos', formatCLP(totRep)],
+    ['Comisiones bancarias', formatCLP(totComBanco)],
+    ['Costo insumos', formatCLP(totInsumos)],
+    ['Margen neto negocio', `${margenGlobal}%`],
+  ]
+  const resumenTecRows = [
+    ...tecList.map(t => [t.nombre, t.ots, formatCLP(t.ingresosBruto), formatCLP(t.costoRep), formatCLP(t.comBanco), formatCLP(t.comisionTotal), `${t.pctPromedio}%`, formatCLP(t.gananciaGen)]),
+    ...(tecList.length ? [['TOTAL', lista.length, formatCLP(totBruto), formatCLP(totRep), formatCLP(totComBanco), formatCLP(totComTec), '—', formatCLP(totGanancia)]] : []),
+  ]
+
   return (
     <div className="space-y-5">
 
@@ -1412,8 +1551,17 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
         </div>
       )}
 
-      {/* Botón imprimir */}
-      <div className="flex justify-end">
+      {/* Botón imprimir / exportar */}
+      <div className="flex justify-end gap-2">
+        <ExportButtons
+          titulo="Rentabilidad y comisiones"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'KPIs', headers: ['Métrica', 'Valor'], rows: kpiRentabRows },
+            { titulo: 'Resumen por técnico', headers: ['Técnico', 'OTs', 'Ingreso bruto', 'Repuestos', 'Com. banco', 'Comisión a pagar', '% prom.', 'Ganancia negocio'], rows: resumenTecRows },
+            { titulo: 'Detalle de OTs', headers: ['OT', 'Equipo', 'Tipo', 'Técnico', 'Bruto', 'Repuestos', 'Com. banco', '% com.', 'Comisión', 'Ganancia'], rows: detalleRows },
+          ]}
+        />
         <ImprimirInformeTecnico
           tecnicos={tecParaImprimir}
           desde={desde}
@@ -1614,9 +1762,20 @@ async function TabServicios({ desde, hasta }: { desde: string; hasta: string }) 
     pantalla: 'Pantalla', bateria: 'Batería', placa: 'Placa madre',
     software: 'Software', camara: 'Cámara', conector: 'Conector', otro: 'Otro',
   }
+  const rankingRows = ranking.map(r => [r.nombre, TIPO_LABEL[r.tipo] ?? r.tipo, r.usos, formatCLP(r.ingresos), `${r.margen}%`])
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Servicios"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'KPIs', headers: ['Métrica', 'Valor'], rows: [['Servicios aplicados', totalUsos], ['Ingresos generados', formatCLP(totalIngresos)], ['Servicios activos', serviciosList.length]] },
+            { titulo: 'Servicios más usados', headers: ['Servicio', 'Tipo', 'Veces', 'Ingresos', 'Margen'], rows: rankingRows },
+          ]}
+        />
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard label="Servicios aplicados" value={`${totalUsos}`} sub={`en el período`} colorIdx={0} />
         <KpiCard label="Ingresos generados" value={formatCLP(totalIngresos)} sub="por OTs con servicio" colorIdx={1} />
@@ -1635,13 +1794,7 @@ async function TabServicios({ desde, hasta }: { desde: string; hasta: string }) 
             <Section title="Servicios más usados">
               <Tabla
                 headers={['Servicio', 'Tipo', 'Veces', 'Ingresos', 'Margen']}
-                rows={ranking.map(r => [
-                  r.nombre,
-                  TIPO_LABEL[r.tipo] ?? r.tipo,
-                  r.usos,
-                  formatCLP(r.ingresos),
-                  `${r.margen}%`,
-                ])}
+                rows={rankingRows}
               />
             </Section>
           </div>
@@ -1817,8 +1970,22 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
   const TZ_CL = 'America/Santiago'
   const fmtFecha = (iso: string) => new Date(iso).toLocaleString('es-CL', { timeZone: TZ_CL, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
+  const porUsuarioOrdenado = Object.entries(porUsuario).sort((a, b) => b[1].totalVentas - a[1].totalVentas)
+  const resumenUsuarioRows = porUsuarioOrdenado.map(([usuario, v]) => [usuario, v.ventas, formatCLP(v.totalVentas), v.anuladas, v.otsCreadas, v.cambiosEstado, v.stockMovs])
+  const entriesRows = entries.map(e => [fmtFecha(e.fecha), e.usuario, e.modulo, e.accion, e.detalle, e.monto ? formatCLP(e.monto) : '—'])
+
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Auditoría"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'Resumen por usuario', headers: ['Usuario', 'Ventas', 'Total vendido', 'Anuladas', 'OTs creadas', 'Cambios estado', 'Mov. stock'], rows: resumenUsuarioRows },
+            { titulo: 'Log completo', headers: ['Fecha / Hora', 'Usuario', 'Módulo', 'Acción', 'Detalle', 'Monto'], rows: entriesRows },
+          ]}
+        />
+      </div>
       {/* Resumen por usuario */}
       <Section title="Resumen de actividad por usuario">
         <div className="overflow-x-auto">
@@ -1831,9 +1998,9 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
               </tr>
             </thead>
             <tbody className="divide-y">
-              {Object.keys(porUsuario).length === 0 ? (
+              {porUsuarioOrdenado.length === 0 ? (
                 <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400 text-xs">Sin actividad en el período</td></tr>
-              ) : Object.entries(porUsuario).sort((a, b) => b[1].totalVentas - a[1].totalVentas).map(([usuario, v], i) => (
+              ) : porUsuarioOrdenado.map(([usuario, v], i) => (
                 <tr key={i} className="hover:bg-gray-50">
                   <td className="px-3 py-2 font-medium">{usuario}</td>
                   <td className="px-3 py-2 text-right">{v.ventas}</td>
@@ -1913,9 +2080,26 @@ async function TabCompras({ desde, hasta }: { desde: string; hasta: string }) {
     porProveedor[nombre].count++
   })
   const proveedoresList = Object.values(porProveedor).sort((a, b) => b.total - a.total)
+  const proveedoresRows = proveedoresList.map(p => [p.nombre, p.count, formatCLP(p.total)])
+  const ocRows = lista.map(o => {
+    const sup = o.suppliers
+    const nombre = (Array.isArray(sup) ? sup[0]?.nombre : (sup as { nombre: string } | null)?.nombre) ?? '—'
+    return [o.numero_oc, nombre, o.created_at.split('T')[0], o.estado?.replace(/_/g, ' ') ?? '—', formatCLP(o.total ?? 0)]
+  })
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Compras"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'KPIs', headers: ['Métrica', 'Valor'], rows: [['Total OCs', lista.length], ['Monto total', formatCLP(totalMonto)], ['Pendientes', pendientes], ['Recibidas', recibidas], ['En tránsito', enTransito]] },
+            { titulo: 'Por proveedor', headers: ['Proveedor', 'OCs', 'Monto total'], rows: proveedoresRows },
+            { titulo: 'Órdenes de compra', headers: ['N° OC', 'Proveedor', 'Fecha', 'Estado', 'Total'], rows: ocRows },
+          ]}
+        />
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard label="Total OCs"     value={String(lista.length)}     colorIdx={0} />
         <KpiCard label="Monto total"   value={formatCLP(totalMonto)}    colorIdx={1} />
@@ -1931,18 +2115,14 @@ async function TabCompras({ desde, hasta }: { desde: string; hasta: string }) {
         <Section title="Por proveedor">
           <Tabla
             headers={['Proveedor', 'OCs', 'Monto total']}
-            rows={proveedoresList.map(p => [p.nombre, p.count, formatCLP(p.total)])}
+            rows={proveedoresRows}
           />
         </Section>
       )}
       <Section title="Órdenes de compra del período">
         <Tabla
           headers={['N° OC', 'Proveedor', 'Fecha', 'Estado', 'Total']}
-          rows={lista.map(o => {
-            const sup = o.suppliers
-            const nombre = (Array.isArray(sup) ? sup[0]?.nombre : (sup as { nombre: string } | null)?.nombre) ?? '—'
-            return [o.numero_oc, nombre, o.created_at.split('T')[0], o.estado?.replace(/_/g, ' ') ?? '—', formatCLP(o.total ?? 0)]
-          })}
+          rows={ocRows}
         />
       </Section>
     </div>
@@ -1990,6 +2170,24 @@ async function TabEquilibrio({ desde, hasta }: { desde: string; hasta: string })
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Punto de equilibrio"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[{
+            titulo: 'Estructura de costos fijos',
+            headers: ['Métrica', 'Valor'],
+            rows: [
+              ['Gastos operacionales', formatCLP(totalGastosFijos)],
+              ['Costo total empleados (con imposiciones)', formatCLP(totalEmpleados)],
+              ['TOTAL costos fijos (CF)', formatCLP(costosFijosTotales)],
+              ['PV promedio', formatCLP(pvPromedio)],
+              ['CV promedio', formatCLP(cvPromedio)],
+              ['Ventas del período', formatCLP(totalVentasPeriodo)],
+            ],
+          }]}
+        />
+      </div>
       {/* Resumen costos fijos */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-5 py-3">
@@ -2084,8 +2282,31 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
   const gVar = variacion(totalGastos, totalPrev)
   const maxCategoriasComp = [...new Set([...Object.keys(porCategoria), ...Object.keys(porCategoriaPrev)])].slice(0, 8)
 
+  const categoriaCompRows = maxCategoriasComp.map(cat => {
+    const act = porCategoria[cat] ?? 0
+    const prev = porCategoriaPrev[cat] ?? 0
+    const v = variacion(act, prev)
+    return [cat, prev ? formatCLP(prev) : '—', formatCLP(act), v.pct, totalGastos ? `${Math.round(act * 100 / totalGastos)}%` : '—']
+  })
+  const topConceptosRows = topConceptos.map(([c, v]) => [c, formatCLP(v), totalGastos ? `${Math.round(v * 100 / totalGastos)}%` : '—'])
+  const metodoGastoRows = Object.entries(porMetodo).sort((a, b) => b[1] - a[1]).map(([m, v]) => [m, formatCLP(v), totalGastos ? `${Math.round(v / totalGastos * 100)}%` : '—'])
+  const registroGastosRows = lista.map(g => [g.fecha, g.concepto, g.categoria, g.metodo_pago, formatCLP(g.monto)])
+
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Gastos"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'KPIs', headers: ['Métrica', 'Valor'], rows: [['Total gastos', formatCLP(totalGastos)], ['N° registros', lista.length], ['Promedio diario', formatCLP(promDiario)], ['vs período anterior', formatCLP(totalPrev)]] },
+            { titulo: 'Por categoría (actual vs anterior)', headers: ['Categoría', 'Anterior', 'Actual', 'Variación', 'Part. %'], rows: categoriaCompRows },
+            { titulo: 'Top conceptos', headers: ['Concepto', 'Total', 'Part. %'], rows: topConceptosRows },
+            { titulo: 'Por método de pago', headers: ['Método', 'Total', 'Part. %'], rows: metodoGastoRows },
+            { titulo: 'Registro de gastos', headers: ['Fecha', 'Concepto', 'Categoría', 'Método', 'Monto'], rows: registroGastosRows },
+          ]}
+        />
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard label="Total gastos"       value={formatCLP(totalGastos)} colorIdx={4} />
         <KpiCard label="N° registros"       value={String(lista.length)}   colorIdx={0} />
@@ -2121,17 +2342,16 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {maxCategoriasComp.map(cat => {
-                    const act = porCategoria[cat] ?? 0
-                    const prev = porCategoriaPrev[cat] ?? 0
-                    const v = variacion(act, prev)
+                  {maxCategoriasComp.map((cat, i) => {
+                    const row = categoriaCompRows[i]
+                    const v = variacion(porCategoria[cat] ?? 0, porCategoriaPrev[cat] ?? 0)
                     return (
                       <tr key={cat} className="hover:bg-gray-50">
-                        <td className="px-3 py-2.5 font-medium text-gray-900">{cat}</td>
-                        <td className="px-3 py-2.5 text-right text-gray-500">{prev ? formatCLP(prev) : '—'}</td>
-                        <td className="px-3 py-2.5 text-right font-semibold">{formatCLP(act)}</td>
-                        <td className={`px-3 py-2.5 text-right font-bold text-xs ${v.color}`}>{v.pct}</td>
-                        <td className="px-3 py-2.5 text-right text-gray-500">{totalGastos ? `${Math.round(act * 100 / totalGastos)}%` : '—'}</td>
+                        <td className="px-3 py-2.5 font-medium text-gray-900">{row[0]}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-500">{row[1]}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold">{row[2]}</td>
+                        <td className={`px-3 py-2.5 text-right font-bold text-xs ${v.color}`}>{row[3]}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-500">{row[4]}</td>
                       </tr>
                     )
                   })}
@@ -2154,7 +2374,7 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
         <Section title="Top 10 conceptos de gasto">
           <Tabla
             headers={['Concepto', 'Total', 'Part. %']}
-            rows={topConceptos.map(([c, v]) => [c, formatCLP(v), totalGastos ? `${Math.round(v * 100 / totalGastos)}%` : '—'])}
+            rows={topConceptosRows}
           />
         </Section>
       )}
@@ -2163,7 +2383,7 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
         <Section title="Por método de pago">
           <Tabla
             headers={['Método', 'Total', 'Part. %']}
-            rows={Object.entries(porMetodo).sort((a, b) => b[1] - a[1]).map(([m, v]) => [m, formatCLP(v), `${Math.round(v / totalGastos * 100)}%`])}
+            rows={metodoGastoRows}
           />
         </Section>
       )}
@@ -2171,7 +2391,7 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
       <Section title="Registro de gastos">
         <Tabla
           headers={['Fecha', 'Concepto', 'Categoría', 'Método', 'Monto']}
-          rows={lista.map(g => [g.fecha, g.concepto, g.categoria, g.metodo_pago, formatCLP(g.monto)])}
+          rows={registroGastosRows}
         />
       </Section>
     </div>
@@ -2260,8 +2480,25 @@ async function TabClientes({ desde, hasta }: { desde: string; hasta: string }) {
   const totalIngresosPeriodo = Object.values(ingresosPorCliente).reduce((s, c) => s + c.ingresos, 0)
   const clientesActivosPeriodo = Object.keys(ingresosPorCliente).length
 
+  const top10Rows = top10.map((c, i) => [i + 1, c.nombre, c.visitas, formatCLP(c.ingresos), totalIngresosPeriodo ? `${Math.round(c.ingresos * 100 / totalIngresosPeriodo)}%` : '—'])
+  const frecuentesRows = frecuentes.map((c, i) => [i + 1, c.nombre, c.visitas, formatCLP(c.ingresos)])
+  const nuevosRows = nuevosList.map(c => [c.nombre, new Date(c.created_at).toLocaleDateString('es-CL')])
+
   return (
     <div className="space-y-5">
+
+      <div className="flex justify-end">
+        <ExportButtons
+          titulo="Clientes"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'KPIs', headers: ['Métrica', 'Valor'], rows: [['Clientes activos', clientesActivosPeriodo], ['Clientes nuevos', nuevosList.length], ['Ingresos generados', formatCLP(totalIngresosPeriodo)], ['Clientes inactivos (90 días)', inactivosCount]] },
+            { titulo: 'Top 10 por ingresos', headers: ['#', 'Cliente', 'Transacciones', 'Ingresos', '% del total'], rows: top10Rows },
+            { titulo: 'Más frecuentes', headers: ['#', 'Cliente', 'Visitas', 'Ingresos'], rows: frecuentesRows },
+            { titulo: 'Clientes nuevos', headers: ['Nombre', 'Registrado el'], rows: nuevosRows },
+          ]}
+        />
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -2316,10 +2553,7 @@ async function TabClientes({ desde, hasta }: { desde: string; hasta: string }) {
         <Section title={`Clientes nuevos en el período (${nuevosList.length})`}>
           <Tabla
             headers={['Nombre', 'Registrado el']}
-            rows={nuevosList.slice(0, 30).map(c => [
-              c.nombre,
-              new Date(c.created_at).toLocaleDateString('es-CL'),
-            ])}
+            rows={nuevosRows.slice(0, 30)}
           />
         </Section>
       )}
@@ -2373,11 +2607,12 @@ export default async function InformesPage({
           <span className="text-3xl">📊</span>
           <h1 className="text-2xl font-bold text-gray-900">Informes & BI</h1>
         </div>
-        <InformesExportActions
-          fechaDesde={desde} fechaHasta={hasta}
-          totalVentas={0} cantidadVentas={0} ticketPromedio={0} totalCompras={0}
-          resumenMetodos={[]} reparacionesPorEstado={{}}
-        />
+        <Link
+          href="/informes/personalizado"
+          className="text-sm font-medium text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
+        >
+          🧩 Crear reporte a medida
+        </Link>
       </div>
 
       <div className="bg-white rounded-xl border p-4">
