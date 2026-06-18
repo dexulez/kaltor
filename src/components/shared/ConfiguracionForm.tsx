@@ -64,6 +64,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     moneda: config.moneda ?? 'CLP',
     mostrar_precio_en_presupuesto: config.mostrar_precio_en_presupuesto,
     mostrar_tecnico_pdf: (config as Record<string, unknown>).mostrar_tecnico_pdf !== false,
+    mayusculas_automaticas: (config as Record<string, unknown>).mayusculas_automaticas === true,
     terminos_condiciones: config.terminos_condiciones ?? TC_DEFAULT,
     costo_insumos_promedio: String(config.costo_insumos_promedio ?? 0),
   })
@@ -149,7 +150,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     if (!config.id) { toast.error('No se encontró configuración'); return }
     setLoading(true)
 
-    const { error } = await supabase.from('system_config').update({
+    const payload: Record<string, unknown> = {
       nombre_local: form.nombre_local.trim(),
       rut_local: form.rut_local.trim() || null,
       direccion: form.direccion.trim() || null,
@@ -166,33 +167,23 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
       moneda: form.moneda.trim() || 'CLP',
       mostrar_precio_en_presupuesto: form.mostrar_precio_en_presupuesto,
       mostrar_tecnico_pdf: form.mostrar_tecnico_pdf,
+      mayusculas_automaticas: form.mayusculas_automaticas,
       terminos_condiciones: form.terminos_condiciones.trim() || null,
       costo_insumos_promedio: parseInt(form.costo_insumos_promedio) || 0,
-    }).eq('id', config.id)
-
-    if (error) {
-      // Si falla por columna nueva, reintentar sin ella
-      if (error.message.includes('mostrar_tecnico_pdf')) {
-        const { error: err2 } = await supabase.from('system_config').update({
-          nombre_local: form.nombre_local.trim(), rut_local: form.rut_local.trim() || null,
-          direccion: form.direccion.trim() || null, telefono: form.telefono.trim() || null,
-          email: form.email.trim() || null, whatsapp: form.whatsapp.trim() || null,
-          logo_url: form.logo_url.trim() || null,
-          iva: parseFloat(form.iva) || 0, ppm: parseFloat(form.ppm) || 0,
-          comision_debito: parseFloat(form.comision_debito) || 0,
-          comision_credito: parseFloat(form.comision_credito) || 0,
-          comision_transferencia: parseFloat(form.comision_transferencia) || 0,
-          dias_garantia_default: parseInt(form.dias_garantia_default) || 0,
-          moneda: form.moneda.trim() || 'CLP',
-          mostrar_precio_en_presupuesto: form.mostrar_precio_en_presupuesto,
-          terminos_condiciones: form.terminos_condiciones.trim() || null,
-          costo_insumos_promedio: parseInt(form.costo_insumos_promedio) || 0,
-        }).eq('id', config.id)
-        if (err2) { toast.error('Error al guardar: ' + err2.message); setLoading(false); return }
-      } else {
-        toast.error('Error al guardar: ' + error.message); setLoading(false); return
-      }
     }
+
+    let { error } = await supabase.from('system_config').update(payload).eq('id', config.id)
+
+    // Columnas agregadas en migraciones posteriores: si todavía no existen en
+    // la base de datos, reintentar sin ellas en vez de fallar el guardado completo.
+    const COLUMNAS_OPCIONALES = ['mostrar_tecnico_pdf', 'mayusculas_automaticas']
+    while (error && COLUMNAS_OPCIONALES.some(c => error!.message.includes(c))) {
+      const columna = COLUMNAS_OPCIONALES.find(c => error!.message.includes(c))!
+      delete payload[columna]
+      ;({ error } = await supabase.from('system_config').update(payload).eq('id', config.id))
+    }
+
+    if (error) { toast.error('Error al guardar: ' + error.message); setLoading(false); return }
 
     toast.success('Configuración guardada correctamente')
     router.refresh()
@@ -310,6 +301,16 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
           <input type="checkbox" checked={form.mostrar_tecnico_pdf} onChange={e => set('mostrar_tecnico_pdf', e.target.checked)} />
           Mostrar nombre del técnico en el comprobante PDF
         </label>
+        <div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={form.mayusculas_automaticas} onChange={e => set('mayusculas_automaticas', e.target.checked)} />
+            Forzar MAYÚSCULAS automáticas en los campos de texto
+          </label>
+          <p className="text-xs text-gray-400 mt-1 ml-6">
+            Se aplica a los campos de texto de todo el sistema (clientes, equipos, productos, proveedores, etc.).
+            No afecta contraseñas, emails, números ni fechas.
+          </p>
+        </div>
       </div>
 
       {/* Términos y condiciones */}
