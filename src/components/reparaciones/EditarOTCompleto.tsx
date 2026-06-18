@@ -13,6 +13,9 @@ import { formatCLP, formatRut } from '@/lib/calculations'
 import { soundSave, soundError } from '@/lib/sounds'
 import TipoEquipoSelector from '@/components/reparaciones/TipoEquipoSelector'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
+import AccesoriosCondicionFields from '@/components/reparaciones/AccesoriosCondicionFields'
+import { getConfigTipoEquipo } from '@/lib/tipoEquipo'
+import { buildAccesorios, buildCondicion, parseAccesorios, parseCondicion, type AccState, type CondState } from '@/lib/recepcionEquipo'
 
 const TIPOS_REP = [
   { value: 'pantalla', label: '📱 Pantalla' }, { value: 'bateria', label: '🔋 Batería' },
@@ -20,9 +23,6 @@ const TIPOS_REP = [
   { value: 'camara', label: '📷 Cámara' }, { value: 'conector', label: '🔌 Conector' },
   { value: 'otro', label: '🔧 Otro' },
 ]
-const AREAS = ['Pantalla', 'Middle Frame', 'Tapa trasera', 'Botones', 'Puerto carga', 'Altavoz', 'Cámara', 'Bisagra']
-const AREAS_HUM = ['Conector de carga', 'Bandeja de SIM', 'Auriculares', 'Altavoz', 'Placa', 'Cámara']
-const MICROSD_SIZES = ['8GB', '16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB']
 
 interface RepuestoLocal {
   _key: string; product_id: string | null; nombre: string; cantidad: number
@@ -50,54 +50,6 @@ interface OTCompleta {
   user_profiles?: { id: string; nombre_completo: string } | null
 }
 
-// Parsers para inicializar estados desde arrays guardados
-function parseAccesorios(accs: string[] | null) {
-  const arr = accs ?? []
-  const sim1 = arr.find(a => a.startsWith('SIM 1'))
-  const sim2 = arr.find(a => a.startsWith('SIM 2'))
-  const microsd = arr.find(a => a.startsWith('MicroSD') && !a.startsWith('Sin'))
-  const mandoEntry = arr.find(a => a.startsWith('Mando'))
-  return {
-    acc: {
-      cargador: arr.includes('Cargador'), cable: arr.includes('Cable'),
-      cajaCaraga: arr.includes('Caja de carga'), funda: arr.includes('Funda'),
-      bandejaSim: arr.includes('Bandeja de SIM'),
-      microsd: !!microsd,
-      sim: !!(sim1 || sim2),
-      simCantidad: (sim1 && sim2 ? 2 : 1) as 1 | 2,
-      sim1Carrier: sim1?.split(': ')[1] ?? '',
-      sim2Carrier: sim2?.split(': ')[1] ?? '',
-      juego: arr.includes('Juego'),
-      mando: !!mandoEntry,
-      mandoCantidad: mandoEntry ? (parseInt(mandoEntry.split('×')[1] ?? '1') || 1) : 1,
-    },
-    microsdTamano: microsd?.split(' ')[1] ?? '',
-  }
-}
-
-function parseCond(conds: string[] | null) {
-  const arr = conds ?? []
-  const cargaEntry = arr.find(a => a.startsWith('Carga:'))
-  const rayEntry = arr.find(a => a.startsWith('Rayones:'))
-  const golEntry = arr.find(a => a.startsWith('Golpes:'))
-  const humEntry = arr.find(a => a.startsWith('Humedad:'))
-  const queEntry = arr.find(a => a.startsWith('Quemaduras:'))
-  const splitAreas = (e?: string) => e ? e.split(': ')[1]?.split(', ').map(s => s.trim()).filter(Boolean) ?? [] : []
-  return {
-    equipo_apagado: arr.includes('Equipo apagado'),
-    sin_danos: arr.includes('Sin daños visibles'),
-    carga: arr.includes('No carga') ? 'no_carga' : cargaEntry ? 'si' : '' as '' | 'si' | 'no_carga',
-    cargaVoltios: cargaEntry ? (cargaEntry.match(/(\d+[.,]\d+|\d+)V/) ?? [])[1] ?? '' : '',
-    cargaAmperaje: cargaEntry ? (cargaEntry.match(/(\d+[.,]\d+|\d+)A/) ?? [])[1] ?? '' : '',
-    rayones: splitAreas(rayEntry),
-    golpes: splitAreas(golEntry),
-    pantalla_trizada: arr.includes('Pantalla trizada'),
-    marco_doblado: arr.includes('Marco doblado'),
-    humedad: splitAreas(humEntry),
-    quemaduras: splitAreas(queEntry),
-  }
-}
-
 export default function EditarOTCompleto({
   ot, tecnicos, repuestosIniciales,
 }: {
@@ -108,8 +60,6 @@ export default function EditarOTCompleto({
   const router = useRouter()
   const supabase = createClient()
   const eq = ot.equipment
-  const { acc: accInicial, microsdTamano: microsdInicial } = parseAccesorios(eq?.accesorios ?? null)
-  const condInicial = parseCond(eq?.condicion_visual ?? null)
 
   // ── Estados ──────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false)
@@ -125,9 +75,8 @@ export default function EditarOTCompleto({
   })
   const [imei2, setImei2] = useState(eq?.imei2 ?? '')
   const [numeroSerie, setNumeroSerie] = useState(eq?.numero_serie ?? '')
-  const [acc, setAcc] = useState({ ...accInicial })
-  const [microsdTamano, setMicrosdTamano] = useState(microsdInicial)
-  const [cond, setCond] = useState(condInicial)
+  const [acc, setAcc] = useState<AccState>(() => parseAccesorios(eq?.accesorios ?? null, getConfigTipoEquipo(eq?.tipo_equipo)))
+  const [cond, setCond] = useState<CondState>(() => parseCondicion(eq?.condicion_visual ?? null, getConfigTipoEquipo(eq?.tipo_equipo)))
   const [tecnicoId, setTecnicoId] = useState(ot.tecnico_id ?? '')
   const [tipoReparacion, setTipoReparacion] = useState(ot.tipo_reparacion ?? '')
   const [presupuesto, setPresupuesto] = useState(String(ot.presupuesto_estimado ?? ''))
@@ -157,42 +106,6 @@ export default function EditarOTCompleto({
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
-  function buildAccesorios(): string[] {
-    const r: string[] = []
-    if (acc.cargador) r.push('Cargador')
-    if (acc.cable) r.push('Cable')
-    if (acc.cajaCaraga) r.push('Caja de carga')
-    if (acc.funda) r.push('Funda')
-    r.push(acc.bandejaSim ? 'Bandeja de SIM' : 'Sin Bandeja de SIM')
-    if (acc.microsd) r.push(microsdTamano ? `MicroSD ${microsdTamano}` : 'MicroSD')
-    else r.push('Sin MicroSD')
-    if (acc.sim) {
-      if (acc.simCantidad >= 1) r.push(`SIM 1${acc.sim1Carrier ? `: ${acc.sim1Carrier}` : ''}`)
-      if (acc.simCantidad === 2) r.push(`SIM 2${acc.sim2Carrier ? `: ${acc.sim2Carrier}` : ''}`)
-    } else r.push('Sin SIM card')
-    if (acc.juego) r.push('Juego')
-    if (acc.mando) r.push(acc.mandoCantidad > 1 ? `Mando ×${acc.mandoCantidad}` : 'Mando')
-    return r
-  }
-
-  function buildCondicion(): string[] {
-    const r: string[] = []
-    if (cond.equipo_apagado) r.push('Equipo apagado')
-    if (cond.carga === 'si') {
-      const v = cond.cargaVoltios.trim(); const a = cond.cargaAmperaje.trim()
-      r.push(`Carga: ${v ? v + 'V' : ''}${v && a ? ' / ' : ''}${a ? a + 'A' : ''}`.trim().replace(/Carga: $/, 'Carga: Sí'))
-    }
-    if (cond.carga === 'no_carga') r.push('No carga')
-    if (cond.sin_danos) r.push('Sin daños visibles')
-    if (cond.rayones.length) r.push(`Rayones: ${cond.rayones.join(', ')}`)
-    if (cond.golpes.length) r.push(`Golpes: ${cond.golpes.join(', ')}`)
-    if (cond.pantalla_trizada) r.push('Pantalla trizada')
-    if (cond.marco_doblado) r.push('Marco doblado')
-    if (cond.humedad.length) r.push(`Humedad: ${cond.humedad.join(', ')}`)
-    if (cond.quemaduras.length) r.push(`Quemaduras: ${cond.quemaduras.join(', ')}`)
-    return r
-  }
-
   function agregarProducto(p: { id: string; nombre: string; precio_costo: number; precio_venta: number }) {
     setRepuestos(prev => [...prev, { _key: crypto.randomUUID(), product_id: p.id, nombre: p.nombre, cantidad: 1, precio_costo: p.precio_costo, precio_venta: p.precio_venta || p.precio_costo }])
     setProdSearch(''); setProdResults([]); setProdOpen(false)
@@ -204,6 +117,7 @@ export default function EditarOTCompleto({
     setLoading(true)
 
     // 1. Actualizar equipo
+    const configTipo = getConfigTipoEquipo(equipo.tipo_equipo)
     const { error: eqErr } = await supabase.from('equipment').update({
       tipo_equipo: equipo.tipo_equipo || null,
       marca: equipo.marca.trim(),
@@ -215,8 +129,8 @@ export default function EditarOTCompleto({
       capacidad: equipo.capacidad.trim() || null,
       falla_reportada: equipo.falla_reportada.trim(),
       observaciones: equipo.observaciones.trim() || null,
-      accesorios: buildAccesorios(),
-      condicion_visual: buildCondicion(),
+      accesorios: buildAccesorios(acc, configTipo),
+      condicion_visual: buildCondicion(cond, configTipo),
     }).eq('id', ot.equipment_id)
     if (eqErr) { soundError(); toast.error('Error al actualizar equipo: ' + eqErr.message); setLoading(false); return }
 
@@ -247,8 +161,7 @@ export default function EditarOTCompleto({
     router.refresh()
   }
 
-  const chip = (active: boolean, onClick: () => void, label: string, activeClass = 'bg-blue-600 text-white border-blue-600') =>
-    <button type="button" onClick={onClick} className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${active ? activeClass : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>{label}</button>
+  const configTipoActual = getConfigTipoEquipo(equipo.tipo_equipo)
 
   return (
     <div className="space-y-5">
@@ -278,9 +191,15 @@ export default function EditarOTCompleto({
           <ModeloSelector marca={equipo.marca} value={equipo.modelo} onChange={(v: string) => setEquipo(e => ({ ...e, modelo: v }))} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1"><Label>IMEI 1</Label><Input value={equipo.imei} onChange={e => setEquipo(p => ({ ...p, imei: e.target.value }))} /></div>
-          <div className="space-y-1"><Label>IMEI 2</Label><Input value={imei2} onChange={e => setImei2(e.target.value)} /></div>
-          <div className="space-y-1"><Label>N° Serie</Label><Input value={numeroSerie} onChange={e => setNumeroSerie(e.target.value)} /></div>
+          {configTipoActual.identificacion.imei && (
+            <>
+              <div className="space-y-1"><Label>IMEI 1</Label><Input value={equipo.imei} onChange={e => setEquipo(p => ({ ...p, imei: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>IMEI 2</Label><Input value={imei2} onChange={e => setImei2(e.target.value)} /></div>
+            </>
+          )}
+          {configTipoActual.identificacion.numeroSerie && (
+            <div className="space-y-1"><Label>N° Serie</Label><Input value={numeroSerie} onChange={e => setNumeroSerie(e.target.value)} /></div>
+          )}
           <div className="space-y-1"><Label>Color</Label><Input value={equipo.color} onChange={e => setEquipo(p => ({ ...p, color: e.target.value }))} /></div>
           <div className="space-y-1"><Label>Capacidad / Almacenamiento</Label><Input value={equipo.capacidad} onChange={e => setEquipo(p => ({ ...p, capacidad: e.target.value }))} /></div>
         </div>
@@ -294,112 +213,19 @@ export default function EditarOTCompleto({
         </div>
       </div>
 
-      {/* Accesorios */}
-      <div className="bg-white rounded-xl border p-5 space-y-3">
-        <h2 className="font-semibold text-gray-800">2. Accesorios</h2>
-        <div className="flex flex-wrap gap-2">
-          {chip(acc.cargador, () => setAcc(a => ({ ...a, cargador: !a.cargador })), 'Cargador')}
-          {chip(acc.cable, () => setAcc(a => ({ ...a, cable: !a.cable })), 'Cable')}
-          {chip(acc.cajaCaraga, () => setAcc(a => ({ ...a, cajaCaraga: !a.cajaCaraga })), 'Caja de carga')}
-          {chip(acc.funda, () => setAcc(a => ({ ...a, funda: !a.funda })), 'Funda')}
-          {chip(acc.juego, () => setAcc(a => ({ ...a, juego: !a.juego })), '🎮 Juego')}
-        </div>
-
-        {/* Bandeja, SIM, MicroSD — siempre anotados */}
-        <div className="space-y-1.5">
-          <p className="text-xs text-gray-500 font-medium">Siempre registrados (con o sin):</p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setAcc(a => ({ ...a, bandejaSim: !a.bandejaSim }))}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${acc.bandejaSim ? 'bg-blue-600 text-white border-blue-600' : 'bg-red-50 text-red-600 border-red-300'}`}>
-              {acc.bandejaSim ? '✓ Bandeja de SIM' : 'Sin Bandeja de SIM'}
-            </button>
-            <button type="button" onClick={() => setAcc(a => ({ ...a, sim: !a.sim }))}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${acc.sim ? 'bg-blue-600 text-white border-blue-600' : 'bg-red-50 text-red-600 border-red-300'}`}>
-              {acc.sim ? '✓ SIM card' : 'Sin SIM card'}
-            </button>
-            <button type="button" onClick={() => { setAcc(a => ({ ...a, microsd: !a.microsd })); if (acc.microsd) setMicrosdTamano('') }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${acc.microsd ? 'bg-blue-600 text-white border-blue-600' : 'bg-red-50 text-red-600 border-red-300'}`}>
-              {acc.microsd ? '✓ MicroSD' : 'Sin MicroSD'}
-            </button>
-          </div>
-        </div>
-
-        {/* Mando con cantidad */}
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setAcc(a => ({ ...a, mando: !a.mando, mandoCantidad: 1 }))}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${acc.mando ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
-            🎮 Mando
-          </button>
-          {acc.mando && (
-            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-2 py-1">
-              <button type="button" onClick={() => setAcc(a => ({ ...a, mandoCantidad: Math.max(1, a.mandoCantidad - 1) }))}
-                className="w-5 h-5 rounded-full bg-white border border-blue-300 flex items-center justify-center text-xs font-bold text-blue-700">−</button>
-              <span className="text-xs font-semibold text-blue-700 w-4 text-center">{acc.mandoCantidad}</span>
-              <button type="button" onClick={() => setAcc(a => ({ ...a, mandoCantidad: a.mandoCantidad + 1 }))}
-                className="w-5 h-5 rounded-full bg-white border border-blue-300 flex items-center justify-center text-xs font-bold text-blue-700">+</button>
-            </div>
-          )}
-        </div>
-        {acc.microsd && (
-          <div className="ml-2 pl-3 border-l-2 border-blue-200">
-            <p className="text-xs text-gray-600 font-medium mb-1.5">Tamaño</p>
-            <div className="flex flex-wrap gap-1.5">
-              {MICROSD_SIZES.map(s => chip(microsdTamano === s, () => setMicrosdTamano(t => t === s ? '' : s), s, 'bg-blue-600 text-white border-blue-600'))}
-            </div>
-          </div>
-        )}
-        {acc.sim && (
-          <div className="ml-2 pl-3 border-l-2 border-blue-200 space-y-2">
-            <div className="flex gap-2 items-center">
-              <span className="text-xs text-gray-600 font-medium">¿Cuántas SIM?</span>
-              {([1, 2] as const).map(n => chip(acc.simCantidad === n, () => setAcc(a => ({ ...a, simCantidad: n })), String(n)))}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><Label className="text-xs">Operadora SIM 1</Label><Input value={acc.sim1Carrier} onChange={e => setAcc(a => ({ ...a, sim1Carrier: e.target.value }))} placeholder="Ej: Claro" /></div>
-              {acc.simCantidad === 2 && <div><Label className="text-xs">Operadora SIM 2</Label><Input value={acc.sim2Carrier} onChange={e => setAcc(a => ({ ...a, sim2Carrier: e.target.value }))} placeholder="Ej: Entel" /></div>}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Condición */}
+      {/* Accesorios y condición */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
-        <h2 className="font-semibold text-gray-800">3. Condición del equipo</h2>
-        <div className="flex flex-wrap gap-2">
-          {chip(cond.equipo_apagado, () => setCond(c => ({ ...c, equipo_apagado: !c.equipo_apagado })), '📵 Apagado', 'bg-gray-700 text-white border-gray-700')}
-          {chip(cond.sin_danos, () => setCond(c => ({ ...c, sin_danos: !c.sin_danos })), '✅ Sin daños')}
-          {chip(cond.pantalla_trizada, () => setCond(c => ({ ...c, pantalla_trizada: !c.pantalla_trizada })), 'Pantalla trizada', 'bg-orange-500 text-white border-orange-500')}
-          {chip(cond.marco_doblado, () => setCond(c => ({ ...c, marco_doblado: !c.marco_doblado })), 'Marco doblado', 'bg-orange-500 text-white border-orange-500')}
-          {chip(cond.carga !== '', () => setCond(c => ({ ...c, carga: c.carga !== '' ? '' : 'si' })), '🔋 Carga')}
-          {cond.carga !== '' && chip(cond.carga === 'no_carga', () => setCond(c => ({ ...c, carga: c.carga === 'no_carga' ? 'si' : 'no_carga' })), 'No carga', 'bg-red-500 text-white border-red-500')}
-        </div>
-        {cond.carga === 'si' && (
-          <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-xs">Voltios</Label><Input placeholder="Ej: 5" value={cond.cargaVoltios} onChange={e => setCond(c => ({ ...c, cargaVoltios: e.target.value }))} /></div>
-            <div><Label className="text-xs">Amperaje</Label><Input placeholder="Ej: 0.9A" value={cond.cargaAmperaje} onChange={e => setCond(c => ({ ...c, cargaAmperaje: e.target.value }))} /></div>
-          </div>
-        )}
-        {(['rayones', 'golpes'] as const).map(k => (
-          <div key={k} className="space-y-1.5">
-            <Label className="text-xs capitalize">{k === 'rayones' ? 'Rayones' : 'Golpes'}</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {AREAS.map(a => chip(cond[k].includes(a), () => setCond(c => ({ ...c, [k]: c[k].includes(a) ? c[k].filter(x => x !== a) : [...c[k], a] })), a))}
-            </div>
-          </div>
-        ))}
-        {(['humedad', 'quemaduras'] as const).map(k => (
-          <div key={k} className="space-y-1.5">
-            <Label className="text-xs capitalize">{k === 'humedad' ? 'Humedad' : 'Quemaduras'}</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {AREAS_HUM.map(a => chip(cond[k].includes(a), () => setCond(c => ({ ...c, [k]: c[k].includes(a) ? c[k].filter(x => x !== a) : [...c[k], a] })), a, k === 'humedad' ? 'bg-blue-600 text-white border-blue-600' : 'bg-red-500 text-white border-red-500'))}
-            </div>
-          </div>
-        ))}
+        <h2 className="font-semibold text-gray-800">2. Accesorios y condición del equipo</h2>
+        <AccesoriosCondicionFields
+          tipoEquipo={equipo.tipo_equipo}
+          acc={acc} onAccChange={setAcc}
+          cond={cond} onCondChange={setCond}
+        />
       </div>
 
       {/* Orden de trabajo */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
-        <h2 className="font-semibold text-gray-800">4. Orden de trabajo</h2>
+        <h2 className="font-semibold text-gray-800">3. Orden de trabajo</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label>Técnico</Label>
@@ -437,7 +263,7 @@ export default function EditarOTCompleto({
 
       {/* Repuestos */}
       <div className="bg-white rounded-xl border p-5 space-y-3">
-        <h2 className="font-semibold text-gray-800">5. Repuestos <span className="text-gray-400 font-normal text-sm">(opcional)</span></h2>
+        <h2 className="font-semibold text-gray-800">4. Repuestos <span className="text-gray-400 font-normal text-sm">(opcional)</span></h2>
         <div ref={prodRef} className="relative">
           <Input placeholder="🔍 Buscar repuesto del inventario..." value={prodSearch} onChange={e => setProdSearch(e.target.value)} onFocus={() => prodResults.length > 0 && setProdOpen(true)} />
           {prodOpen && prodResults.length > 0 && (
