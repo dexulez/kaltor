@@ -54,9 +54,14 @@ export default async function ManualesPage({
           <h1 className="text-2xl font-bold text-gray-900">🧠 Base de conocimiento</h1>
           <p className="text-gray-500 text-sm mt-0.5">Manuales, fallas, planos y test points por equipo</p>
         </div>
-        <Link href="/manuales/nuevo">
-          <Button className="bg-blue-600 hover:bg-blue-700">+ Nueva entrada</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/manuales/ifixit">
+            <Button variant="outline">🌐 Buscar en iFixit</Button>
+          </Link>
+          <Link href="/manuales/nuevo">
+            <Button className="bg-blue-600 hover:bg-blue-700">+ Nueva entrada</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Tabs de tipo — navegación principal del módulo */}

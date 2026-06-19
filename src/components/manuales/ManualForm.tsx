@@ -110,30 +110,42 @@ interface Manual {
   tags: string[]
 }
 
-interface Props {
-  manual?: Manual
+interface Prellenado {
+  marca: string
+  modelo: string
+  titulo: string
+  contenido: string
+  archivos: string[]
+  tags: string[]
+  fuenteUrl: string
 }
 
-export default function ManualForm({ manual }: Props) {
+interface Props {
+  manual?: Manual
+  prellenado?: Prellenado
+  tipoInicial?: string
+}
+
+export default function ManualForm({ manual, prellenado, tipoInicial }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [marca, setMarca] = useState(manual?.marca ?? '')
-  const [modelo, setModelo] = useState(manual?.modelo ?? '')
-  const [tipo, setTipo] = useState(manual?.tipo ?? 'falla_comun')
-  const [titulo, setTitulo] = useState(manual?.titulo ?? '')
-  const [contenido, setContenido] = useState(manual?.contenido ?? TEMPLATE.falla_comun)
-  const [tags, setTags] = useState<string[]>(manual?.tags ?? [])
+  const [marca, setMarca] = useState(manual?.marca ?? prellenado?.marca ?? '')
+  const [modelo, setModelo] = useState(manual?.modelo ?? prellenado?.modelo ?? '')
+  const [tipo, setTipo] = useState(manual?.tipo ?? tipoInicial ?? 'falla_comun')
+  const [titulo, setTitulo] = useState(manual?.titulo ?? prellenado?.titulo ?? '')
+  const [contenido, setContenido] = useState(manual?.contenido ?? prellenado?.contenido ?? TEMPLATE.falla_comun)
+  const [tags, setTags] = useState<string[]>(manual?.tags ?? prellenado?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
-  const [archivos, setArchivos] = useState<string[]>(manual?.archivos ?? [])
+  const [archivos, setArchivos] = useState<string[]>(manual?.archivos ?? prellenado?.archivos ?? [])
   const [subiendo, setSubiendo] = useState(false)
   const [preview, setPreview] = useState(false)
   const [saving, setSaving] = useState(false)
 
   function handleTipoChange(nuevoTipo: string) {
     setTipo(nuevoTipo)
-    if (!manual) setContenido(TEMPLATE[nuevoTipo] ?? '')
+    if (!manual && !prellenado) setContenido(TEMPLATE[nuevoTipo] ?? '')
   }
 
   function toggleTag(tag: string) {
@@ -203,6 +215,15 @@ export default function ManualForm({ manual }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 max-w-4xl">
+
+      {prellenado && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 text-sm text-indigo-800 flex items-center justify-between gap-3 flex-wrap">
+          <span>📥 Contenido importado desde iFixit — revisa y ajusta antes de guardar.</span>
+          <a href={prellenado.fuenteUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium shrink-0">
+            Ver guía original ↗
+          </a>
+        </div>
+      )}
 
       {/* Equipo */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
