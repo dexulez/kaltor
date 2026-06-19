@@ -1,13 +1,16 @@
 import Link from 'next/link'
 import ManualForm from '@/components/manuales/ManualForm'
-import { obtenerGuiaIFixit, guiaAManualPrellenado, type ManualPrellenado } from '@/lib/ifixit'
+import { obtenerGuiaIFixit, guiaAManualPrellenado, wikiAManualPrellenado, type ManualPrellenado } from '@/lib/ifixit'
 
 export default async function NuevoManualPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; guideid?: string; marca?: string; modelo?: string; url?: string }>
+  searchParams: Promise<{
+    tipo?: string; guideid?: string; marca?: string; modelo?: string; url?: string
+    wikiTitulo?: string; wikiResumen?: string; wikiImagen?: string
+  }>
 }) {
-  const { tipo, guideid, marca, modelo, url } = await searchParams
+  const { tipo, guideid, marca, modelo, url, wikiTitulo, wikiResumen, wikiImagen } = await searchParams
 
   let prellenado: (ManualPrellenado & { marca: string; modelo: string }) | undefined
   if (guideid) {
@@ -18,6 +21,9 @@ export default async function NuevoManualPage({
     } catch {
       // Si falla la importación, el formulario queda vacío para completar a mano.
     }
+  } else if (wikiTitulo && url) {
+    const datos = wikiAManualPrellenado({ titulo: wikiTitulo, resumen: wikiResumen ?? null, imagen: wikiImagen ?? null, url })
+    prellenado = { marca: marca ?? '', modelo: modelo ?? '', ...datos }
   }
 
   return (
