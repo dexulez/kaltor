@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Customer } from '@/types'
+import { formatRut, validarRut } from '@/lib/calculations'
 
 interface Props {
   cliente?: Customer
@@ -19,6 +20,7 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
+  const [esRutChileno, setEsRutChileno] = useState(false)
 
   const [form, setForm] = useState({
     nombre: cliente?.nombre ?? '',
@@ -29,10 +31,18 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
     notas: cliente?.notas ?? '',
   })
 
+  function handleRutChange(value: string) {
+    setForm(f => ({ ...f, rut: esRutChileno ? formatRut(value) : value }))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.rut.trim()) {
-      toast.error('El RUT / DNI es obligatorio')
+      toast.error('El RUT/CÉDULA/DNI es obligatorio')
+      return
+    }
+    if (esRutChileno && !validarRut(form.rut)) {
+      toast.error('El RUT chileno ingresado no es válido — revisa el dígito verificador')
       return
     }
     setLoading(true)
@@ -94,14 +104,23 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="rut">RUT / DNI <span className="text-red-500">*</span></Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="rut">RUT/CÉDULA/DNI <span className="text-red-500">*</span></Label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer shrink-0">
+              <input type="checkbox" checked={esRutChileno} onChange={e => setEsRutChileno(e.target.checked)} />
+              Validar como RUT chileno
+            </label>
+          </div>
           <Input
             id="rut"
             value={form.rut}
-            onChange={e => setForm(f => ({ ...f, rut: e.target.value }))}
-            placeholder="RUT, pasaporte o cédula extranjera"
+            onChange={e => handleRutChange(e.target.value)}
+            placeholder={esRutChileno ? '12345678-9' : 'RUT, pasaporte o cédula extranjera'}
+            inputMode={esRutChileno ? 'numeric' : 'text'}
           />
-          <p className="text-xs text-gray-400">Acepta cualquier formato: RUT, pasaporte, cédula extranjera</p>
+          <p className="text-xs text-gray-400">
+            {esRutChileno ? 'Se formatea y valida el dígito verificador chileno.' : 'Acepta cualquier formato: RUT, pasaporte, cédula extranjera'}
+          </p>
         </div>
 
         <div className="sm:col-span-2 space-y-1.5">

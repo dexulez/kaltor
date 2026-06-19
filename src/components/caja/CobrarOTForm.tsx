@@ -132,16 +132,26 @@ export default function CobrarOTForm({ ot, config }: Props) {
 
     // Actualizar estado de la OT — NO incluir iva_aplicado/ppm_aplicado
     // porque la columna es DECIMAL(5,2) y no admite montos en CLP
-    const { error: errOT } = await supabase.from('repair_orders').update({
+    const { data: otActualizada, error: errOT } = await supabase.from('repair_orders').update({
       estado: 'entregado',
       metodo_pago: metodo,
       fecha_entrega: new Date().toISOString(),
       precio_servicio: precioServicio, // guardar precio final siempre
-    }).eq('id', ot.id)
+    }).eq('id', ot.id).select('id')
+
+    let otQuedoMarcada = !errOT && !!otActualizada && otActualizada.length > 0
 
     if (errOT) {
       // Fallback mínimo: solo cambiar el estado
-      await supabase.from('repair_orders').update({ estado: 'entregado' }).eq('id', ot.id)
+      const { data: dataFallback } = await supabase.from('repair_orders').update({ estado: 'entregado' }).eq('id', ot.id).select('id')
+      otQuedoMarcada = !!dataFallback && dataFallback.length > 0
+    }
+
+    // La venta ya quedó registrada en este punto: si el estado no se pudo
+    // actualizar (ej. permisos RLS), avisamos en vez de fallar en silencio,
+    // para que alguien marque manualmente la OT como entregada.
+    if (!otQuedoMarcada) {
+      toast.error(`Venta registrada, pero no se pudo marcar ${ot.numero_ot} como entregada — avisa a un administrador`, { duration: 8000 })
     }
 
     await supabase.from('repair_status_history').insert({

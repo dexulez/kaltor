@@ -128,9 +128,15 @@ export default function CambiarEstadoOT({ otId, estadoActual, fechaEntrega, otNu
 
   async function handleRegistrarDevolucion() {
     setLoading(true)
-    await supabase.from('repair_orders')
+    const { data, error } = await supabase.from('repair_orders')
       .update({ fecha_entrega: new Date().toISOString() })
       .eq('id', otId)
+      .select('id')
+    if (error || !data || data.length === 0) {
+      soundError(); toast.error('No se pudo registrar la devolución' + (error ? ': ' + error.message : ''))
+      setLoading(false)
+      return
+    }
     toast.success('Devolución registrada')
     router.refresh()
     setLoading(false)
@@ -153,13 +159,21 @@ export default function CambiarEstadoOT({ otId, estadoActual, fechaEntrega, otNu
     const monto = parseFloat(montoRevision)
     if (mostrarMontoRevision && montoRevision && monto > 0) updatePayload.precio_servicio = monto
 
-    const { error } = await supabase
+    const { data: filasActualizadas, error } = await supabase
       .from('repair_orders')
       .update(updatePayload)
       .eq('id', otId)
+      .select('id')
 
     if (error) {
-      soundError(); toast.error('Error al cambiar estado')
+      soundError(); toast.error('Error al cambiar estado: ' + error.message)
+      setLoading(false)
+      return
+    }
+    // Sin permiso (RLS), Supabase no devuelve error pero tampoco afecta filas —
+    // sin este chequeo, el cambio "parece" guardarse aunque el estado real no cambie.
+    if (!filasActualizadas || filasActualizadas.length === 0) {
+      soundError(); toast.error('No se pudo cambiar el estado: no tienes permiso sobre esta OT')
       setLoading(false)
       return
     }

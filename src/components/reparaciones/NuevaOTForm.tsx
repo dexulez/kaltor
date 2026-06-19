@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { formatRut, formatCLP } from '@/lib/calculations'
+import { formatRut, formatCLP, validarRut } from '@/lib/calculations'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
 import TipoEquipoSelector from '@/components/reparaciones/TipoEquipoSelector'
 import AccesoriosCondicionFields from '@/components/reparaciones/AccesoriosCondicionFields'
@@ -138,6 +138,10 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     direccion: '',
     notas: '',
   })
+  const [esRutChileno, setEsRutChileno] = useState(false)
+  function handleRutChange(value: string) {
+    setNuevoCliente(v => ({ ...v, rut: esRutChileno ? formatRut(value) : value }))
+  }
 
   const [equipo, setEquipo] = useState({
     tipo_equipo: '', marca: '', modelo: '', imei: '', color: '', capacidad: '',
@@ -177,7 +181,11 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
       return
     }
     if (!nuevoCliente.rut.trim()) {
-      toast.error('El RUT / DNI es obligatorio')
+      toast.error('El RUT/CÉDULA/DNI es obligatorio')
+      return
+    }
+    if (esRutChileno && !validarRut(nuevoCliente.rut)) {
+      toast.error('El RUT chileno ingresado no es válido — revisa el dígito verificador')
       return
     }
 
@@ -420,11 +428,18 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>RUT / DNI <span className="text-red-500">*</span></Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>RUT/CÉDULA/DNI <span className="text-red-500">*</span></Label>
+                      <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer shrink-0">
+                        <input type="checkbox" checked={esRutChileno} onChange={e => setEsRutChileno(e.target.checked)} />
+                        Validar como RUT chileno
+                      </label>
+                    </div>
                     <Input
                       value={nuevoCliente.rut}
-                      onChange={e => setNuevoCliente(v => ({ ...v, rut: e.target.value }))}
-                      placeholder="RUT, pasaporte o cédula extranjera"
+                      onChange={e => handleRutChange(e.target.value)}
+                      placeholder={esRutChileno ? '12345678-9' : 'RUT, pasaporte o cédula extranjera'}
+                      inputMode={esRutChileno ? 'numeric' : 'text'}
                     />
                   </div>
                   <div className="sm:col-span-2 space-y-1.5">
