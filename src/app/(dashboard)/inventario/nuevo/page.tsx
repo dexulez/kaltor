@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import ProductoForm from '@/components/inventario/ProductoForm'
 import Link from 'next/link'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 export default async function NuevoProductoPage({
   searchParams,
@@ -9,6 +10,17 @@ export default async function NuevoProductoPage({
 }) {
   const { returnTo } = await searchParams
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfil } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
+  const puedeVerCostos = tieneSubPermiso('inventario.ver_costos', rolNombre, permisos)
+
   const [{ data: categorias }, { data: proveedores }] = await Promise.all([
     supabase.from('product_categories').select('*').order('nombre'),
     supabase.from('suppliers').select('id, nombre').eq('activo', true).order('nombre'),
@@ -25,7 +37,7 @@ export default async function NuevoProductoPage({
           </p>
         )}
       </div>
-      <ProductoForm categorias={categorias ?? []} proveedores={proveedores ?? []} returnTo={returnTo} />
+      <ProductoForm categorias={categorias ?? []} proveedores={proveedores ?? []} returnTo={returnTo} puedeVerCostos={puedeVerCostos} />
     </div>
   )
 }

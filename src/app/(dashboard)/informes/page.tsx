@@ -116,7 +116,7 @@ function KpiCardComp({ label, value, sub, colorIdx = 0, prev, prevLabel, href }:
 
 // ── Tab: Resumen General ──────────────────────────────────────────────────────
 
-async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabResumen({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -229,6 +229,7 @@ async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
 
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Resumen general"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -339,7 +340,7 @@ async function TabResumen({ desde, hasta }: { desde: string; hasta: string }) {
 
 // ── Tab: Ventas ───────────────────────────────────────────────────────────────
 
-async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabVentas({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -529,6 +530,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
     <div className="space-y-5">
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Ventas"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -824,7 +826,7 @@ async function TabVentas({ desde, hasta }: { desde: string; hasta: string }) {
 
 // ── Tab: Taller ───────────────────────────────────────────────────────────────
 
-async function TabTaller({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabTaller({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -998,6 +1000,7 @@ async function TabTaller({ desde, hasta }: { desde: string; hasta: string }) {
 
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Taller"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -1112,7 +1115,7 @@ async function TabTaller({ desde, hasta }: { desde: string; hasta: string }) {
 
 // ── Tab: Inventario ───────────────────────────────────────────────────────────
 
-async function TabInventario({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabInventario({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -1204,6 +1207,7 @@ async function TabInventario({ desde, hasta }: { desde: string; hasta: string })
     <div className="space-y-5">
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Inventario"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -1368,7 +1372,7 @@ function calcularOT(
   return { precioNeto, ivaImporte, costoRep, comBanco, baseCalculo, pctComision, comisionTecnico, costoInsumos, gananciaNegocio }
 }
 
-async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; hasta: string; soloUserId?: string }) {
+async function TabRentabilidad({ desde, hasta, soloUserId, puedeExportar }: { desde: string; hasta: string; soloUserId?: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -1554,6 +1558,7 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
       {/* Botón imprimir / exportar */}
       <div className="flex justify-end gap-2">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Rentabilidad y comisiones"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -1700,7 +1705,7 @@ async function TabRentabilidad({ desde, hasta, soloUserId }: { desde: string; ha
 
 // ── Tab: Servicios ────────────────────────────────────────────────────────────
 
-async function TabServicios({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabServicios({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -1768,6 +1773,7 @@ async function TabServicios({ desde, hasta }: { desde: string; hasta: string }) 
     <div className="space-y-5">
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Servicios"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -1809,7 +1815,7 @@ async function TabServicios({ desde, hasta }: { desde: string; hasta: string }) 
 
 // ── Tab: Auditoría ────────────────────────────────────────────────────────────
 
-async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabAuditoria({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -1978,6 +1984,7 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
     <div className="space-y-5">
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Auditoría"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -2056,7 +2063,7 @@ async function TabAuditoria({ desde, hasta }: { desde: string; hasta: string }) 
 
 // ── Tab: Compras ──────────────────────────────────────────────────────────────
 
-async function TabCompras({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabCompras({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const { data: ocs } = await supabase
     .from('purchase_orders')
@@ -2091,6 +2098,7 @@ async function TabCompras({ desde, hasta }: { desde: string; hasta: string }) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Compras"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -2133,7 +2141,7 @@ async function TabCompras({ desde, hasta }: { desde: string; hasta: string }) {
 
 import PuntoEquilibrioCalculator from '@/components/informes/PuntoEquilibrioCalculator'
 
-async function TabEquilibrio({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabEquilibrio({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -2172,6 +2180,7 @@ async function TabEquilibrio({ desde, hasta }: { desde: string; hasta: string })
     <div className="space-y-5">
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Punto de equilibrio"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[{
@@ -2229,7 +2238,7 @@ async function TabEquilibrio({ desde, hasta }: { desde: string; hasta: string })
 
 // ── Tab: Gastos ───────────────────────────────────────────────────────────────
 
-async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabGastos({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
 
   // Período anterior (misma duración)
@@ -2296,6 +2305,7 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
     <div className="space-y-5">
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Gastos"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -2400,7 +2410,7 @@ async function TabGastos({ desde, hasta }: { desde: string; hasta: string }) {
 
 // ── Tab: Clientes ─────────────────────────────────────────────────────────────
 
-async function TabClientes({ desde, hasta }: { desde: string; hasta: string }) {
+async function TabClientes({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -2489,6 +2499,7 @@ async function TabClientes({ desde, hasta }: { desde: string; hasta: string }) {
 
       <div className="flex justify-end">
         <ExportButtons
+          visible={puedeExportar}
           titulo="Clientes"
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
@@ -2595,6 +2606,8 @@ export default async function InformesPage({
   const verVentas      = rolAuth === 'administrador' || tieneSubPermiso('informes.ver_ventas',       rolAuth, permisosAuth)
   const verRentab      = rolAuth === 'administrador' || tieneSubPermiso('informes.ver_rentabilidad', rolAuth, permisosAuth)
   const soloUserId     = soloPropios ? user!.id : undefined
+  const puedeExportar     = tieneSubPermiso('informes.exportar', rolAuth, permisosAuth)
+  const puedePersonalizado = tieneSubPermiso('informes.personalizado', rolAuth, permisosAuth)
 
   // Tab por defecto según permisos
   const defaultTab = rolAuth === 'administrador' ? 'resumen' : verVentas ? 'ventas' : verRentab ? 'rentabilidad' : 'inventario'
@@ -2607,12 +2620,14 @@ export default async function InformesPage({
           <span className="text-3xl">📊</span>
           <h1 className="text-2xl font-bold text-gray-900">Informes & BI</h1>
         </div>
-        <Link
-          href="/informes/personalizado"
-          className="text-sm font-medium text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
-        >
-          🧩 Crear reporte a medida
-        </Link>
+        {puedePersonalizado && (
+          <Link
+            href="/informes/personalizado"
+            className="text-sm font-medium text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            🧩 Crear reporte a medida
+          </Link>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border p-4">
@@ -2622,17 +2637,17 @@ export default async function InformesPage({
       </div>
 
       <Suspense fallback={<div className="text-center py-16 text-gray-400 text-sm">Cargando datos...</div>}>
-        {tab === 'resumen'      && <TabResumen       desde={desde} hasta={hasta} />}
-        {tab === 'ventas'       && verVentas  && <TabVentas       desde={desde} hasta={hasta} />}
-        {tab === 'taller'       && <TabTaller        desde={desde} hasta={hasta} />}
-        {tab === 'inventario'   && <TabInventario    desde={desde} hasta={hasta} />}
-        {tab === 'rentabilidad' && verRentab  && <TabRentabilidad  desde={desde} hasta={hasta} soloUserId={soloUserId} />}
-        {tab === 'servicios'    && <TabServicios desde={desde} hasta={hasta} />}
-        {tab === 'compras'      && <TabCompras   desde={desde} hasta={hasta} />}
-        {tab === 'gastos'       && <TabGastos    desde={desde} hasta={hasta} />}
-        {tab === 'auditoria'    && rolAuth === 'administrador' && <TabAuditoria desde={desde} hasta={hasta} />}
-        {tab === 'equilibrio'   && <TabEquilibrio desde={desde} hasta={hasta} />}
-        {tab === 'clientes'     && <TabClientes   desde={desde} hasta={hasta} />}
+        {tab === 'resumen'      && <TabResumen       desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'ventas'       && verVentas  && <TabVentas       desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'taller'       && <TabTaller        desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'inventario'   && <TabInventario    desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'rentabilidad' && verRentab  && <TabRentabilidad  desde={desde} hasta={hasta} soloUserId={soloUserId} puedeExportar={puedeExportar} />}
+        {tab === 'servicios'    && <TabServicios desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'compras'      && <TabCompras   desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'gastos'       && <TabGastos    desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'auditoria'    && rolAuth === 'administrador' && <TabAuditoria desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'equilibrio'   && <TabEquilibrio desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'clientes'     && <TabClientes   desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {/* Mensajes de acceso restringido */}
         {tab === 'ventas'       && !verVentas  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Ventas.</div>}
         {tab === 'rentabilidad' && !verRentab  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Rentabilidad.</div>}

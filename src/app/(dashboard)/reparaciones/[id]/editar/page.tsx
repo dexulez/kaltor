@@ -2,10 +2,22 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import EditarOTCompleto from '@/components/reparaciones/EditarOTCompleto'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 export default async function EditarOTPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfilUsuario } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfilUsuario?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfilUsuario?.permisos_modulos as Record<string, boolean> | null
+  const puedeCambiarTecnico = tieneSubPermiso('reparaciones.cambiar_tecnico', rolNombre, permisos)
 
   const [{ data: ot }, { data: tecnicos }, { data: repuestosRaw }] = await Promise.all([
     supabase.from('repair_orders')
@@ -53,6 +65,7 @@ export default async function EditarOTPage({ params }: { params: Promise<{ id: s
         ot={ot as Parameters<typeof EditarOTCompleto>[0]['ot']}
         tecnicos={tecnicosList}
         repuestosIniciales={repuestosIniciales}
+        puedeCambiarTecnico={puedeCambiarTecnico}
       />
     </div>
   )

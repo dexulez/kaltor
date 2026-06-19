@@ -24,9 +24,11 @@ interface Props {
   activo: boolean
   roles: Role[]
   esPropio: boolean
+  puedeEditar?: boolean
+  puedeEliminar?: boolean
 }
 
-export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, activo, roles, esPropio }: Props) {
+export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, activo, roles, esPropio, puedeEditar = true, puedeEliminar = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [rolId, setRolId] = useState(rolActualId ?? '')
@@ -85,7 +87,7 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
   return (
     <>
       <div className="flex items-center gap-2">
-        <Select value={rolId} onValueChange={cambiarRol} disabled={esPropio}>
+        <Select value={rolId} onValueChange={cambiarRol} disabled={esPropio || !puedeEditar}>
           <SelectTrigger className="w-40 h-8 text-xs">
             <span className="flex-1 text-left truncate">{rolLabel}</span>
           </SelectTrigger>
@@ -97,7 +99,7 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
             ))}
           </SelectContent>
         </Select>
-        {!esPropio && (
+        {!esPropio && puedeEditar && (
           <Button
             variant="ghost"
             size="sm"
@@ -108,7 +110,7 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
             {activo ? 'Desactivar' : 'Activar'}
           </Button>
         )}
-        {!esPropio && (
+        {!esPropio && puedeEditar && (
           <Button
             variant="ghost"
             size="sm"
@@ -120,7 +122,7 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
             🔑
           </Button>
         )}
-        {!esPropio && (
+        {!esPropio && puedeEliminar && (
           <Button
             variant="ghost"
             size="sm"

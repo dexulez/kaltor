@@ -15,6 +15,7 @@ import ComprobanteGallery from '@/components/compras/ComprobanteGallery'
 import ProductosSugeridosProveedor from '@/components/compras/ProductosSugeridosProveedor'
 import { Button } from '@/components/ui/button'
 import { PurchaseOrder, PurchaseOrderItem, Supplier } from '@/types'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
   pendiente:           { label: 'Pendiente',              color: 'bg-gray-100 text-gray-700' },
@@ -37,6 +38,20 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
   const { revisar } = await searchParams
   const forzarRevision = revisar === '1'
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfil } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
+  const puedeEditar = tieneSubPermiso('compras.editar', rolNombre, permisos)
+  const puedeCancelar = tieneSubPermiso('compras.cancelar', rolNombre, permisos)
+  const puedeRecibir = tieneSubPermiso('compras.recibir', rolNombre, permisos)
+  const puedePagar = tieneSubPermiso('compras.pagar', rolNombre, permisos)
 
   const [{ data: oc }, { data: pagos }] = await Promise.all([
     supabase
@@ -89,10 +104,12 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
             supplierPhone={(orden.suppliers as Supplier & { whatsapp?: string | null } | null)?.whatsapp ?? orden.suppliers?.telefono ?? null}
             estado={orden.estado}
           />
-          <CancelarEliminarOCBtn ordenId={id} numero={orden.numero_oc} estado={orden.estado} />
-          <Link href={`/compras/orden/${id}/editar`}>
-            <Button variant="outline" className="gap-1.5">✏️ Editar / Corregir</Button>
-          </Link>
+          {puedeCancelar && <CancelarEliminarOCBtn ordenId={id} numero={orden.numero_oc} estado={orden.estado} />}
+          {puedeEditar && (
+            <Link href={`/compras/orden/${id}/editar`}>
+              <Button variant="outline" className="gap-1.5">✏️ Editar / Corregir</Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -327,13 +344,13 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
       )}
 
       {/* Recepción de mercancía */}
-      <RecibirMercanciaForm oc={orden} />
+      {puedeRecibir && <RecibirMercanciaForm oc={orden} />}
 
       {/* Cerrar compra / registrar pago */}
-      <CerrarCompraForm oc={orden} />
+      {puedePagar && <CerrarCompraForm oc={orden} />}
 
       {/* Pago parcial/total de deuda por OC */}
-      {orden.metodo_pago === 'credito' && !['cancelada', 'pendiente', 'enviada', 'proveedor_respondio', 'confirmada'].includes(orden.estado) && (
+      {puedePagar && orden.metodo_pago === 'credito' && !['cancelada', 'pendiente', 'enviada', 'proveedor_respondio', 'confirmada'].includes(orden.estado) && (
         <PagarOCBtn
           ordenId={id}
           supplierId={orden.supplier_id}
@@ -369,9 +386,11 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
               ) : (
                 <p className="text-sm text-gray-400 italic">No se ha adjuntado ningún comprobante.</p>
               )}
-              <div className="ml-auto">
-                <AgregarComprobanteBtn ordenId={id} />
-              </div>
+              {puedePagar && (
+                <div className="ml-auto">
+                  <AgregarComprobanteBtn ordenId={id} />
+                </div>
+              )}
             </div>
           </div>
         )
@@ -407,14 +426,16 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
                   <td className="px-4 py-2.5 text-gray-500 text-xs">{p.nota ?? '—'}</td>
                   <td className="px-4 py-2.5 text-right font-semibold text-green-700">{formatCLP(p.monto)}</td>
                   <td className="px-4 py-2.5 text-right">
-                    <EliminarAbonoBtn
-                      pagoId={p.id}
-                      ordenId={id}
-                      supplierId={orden.supplier_id}
-                      monto={p.monto}
-                      montoPagadoActual={montoPagado}
-                      saldoDeudorProveedor={orden.suppliers?.saldo_deudor ?? 0}
-                    />
+                    {puedePagar && (
+                      <EliminarAbonoBtn
+                        pagoId={p.id}
+                        ordenId={id}
+                        supplierId={orden.supplier_id}
+                        monto={p.monto}
+                        montoPagadoActual={montoPagado}
+                        saldoDeudorProveedor={orden.suppliers?.saldo_deudor ?? 0}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}

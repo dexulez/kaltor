@@ -18,9 +18,10 @@ interface Props {
   categorias: ProductCategory[]
   proveedores: Pick<Supplier, 'id' | 'nombre'>[]
   returnTo?: string
+  puedeVerCostos?: boolean
 }
 
-export default function ProductoForm({ producto, categorias, proveedores, returnTo }: Props) {
+export default function ProductoForm({ producto, categorias, proveedores, returnTo, puedeVerCostos = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -434,25 +435,29 @@ export default function ProductoForm({ producto, categorias, proveedores, return
         <div className="bg-white rounded-xl border p-5 space-y-4">
           <h2 className="font-semibold text-gray-800">Precios</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label>Precio de costo (CLP)</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={form.precio_costo}
-                onChange={e => {
-                  // Solo dígitos y un punto decimal
-                  const v = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
-                  set('precio_costo', v)
-                }}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Costo de envío (CLP)</Label>
-              <Input type="number" min={0} value={form.costo_envio}
-                onChange={e => set('costo_envio', e.target.value)} />
-            </div>
+            {puedeVerCostos && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Precio de costo (CLP)</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={form.precio_costo}
+                    onChange={e => {
+                      // Solo dígitos y un punto decimal
+                      const v = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                      set('precio_costo', v)
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Costo de envío (CLP)</Label>
+                  <Input type="number" min={0} value={form.costo_envio}
+                    onChange={e => set('costo_envio', e.target.value)} />
+                </div>
+              </>
+            )}
             <div className="space-y-1.5">
               <Label>Precio de venta (CLP)</Label>
               <Input type="number" min={0} value={form.precio_venta}
@@ -471,12 +476,14 @@ export default function ProductoForm({ producto, categorias, proveedores, return
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-4 grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-gray-500 text-xs uppercase tracking-wide">Costo real</p>
-              <p className="font-bold text-gray-800 text-lg">{formatCLP(costoReal)}</p>
-              <p className="text-gray-400 text-xs">costo + envío</p>
-            </div>
+          <div className={`bg-gray-50 rounded-lg p-4 grid gap-4 text-sm ${puedeVerCostos ? 'grid-cols-3' : 'grid-cols-1'}`}>
+            {puedeVerCostos && (
+              <div>
+                <p className="text-gray-500 text-xs uppercase tracking-wide">Costo real</p>
+                <p className="font-bold text-gray-800 text-lg">{formatCLP(costoReal)}</p>
+                <p className="text-gray-400 text-xs">costo + envío</p>
+              </div>
+            )}
             <div>
               <p className="text-gray-500 text-xs uppercase tracking-wide">Precio venta</p>
               <p className="font-bold text-gray-800 text-lg">{formatCLP(Number(form.precio_venta) || 0)}</p>
@@ -484,13 +491,15 @@ export default function ProductoForm({ producto, categorias, proveedores, return
                 <p className="text-gray-400 text-xs">neto: {formatCLP(precioVentaNeto)}</p>
               )}
             </div>
-            <div>
-              <p className="text-gray-500 text-xs uppercase tracking-wide">Margen</p>
-              <p className={`font-bold text-lg ${margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {margen}%
-              </p>
-              <p className="text-gray-400 text-xs">sobre precio neto</p>
-            </div>
+            {puedeVerCostos && (
+              <div>
+                <p className="text-gray-500 text-xs uppercase tracking-wide">Margen</p>
+                <p className={`font-bold text-lg ${margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {margen}%
+                </p>
+                <p className="text-gray-400 text-xs">sobre precio neto</p>
+              </div>
+            )}
           </div>
         </div>
 

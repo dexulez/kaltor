@@ -7,9 +7,24 @@ import { Supplier } from '@/types'
 import AlertasOCPanel from '@/components/compras/AlertasOCPanel'
 import AbonarProveedorBtn from '@/components/compras/AbonarProveedorBtn'
 import OrdenesConFiltro from '@/components/compras/OrdenesConFiltro'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 export default async function ComprasPage() {
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfil } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
+  const puedeCrear = tieneSubPermiso('compras.crear', rolNombre, permisos)
+  const puedePagar = tieneSubPermiso('compras.pagar', rolNombre, permisos)
+  const puedeProveedores = tieneSubPermiso('compras.proveedores', rolNombre, permisos)
+
   const [{ data: proveedores }, { data: ordenes }] = await Promise.all([
     supabase.from('suppliers').select('*').eq('activo', true).order('nombre'),
     supabase.from('purchase_orders')
@@ -46,11 +61,13 @@ export default async function ComprasPage() {
 
         {/* PROVEEDORES */}
         <TabsContent value="proveedores" className="mt-4 space-y-3">
-          <div className="flex justify-end">
-            <Link href="/compras/proveedor/nuevo">
-              <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo proveedor</Button>
-            </Link>
-          </div>
+          {puedeProveedores && (
+            <div className="flex justify-end">
+              <Link href="/compras/proveedor/nuevo">
+                <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo proveedor</Button>
+              </Link>
+            </div>
+          )}
           <div className="bg-white rounded-xl border overflow-hidden">
             {!proveedores?.length ? (
               <div className="text-center py-14 text-gray-400">
@@ -95,22 +112,28 @@ export default async function ComprasPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2 justify-end flex-wrap items-center">
-                          {p.saldo_deudor > 0 && (
+                          {puedePagar && p.saldo_deudor > 0 && (
                             <AbonarProveedorBtn
                               supplierId={p.id}
                               nombreProveedor={p.nombre}
                               saldoActual={p.saldo_deudor}
                             />
                           )}
-                          <Link href={`/compras/proveedor/${p.id}/liquidacion`}>
-                            <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">💸 Liquidar</Button>
-                          </Link>
-                          <Link href={`/compras/proveedor/${p.id}/editar`}>
-                            <Button variant="outline" size="sm">Editar</Button>
-                          </Link>
-                          <Link href={`/compras/orden/nueva?proveedor=${p.id}`}>
-                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Nueva OC</Button>
-                          </Link>
+                          {puedePagar && (
+                            <Link href={`/compras/proveedor/${p.id}/liquidacion`}>
+                              <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">💸 Liquidar</Button>
+                            </Link>
+                          )}
+                          {puedeProveedores && (
+                            <Link href={`/compras/proveedor/${p.id}/editar`}>
+                              <Button variant="outline" size="sm">Editar</Button>
+                            </Link>
+                          )}
+                          {puedeCrear && (
+                            <Link href={`/compras/orden/nueva?proveedor=${p.id}`}>
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Nueva OC</Button>
+                            </Link>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -127,6 +150,7 @@ export default async function ComprasPage() {
             borradores={borradores}
             ordenes={otrasOrdenes}
             hoyStr={hoyStr}
+            puedeCrear={puedeCrear}
           />
         </TabsContent>
       </Tabs>

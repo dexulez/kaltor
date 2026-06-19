@@ -28,7 +28,7 @@ interface UsuarioDetalle {
 }
 
 interface RolOption { id: string; nombre: string }
-interface Props { usuario: UsuarioDetalle; roles: RolOption[] }
+interface Props { usuario: UsuarioDetalle; roles: RolOption[]; puedeEditarPermisos?: boolean }
 
 function getRolNombre(rolId: string, roles: RolOption[]): string {
   return roles.find(r => r.id === rolId)?.nombre ?? ''
@@ -55,7 +55,7 @@ const TIPOS_COMISION = [
   { key: 'comision_otro',      label: 'Otro' },
 ]
 
-export default function UsuarioForm({ usuario, roles }: Props) {
+export default function UsuarioForm({ usuario, roles, puedeEditarPermisos = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -179,6 +179,12 @@ export default function UsuarioForm({ usuario, roles }: Props) {
       </div>
 
       {/* Permisos de módulos con sub-permisos */}
+      {!puedeEditarPermisos ? (
+        <div className="bg-white rounded-xl border p-5">
+          <h2 className="font-semibold text-gray-800">Acceso a módulos y acciones</h2>
+          <p className="text-xs text-gray-500 mt-1">No tienes permiso para editar el detalle de accesos de otros usuarios.</p>
+        </div>
+      ) : (
       <div className="bg-white rounded-xl border p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -239,6 +245,7 @@ export default function UsuarioForm({ usuario, roles }: Props) {
           })}
         </div>
       </div>
+      )}
 
       {/* ── Comisiones del técnico (solo administrador) ─────────────────── */}
       <div className="bg-white rounded-xl border p-5 space-y-5">

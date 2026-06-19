@@ -59,11 +59,13 @@ interface Props {
   comisionCredito: number
   otPreload?: ItemServicioOT | null
   ticketConfig: TicketConfig
+  puedeCrearProductoRapido: boolean
+  puedeAplicarDescuento: boolean
 }
 
 const METODO_LABELS = { efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia', debito: '💳 Débito', credito: '💳 Crédito' }
 
-export default function PosVentaDirecta({ productos, clientes, servicios = [], IVA, PPM, comisionDebito, comisionCredito, otPreload, ticketConfig }: Props) {
+export default function PosVentaDirecta({ productos, clientes, servicios = [], IVA, PPM, comisionDebito, comisionCredito, otPreload, ticketConfig, puedeCrearProductoRapido, puedeAplicarDescuento }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [clientesList, setClientesList] = useState(clientes)
@@ -766,13 +768,15 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
               {productosFiltrados.length === 0 && serviciosFiltrados.length === 0 ? (
                 <div className="text-center py-4 space-y-2">
                   <p className="text-gray-400 text-sm">Sin resultados para &quot;{busqueda}&quot;</p>
-                  <button
-                    type="button"
-                    onClick={abrirModalNuevoProd}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium underline underline-offset-2"
-                  >
-                    + Crear &quot;{busqueda}&quot; como nuevo producto
-                  </button>
+                  {puedeCrearProductoRapido && (
+                    <button
+                      type="button"
+                      onClick={abrirModalNuevoProd}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium underline underline-offset-2"
+                    >
+                      + Crear &quot;{busqueda}&quot; como nuevo producto
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -937,23 +941,25 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
           <h2 className="font-semibold text-gray-800 text-lg">Resumen de cobro</h2>
 
           {/* Descuento */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Descuento</Label>
-            <div className="flex gap-2">
-              <div className="flex border rounded-lg overflow-hidden text-xs shrink-0">
-                <button onClick={() => setTipoDescuento('monto')}
-                  className={`px-3 py-1.5 font-semibold transition-colors ${tipoDescuento === 'monto' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>$</button>
-                <button onClick={() => setTipoDescuento('pct')}
-                  className={`px-3 py-1.5 font-semibold transition-colors ${tipoDescuento === 'pct' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>%</button>
+          {puedeAplicarDescuento && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Descuento</Label>
+              <div className="flex gap-2">
+                <div className="flex border rounded-lg overflow-hidden text-xs shrink-0">
+                  <button onClick={() => setTipoDescuento('monto')}
+                    className={`px-3 py-1.5 font-semibold transition-colors ${tipoDescuento === 'monto' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>$</button>
+                  <button onClick={() => setTipoDescuento('pct')}
+                    className={`px-3 py-1.5 font-semibold transition-colors ${tipoDescuento === 'pct' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>%</button>
+                </div>
+                <Input type="number" min={0} max={tipoDescuento === 'pct' ? 100 : undefined}
+                  placeholder={tipoDescuento === 'pct' ? 'Ej: 10' : 'Ej: 5000'}
+                  value={descuentoInput} onChange={e => setDescuentoInput(e.target.value)} className="flex-1 h-9" />
               </div>
-              <Input type="number" min={0} max={tipoDescuento === 'pct' ? 100 : undefined}
-                placeholder={tipoDescuento === 'pct' ? 'Ej: 10' : 'Ej: 5000'}
-                value={descuentoInput} onChange={e => setDescuentoInput(e.target.value)} className="flex-1 h-9" />
+              {descuentoFinal > 0 && (
+                <p className="text-xs text-red-600 font-medium">− {formatCLP(descuentoFinal)} de descuento</p>
+              )}
             </div>
-            {descuentoFinal > 0 && (
-              <p className="text-xs text-red-600 font-medium">− {formatCLP(descuentoFinal)} de descuento</p>
-            )}
-          </div>
+          )}
 
           {/* Totales */}
           <div className={`space-y-1.5 text-sm rounded-lg p-3 ${esPresupuesto ? 'bg-purple-50 border border-purple-200' : 'bg-gray-50'}`}>

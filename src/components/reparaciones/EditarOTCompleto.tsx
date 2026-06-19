@@ -51,11 +51,12 @@ interface OTCompleta {
 }
 
 export default function EditarOTCompleto({
-  ot, tecnicos, repuestosIniciales,
+  ot, tecnicos, repuestosIniciales, puedeCambiarTecnico = true,
 }: {
   ot: OTCompleta
   tecnicos: { id: string; nombre_completo: string }[]
   repuestosIniciales: RepuestoLocal[]
+  puedeCambiarTecnico?: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -229,15 +230,21 @@ export default function EditarOTCompleto({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label>Técnico</Label>
-            <Select value={tecnicoId || 'none'} onValueChange={v => setTecnicoId(!v || v === 'none' ? '' : v)}>
-              <SelectTrigger>
-                <span className="truncate text-sm">{!tecnicoId ? 'Sin asignar' : (tecnicos.find(t => t.id === tecnicoId)?.nombre_completo ?? 'Sin asignar')}</span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin asignar</SelectItem>
-                {tecnicos.map(t => <SelectItem key={t.id} value={t.id}>{t.nombre_completo}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {puedeCambiarTecnico ? (
+              <Select value={tecnicoId || 'none'} onValueChange={v => setTecnicoId(!v || v === 'none' ? '' : v)}>
+                <SelectTrigger>
+                  <span className="truncate text-sm">{!tecnicoId ? 'Sin asignar' : (tecnicos.find(t => t.id === tecnicoId)?.nombre_completo ?? 'Sin asignar')}</span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin asignar</SelectItem>
+                  {tecnicos.map(t => <SelectItem key={t.id} value={t.id}>{t.nombre_completo}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm text-gray-600 border rounded-lg px-3 py-2 bg-gray-50">
+                {!tecnicoId ? 'Sin asignar' : (tecnicos.find(t => t.id === tecnicoId)?.nombre_completo ?? 'Sin asignar')}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <Label>Tipo de reparación</Label>

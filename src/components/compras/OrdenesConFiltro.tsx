@@ -33,6 +33,7 @@ interface Props {
   borradores: Orden[]
   ordenes: Orden[]
   hoyStr: string
+  puedeCrear?: boolean
 }
 
 const FILTROS_CONFIG = [
@@ -78,7 +79,7 @@ const FILTROS_CONFIG = [
   },
 ]
 
-export default function OrdenesConFiltro({ borradores, ordenes, hoyStr }: Props) {
+export default function OrdenesConFiltro({ borradores, ordenes, hoyStr, puedeCrear = true }: Props) {
   const [filtrosActivos, setFiltrosActivos] = useState<string[]>([])
 
   function toggleFiltro(key: string) {
@@ -156,14 +157,16 @@ export default function OrdenesConFiltro({ borradores, ordenes, hoyStr }: Props)
         </div>
       )}
 
-      <div className="flex gap-2 justify-end">
-        <Link href="/compras/orden/nueva-masiva">
-          <Button variant="outline" className="gap-1.5">📊 Carga masiva desde Excel</Button>
-        </Link>
-        <Link href="/compras/orden/nueva">
-          <Button className="bg-blue-600 hover:bg-blue-700">+ Nueva orden de compra</Button>
-        </Link>
-      </div>
+      {puedeCrear && (
+        <div className="flex gap-2 justify-end">
+          <Link href="/compras/orden/nueva-masiva">
+            <Button variant="outline" className="gap-1.5">📊 Carga masiva desde Excel</Button>
+          </Link>
+          <Link href="/compras/orden/nueva">
+            <Button className="bg-blue-600 hover:bg-blue-700">+ Nueva orden de compra</Button>
+          </Link>
+        </div>
+      )}
 
       {/* Solicitudes pendientes de enviar (borradores desde OTs) */}
       {borradores.length > 0 && filtrosActivos.length === 0 && (

@@ -20,6 +20,7 @@ interface Props {
   secciones: SeccionExportable[]
   orientacionPdf?: 'portrait' | 'landscape'
   className?: string
+  visible?: boolean
 }
 
 const DIACRITICOS = new RegExp('[\\u0300-\\u036f]', 'g')
@@ -32,10 +33,12 @@ function slug(texto: string) {
     .replace(/^_+|_+$/g, '')
 }
 
-export default function ExportButtons({ titulo, subtitulo, secciones, orientacionPdf, className }: Props) {
+export default function ExportButtons({ titulo, subtitulo, secciones, orientacionPdf, className, visible = true }: Props) {
   const [exportando, setExportando] = useState<'excel' | 'pdf' | null>(null)
   const sinDatos = secciones.every(s => s.rows.length === 0)
   const base = slug(titulo) || 'informe'
+
+  if (!visible) return null
 
   function handleExcel() {
     setExportando('excel')

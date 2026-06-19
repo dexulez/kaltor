@@ -57,6 +57,7 @@ export default async function CajaPage() {
   const puedeAnular = tieneSubPermiso('caja.anular', rolNombre, permisos)
   const verResumenSesion = tieneSubPermiso('caja.ver_resumen_sesion', rolNombre, permisos)
   const verComisiones = tieneSubPermiso('caja.ver_comisiones', rolNombre, permisos)
+  const puedeGestionarSesion = tieneSubPermiso('caja.gestionar_sesion', rolNombre, permisos)
   const cfgRaw = sysConfig as { pin_autorizacion?: string; nombre_local?: string; rut_local?: string; direccion?: string; telefono?: string; email?: string; logo_url?: string; iva?: number; comision_debito?: number; comision_credito?: number } | null
   const pinAdmin = cfgRaw?.pin_autorizacion ?? null
   const ticketCfg = {
@@ -111,7 +112,7 @@ export default async function CajaPage() {
         </div>
       </div>
 
-      <SesionCajaPanel />
+      <SesionCajaPanel puedeGestionar={puedeGestionarSesion} />
 
       {/* Comisiones — según permiso caja.ver_comisiones */}
       {verComisiones && (

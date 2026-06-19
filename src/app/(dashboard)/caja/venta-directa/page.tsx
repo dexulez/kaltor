@@ -3,6 +3,7 @@ import Link from 'next/link'
 import PosVentaDirecta from '@/components/caja/PosVentaDirecta'
 import AbrirCajaInline from '@/components/caja/AbrirCajaInline'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 export default async function VentaDirectaPage({
   searchParams,
@@ -11,6 +12,19 @@ export default async function VentaDirectaPage({
 }) {
   const { ot: otId } = await searchParams
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfil } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
+  const puedeGestionarSesion = tieneSubPermiso('caja.gestionar_sesion', rolNombre, permisos)
+  const puedeCrearProductoRapido = tieneSubPermiso('caja.crear_producto_rapido', rolNombre, permisos)
+  const puedeAplicarDescuento = tieneSubPermiso('caja.aplicar_descuento', rolNombre, permisos)
 
   const [{ data: productos }, { data: config }, { data: clientes }, { data: sesion }, { data: servicios }] = await Promise.all([
     supabase.from('products').select('*, product_categories(*)').eq('activo', true).order('nombre'),
@@ -56,7 +70,7 @@ export default async function VentaDirectaPage({
       </div>
 
       {!cajaAbierta ? (
-        <AbrirCajaInline returnUrl={`/caja/venta-directa${otId ? `?ot=${otId}` : ''}`} />
+        <AbrirCajaInline returnUrl={`/caja/venta-directa${otId ? `?ot=${otId}` : ''}`} puedeAbrir={puedeGestionarSesion} />
       ) : (
         <PosVentaDirecta
           productos={productos ?? []}
@@ -67,6 +81,8 @@ export default async function VentaDirectaPage({
           comisionDebito={config?.comision_debito ?? 0}
           comisionCredito={config?.comision_credito ?? 0}
           otPreload={otPreload}
+          puedeCrearProductoRapido={puedeCrearProductoRapido}
+          puedeAplicarDescuento={puedeAplicarDescuento}
           ticketConfig={{
             nombre_local: config?.nombre_local ?? '',
             rut_local: config?.rut_local ?? null,

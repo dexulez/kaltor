@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import ClientesBuscador from '@/components/clientes/ClientesBuscador'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 export default async function ClientesPage({
   searchParams,
@@ -10,6 +11,18 @@ export default async function ClientesPage({
 }) {
   const { q } = await searchParams
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfil } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
+  const puedeCrear = tieneSubPermiso('clientes.crear', rolNombre, permisos)
+  const puedeEditar = tieneSubPermiso('clientes.editar', rolNombre, permisos)
 
   let query = supabase
     .from('customers')
@@ -30,9 +43,11 @@ export default async function ClientesPage({
           <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
           <p className="text-gray-500 text-sm mt-0.5">{clientes?.length ?? 0} cliente(s) encontrado(s)</p>
         </div>
-        <Link href="/clientes/nuevo">
-          <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo cliente</Button>
-        </Link>
+        {puedeCrear && (
+          <Link href="/clientes/nuevo">
+            <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo cliente</Button>
+          </Link>
+        )}
       </div>
 
       <ClientesBuscador defaultValue={q} />
@@ -71,9 +86,11 @@ export default async function ClientesPage({
                       <Link href={`/clientes/${c.id}`}>
                         <Button variant="ghost" size="sm">Ver</Button>
                       </Link>
-                      <Link href={`/clientes/${c.id}/editar`}>
-                        <Button variant="outline" size="sm">Editar</Button>
-                      </Link>
+                      {puedeEditar && (
+                        <Link href={`/clientes/${c.id}/editar`}>
+                          <Button variant="outline" size="sm">Editar</Button>
+                        </Link>
+                      )}
                     </div>
                   </td>
                 </tr>

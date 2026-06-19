@@ -7,6 +7,7 @@ import ProductoQRButton from '@/components/inventario/ProductoQRButton'
 import EliminarProductoBtn from '@/components/inventario/EliminarProductoBtn'
 import BuscadorInventario from '@/components/inventario/BuscadorInventario'
 import { Suspense } from 'react'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 const TIPO_LABELS: Record<string, string> = {
   repuesto: 'Repuesto', accesorio: 'Accesorio',
@@ -27,6 +28,21 @@ export default async function InventarioPage({
 }: { searchParams: Promise<{ q?: string; categoria?: string; alerta?: string }> }) {
   const { q, categoria, alerta } = await searchParams
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfil } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
+  const puedeEditar = tieneSubPermiso('inventario.editar', rolNombre, permisos)
+  const puedeEliminar = tieneSubPermiso('inventario.eliminar', rolNombre, permisos)
+  const puedeVerCostos = tieneSubPermiso('inventario.ver_costos', rolNombre, permisos)
+  const puedeCargaMasiva = tieneSubPermiso('inventario.carga_masiva', rolNombre, permisos)
+  const puedeCategorias = tieneSubPermiso('inventario.categorias', rolNombre, permisos)
 
   let query = supabase
     .from('products')
@@ -64,18 +80,26 @@ export default async function InventarioPage({
           <Link href="/inventario/toma">
             <Button variant="outline" className="gap-1.5">📋 Toma inventario</Button>
           </Link>
-          <Link href="/inventario/categorias">
-            <Button variant="outline" className="gap-1.5">🗂️ Categorías</Button>
-          </Link>
-          <Link href="/inventario/precios">
-            <Button variant="outline" className="gap-1.5">💰 Precios</Button>
-          </Link>
-          <Link href="/inventario/carga-masiva">
-            <Button variant="outline" className="gap-1.5">⬆️ Carga masiva</Button>
-          </Link>
-          <Link href="/inventario/nuevo">
-            <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo producto</Button>
-          </Link>
+          {puedeCategorias && (
+            <Link href="/inventario/categorias">
+              <Button variant="outline" className="gap-1.5">🗂️ Categorías</Button>
+            </Link>
+          )}
+          {puedeVerCostos && (
+            <Link href="/inventario/precios">
+              <Button variant="outline" className="gap-1.5">💰 Precios</Button>
+            </Link>
+          )}
+          {puedeCargaMasiva && (
+            <Link href="/inventario/carga-masiva">
+              <Button variant="outline" className="gap-1.5">⬆️ Carga masiva</Button>
+            </Link>
+          )}
+          {puedeEditar && (
+            <Link href="/inventario/nuevo">
+              <Button className="bg-blue-600 hover:bg-blue-700">+ Nuevo producto</Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -145,10 +169,12 @@ export default async function InventarioPage({
                     </div>
                     <div className="flex gap-1">
                       <ProductoQRButton productId={p.id} nombre={p.nombre} sku={p.sku} />
-                      <Link href={`/inventario/${p.id}/editar`}>
-                        <Button variant="outline" size="sm" className="text-xs h-7 px-2">Editar</Button>
-                      </Link>
-                      <EliminarProductoBtn productId={p.id} nombre={p.nombre} />
+                      {puedeEditar && (
+                        <Link href={`/inventario/${p.id}/editar`}>
+                          <Button variant="outline" size="sm" className="text-xs h-7 px-2">Editar</Button>
+                        </Link>
+                      )}
+                      {puedeEliminar && <EliminarProductoBtn productId={p.id} nombre={p.nombre} />}
                     </div>
                   </div>
                 </div>
@@ -165,7 +191,7 @@ export default async function InventarioPage({
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Categoría</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Proveedor</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-600">Stock</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Costo real</th>
+                  {puedeVerCostos && <th className="text-right px-4 py-3 font-medium text-gray-600">Costo real</th>}
                   <th className="text-right px-4 py-3 font-medium text-gray-600">Precio venta</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -191,15 +217,17 @@ export default async function InventarioPage({
                         <span className={`font-bold ${critico ? 'text-red-600' : 'text-gray-800'}`}>{p.stock_actual}</span>
                         <span className="text-gray-400 text-xs"> / mín {p.stock_minimo}</span>
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-600">{formatCLP(costoReal)}</td>
+                      {puedeVerCostos && <td className="px-4 py-3 text-right text-gray-600">{formatCLP(costoReal)}</td>}
                       <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCLP(p.precio_venta)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1 justify-end">
                           <ProductoQRButton productId={p.id} nombre={p.nombre} sku={p.sku} />
-                          <Link href={`/inventario/${p.id}/editar`}>
-                            <Button variant="outline" size="sm">Editar</Button>
-                          </Link>
-                          <EliminarProductoBtn productId={p.id} nombre={p.nombre} />
+                          {puedeEditar && (
+                            <Link href={`/inventario/${p.id}/editar`}>
+                              <Button variant="outline" size="sm">Editar</Button>
+                            </Link>
+                          )}
+                          {puedeEliminar && <EliminarProductoBtn productId={p.id} nombre={p.nombre} />}
                         </div>
                       </td>
                     </tr>

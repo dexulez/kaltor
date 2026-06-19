@@ -5,6 +5,7 @@ import InvitarUsuarioDialog from '@/components/usuarios/InvitarUsuarioDialog'
 import InvitarCompradorDialog from '@/components/usuarios/InvitarCompradorDialog'
 import UsuarioAcciones from '@/components/usuarios/UsuarioAcciones'
 import { Role, UserProfile } from '@/types'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 const ROL_COLOR: Record<string, string> = {
   administrador:     'bg-purple-100 text-purple-700',
@@ -37,6 +38,18 @@ export default async function UsuariosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  const { data: perfilPropio } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesDataPropio = perfilPropio?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombrePropio = (Array.isArray(rolesDataPropio) ? rolesDataPropio[0]?.nombre : rolesDataPropio?.nombre) ?? ''
+  const permisosPropio = perfilPropio?.permisos_modulos as Record<string, boolean> | null
+  const puedeCrear = tieneSubPermiso('usuarios.crear', rolNombrePropio, permisosPropio)
+  const puedeEditar = tieneSubPermiso('usuarios.editar', rolNombrePropio, permisosPropio)
+  const puedeEliminar = tieneSubPermiso('usuarios.eliminar', rolNombrePropio, permisosPropio)
+
   const [{ data: usuarios }, { data: roles }] = await Promise.all([
     supabase.from('user_profiles').select('*, roles(id, nombre)').order('created_at'),
     supabase.from('roles').select('id, nombre').order('nombre'),
@@ -60,7 +73,7 @@ export default async function UsuariosPage() {
           <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
           <p className="text-gray-500 text-sm">{total} usuario(s) en el sistema</p>
         </div>
-        <InvitarUsuarioDialog roles={rolesStaff} />
+        {puedeCrear && <InvitarUsuarioDialog roles={rolesStaff} />}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -138,10 +151,14 @@ export default async function UsuariosPage() {
                           activo={u.activo}
                           roles={roles ?? []}
                           esPropio={esPropio}
+                          puedeEditar={puedeEditar}
+                          puedeEliminar={puedeEliminar}
                         />
-                        <Link href={`/usuarios/${u.id}/editar`}>
-                          <Button variant="ghost" size="sm" className="text-xs">Editar</Button>
-                        </Link>
+                        {puedeEditar && (
+                          <Link href={`/usuarios/${u.id}/editar`}>
+                            <Button variant="ghost" size="sm" className="text-xs">Editar</Button>
+                          </Link>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -158,7 +175,7 @@ export default async function UsuariosPage() {
           <h2 className="text-lg font-bold text-gray-900">Compradores externos</h2>
           <p className="text-gray-500 text-sm">{compradoresList.length} cuenta(s) — otros talleres con acceso al catálogo B2B</p>
         </div>
-        <InvitarCompradorDialog rolId={rolCompradorId} />
+        {puedeCrear && <InvitarCompradorDialog rolId={rolCompradorId} />}
       </div>
 
       <div className="bg-white rounded-xl border overflow-hidden">
@@ -204,6 +221,8 @@ export default async function UsuariosPage() {
                       activo={u.activo}
                       roles={roles ?? []}
                       esPropio={false}
+                      puedeEditar={puedeEditar}
+                      puedeEliminar={puedeEliminar}
                     />
                   </td>
                 </tr>

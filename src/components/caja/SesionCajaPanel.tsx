@@ -42,7 +42,11 @@ interface CuentaBancaria {
   titular: string
 }
 
-export default function SesionCajaPanel() {
+interface Props {
+  puedeGestionar?: boolean
+}
+
+export default function SesionCajaPanel({ puedeGestionar = true }: Props) {
   const supabase = createClient()
   const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
 
@@ -754,9 +758,11 @@ export default function SesionCajaPanel() {
             </p>
           )}
         </div>
-        <Button size="sm" className="bg-green-600 hover:bg-green-700 shrink-0" onClick={() => setView('apertura')}>
-          🔓 Abrir caja
-        </Button>
+        {puedeGestionar && (
+          <Button size="sm" className="bg-green-600 hover:bg-green-700 shrink-0" onClick={() => setView('apertura')}>
+            🔓 Abrir caja
+          </Button>
+        )}
       </div>
     )
   }
@@ -773,14 +779,16 @@ export default function SesionCajaPanel() {
             {' · '}Fondo: {formatCLP(sesion.efectivo_apertura)}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => { setArqueoEfectivo(String(sesion.efectivo_apertura + ventas.efectivo)); setArqueoTransbank(String(ventas.transbank)); setArqueoTransferencia(String(ventas.transferencia)); setView('arqueo') }}>
-            🔢 Arqueo
-          </Button>
-          <Button size="sm" className="bg-red-700 hover:bg-red-800" onClick={() => setView('cierre')}>
-            🔒 Cerrar caja
-          </Button>
-        </div>
+        {puedeGestionar && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => { setArqueoEfectivo(String(sesion.efectivo_apertura + ventas.efectivo)); setArqueoTransbank(String(ventas.transbank)); setArqueoTransferencia(String(ventas.transferencia)); setView('arqueo') }}>
+              🔢 Arqueo
+            </Button>
+            <Button size="sm" className="bg-red-700 hover:bg-red-800" onClick={() => setView('cierre')}>
+              🔒 Cerrar caja
+            </Button>
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0">
         {[

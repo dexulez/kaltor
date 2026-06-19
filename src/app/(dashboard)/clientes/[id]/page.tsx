@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import { Equipment, RepairOrder } from '@/types'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
   recibido:           { label: 'Recibido',           color: 'bg-gray-100 text-gray-700' },
@@ -36,6 +37,17 @@ export default async function ClienteDetallePage({
   const { id } = await params
   const { tab = 'reparaciones' } = await searchParams
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfilUsuario } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfilUsuario?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfilUsuario?.permisos_modulos as Record<string, boolean> | null
+  const puedeEditar = tieneSubPermiso('clientes.editar', rolNombre, permisos)
 
   const [{ data: cliente }, { data: ots }, { data: ventas }] = await Promise.all([
     supabase.from('customers').select('*').eq('id', id).single(),
@@ -90,9 +102,11 @@ export default async function ClienteDetallePage({
               <Button variant="outline" size="sm" className="text-green-700 border-green-300 hover:bg-green-50">📱 WhatsApp</Button>
             </a>
           )}
-          <Link href={`/clientes/${id}/editar`}>
-            <Button variant="outline" size="sm">✏️ Editar</Button>
-          </Link>
+          {puedeEditar && (
+            <Link href={`/clientes/${id}/editar`}>
+              <Button variant="outline" size="sm">✏️ Editar</Button>
+            </Link>
+          )}
           <Link href={`/reparaciones/nueva?cliente=${id}`}>
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700">+ Nueva OT</Button>
           </Link>

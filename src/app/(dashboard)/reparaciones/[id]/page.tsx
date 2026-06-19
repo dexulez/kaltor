@@ -15,6 +15,7 @@ import DescuentoOT from '@/components/reparaciones/DescuentoOT'
 import { Customer, Equipment, RepairOrder, RepairStatusHistory, UserProfile } from '@/types'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
 import EtiquetaTermica from '@/components/reparaciones/EtiquetaTermica'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 const ESTADO_INFO: Record<string, { label: string; color: string }> = {
   recibido:           { label: 'Recibido',           color: 'bg-gray-100 text-gray-700' },
@@ -53,6 +54,17 @@ interface RepuestoItem {
 export default async function OTDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfilUsuario } = await supabase
+    .from('user_profiles')
+    .select('permisos_modulos, roles(nombre)')
+    .eq('id', user!.id)
+    .single()
+  const rolesData = perfilUsuario?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfilUsuario?.permisos_modulos as Record<string, boolean> | null
+  const puedeDescuento = tieneSubPermiso('reparaciones.descuento', rolNombre, permisos)
 
   // Obtener host para construir la URL de seguimiento
   const headersList = await headers()
@@ -347,11 +359,13 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
       />
 
       {/* Descuento */}
-      <DescuentoOT
-        otId={otDetalle.id}
-        precioServicio={otDetalle.precio_servicio ?? null}
-        descuentoInicial={(otDetalle as RepairOrder & { descuento?: number }).descuento ?? 0}
-      />
+      {puedeDescuento && (
+        <DescuentoOT
+          otId={otDetalle.id}
+          precioServicio={otDetalle.precio_servicio ?? null}
+          descuentoInicial={(otDetalle as RepairOrder & { descuento?: number }).descuento ?? 0}
+        />
+      )}
 
       {/* Abonos */}
       <AbonoOTForm
