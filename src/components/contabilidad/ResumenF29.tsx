@@ -128,7 +128,7 @@ export default function ResumenF29({ mes, ivaDebito, neto, existing }: Props) {
         <div className="bg-orange-50 rounded-lg p-3 text-center space-y-1">
           <p className="text-xs text-gray-500">PPM</p>
           <div className="flex items-center justify-center gap-1">
-            <Input type="number" min={0} max={100} step={0.01} value={tasaPpmInput}
+            <Input type="number" min={0} max={5} step={0.01} value={tasaPpmInput}
               onChange={e => setTasaPpmInput(e.target.value)} disabled={pagado}
               className="h-6 w-14 text-center text-xs px-1" />
             <span className="text-xs text-gray-500">%</span>

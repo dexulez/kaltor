@@ -55,11 +55,14 @@ ALTER TABLE pagos_previsionales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE declaraciones_f29 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE obligaciones_tributarias ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "pagos_previsionales_all" ON pagos_previsionales;
 CREATE POLICY "pagos_previsionales_all" ON pagos_previsionales
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "declaraciones_f29_all" ON declaraciones_f29;
 CREATE POLICY "declaraciones_f29_all" ON declaraciones_f29
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "obligaciones_tributarias_all" ON obligaciones_tributarias;
 CREATE POLICY "obligaciones_tributarias_all" ON obligaciones_tributarias
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
