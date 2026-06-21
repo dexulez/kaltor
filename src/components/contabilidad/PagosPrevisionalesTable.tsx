@@ -35,6 +35,8 @@ interface Props {
   mes: string // 'YYYY-MM-01'
   empleados: Empleado[]
   pagos: PagoPrev[]
+  vencimientoPresencial: string
+  vencimientoElectronico: string
 }
 
 function FilaEmpleado({ mes, empleado, pago }: { mes: string; empleado: Empleado; pago: PagoPrev | undefined }) {
@@ -128,7 +130,7 @@ function FilaEmpleado({ mes, empleado, pago }: { mes: string; empleado: Empleado
   )
 }
 
-export default function PagosPrevisionalesTable({ mes, empleados, pagos }: Props) {
+export default function PagosPrevisionalesTable({ mes, empleados, pagos, vencimientoPresencial, vencimientoElectronico }: Props) {
   if (empleados.length === 0) {
     return (
       <div className="bg-white rounded-xl border p-5">
@@ -146,6 +148,14 @@ export default function PagosPrevisionalesTable({ mes, empleados, pagos }: Props
       <div className="px-5 py-3 border-b bg-gray-50">
         <h2 className="font-semibold text-gray-800">Pagos previsionales (sueldo + AFP + salud)</h2>
         <p className="text-xs text-gray-400 mt-0.5">Montos pre-cargados con el cálculo referencial de Gastos fijos — ajústalos si difieren del pago real</p>
+        <div className="flex flex-wrap gap-2 mt-2 text-xs">
+          <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-lg">
+            📅 Presencial/DNP: vence {new Date(vencimientoPresencial + 'T12:00:00').toLocaleDateString('es-CL')}
+          </span>
+          <span className="bg-orange-50 text-orange-700 px-2 py-1 rounded-lg">
+            💻 Electrónico (Previred web): vence {new Date(vencimientoElectronico + 'T12:00:00').toLocaleDateString('es-CL')} — plazo fatal, no se corre
+          </span>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

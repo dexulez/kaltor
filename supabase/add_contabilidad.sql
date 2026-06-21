@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS declaraciones_f29 (
   mes DATE NOT NULL UNIQUE,           -- día 1 del mes correspondiente
   iva_credito INTEGER NOT NULL DEFAULT 0,   -- IVA crédito fiscal (compras con factura), ingresado manualmente
   tasa_ppm DECIMAL(5,2) NOT NULL DEFAULT 3,  -- % de PPM, editable antes de cada pago
+  modalidad TEXT NOT NULL DEFAULT 'electronico',  -- 'papel' (día 12) | 'electronico' (día 20) | 'sin_movimiento' (día 28)
   fecha_vencimiento DATE,
   fecha_pago DATE,
   comprobante_url TEXT,
@@ -32,8 +33,9 @@ CREATE TABLE IF NOT EXISTS declaraciones_f29 (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Por si la tabla ya existía antes de agregar tasa_ppm
+-- Por si la tabla ya existía antes de agregar estas columnas
 ALTER TABLE declaraciones_f29 ADD COLUMN IF NOT EXISTS tasa_ppm DECIMAL(5,2) NOT NULL DEFAULT 3;
+ALTER TABLE declaraciones_f29 ADD COLUMN IF NOT EXISTS modalidad TEXT NOT NULL DEFAULT 'electronico';
 
 -- Otras obligaciones tributarias (patente municipal, renta anual, contribuciones, etc.)
 CREATE TABLE IF NOT EXISTS obligaciones_tributarias (

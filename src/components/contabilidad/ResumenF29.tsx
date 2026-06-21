@@ -7,7 +7,9 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { formatCLP } from '@/lib/calculations'
+import { vencimientoF29, MODALIDAD_F29_LABEL, type ModalidadF29 } from '@/lib/fechasTributarias'
 import SubirComprobanteBtn from '@/components/contabilidad/SubirComprobanteBtn'
 
 interface F29Existente {
@@ -15,6 +17,7 @@ interface F29Existente {
   mes: string
   iva_credito: number
   tasa_ppm: number
+  modalidad: ModalidadF29
   fecha_vencimiento: string | null
   fecha_pago: string | null
   comprobante_url: string | null
@@ -28,20 +31,20 @@ interface Props {
   existing: F29Existente | null
 }
 
-function vencimientoDefault(mes: string): string {
-  const [y, m] = mes.split('-').map(Number)
-  const d = new Date(y, m, 12) // día 12 del mes siguiente
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 export default function ResumenF29({ mes, ivaDebito, neto, existing }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
   const [ivaCreditoInput, setIvaCreditoInput] = useState(String(existing?.iva_credito ?? 0))
   const [tasaPpmInput, setTasaPpmInput] = useState(String(existing?.tasa_ppm ?? 3))
-  const [fechaVencimiento, setFechaVencimiento] = useState(existing?.fecha_vencimiento ?? vencimientoDefault(mes))
+  const [modalidad, setModalidad] = useState<ModalidadF29>(existing?.modalidad ?? 'electronico')
+  const [fechaVencimiento, setFechaVencimiento] = useState(existing?.fecha_vencimiento ?? vencimientoF29(mes, existing?.modalidad ?? 'electronico'))
   const [notas, setNotas] = useState(existing?.notas ?? '')
+
+  function cambiarModalidad(nueva: ModalidadF29) {
+    setModalidad(nueva)
+    setFechaVencimiento(vencimientoF29(mes, nueva))
+  }
 
   const ivaCredito = parseInt(ivaCreditoInput) || 0
   const tasaPpm = parseFloat(tasaPpmInput) || 0
@@ -59,6 +62,7 @@ export default function ResumenF29({ mes, ivaDebito, neto, existing }: Props) {
       mes,
       iva_credito: ivaCredito,
       tasa_ppm: tasaPpm,
+      modalidad,
       fecha_vencimiento: fechaVencimiento || null,
       notas: notas.trim() || null,
     }, { onConflict: 'mes' })
@@ -74,6 +78,7 @@ export default function ResumenF29({ mes, ivaDebito, neto, existing }: Props) {
       mes,
       iva_credito: ivaCredito,
       tasa_ppm: tasaPpm,
+      modalidad,
       fecha_vencimiento: fechaVencimiento || null,
       notas: notas.trim() || null,
       fecha_pago: hoy,
@@ -136,10 +141,22 @@ export default function ResumenF29({ mes, ivaDebito, neto, existing }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Modalidad de declaración</Label>
+          <Select value={modalidad} onValueChange={v => cambiarModalidad((v ?? 'electronico') as ModalidadF29)} disabled={pagado}>
+            <SelectTrigger><span className="truncate text-sm text-left">{MODALIDAD_F29_LABEL[modalidad]}</span></SelectTrigger>
+            <SelectContent>
+              {Object.entries(MODALIDAD_F29_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="space-y-1">
           <Label className="text-xs">Fecha de vencimiento</Label>
           <Input type="date" value={fechaVencimiento} onChange={e => setFechaVencimiento(e.target.value)} disabled={pagado} />
+          <p className="text-xs text-gray-400">
+            {modalidad === 'sin_movimiento' ? 'Plazo fijo, no se corre por fin de semana' : 'Se corrió al siguiente día hábil si caía fin de semana'}
+          </p>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Notas</Label>

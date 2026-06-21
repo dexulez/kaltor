@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { calcularPrecioSinIva, calcularIva, formatCLP } from '@/lib/calculations'
+import { vencimientosPrevired, type ModalidadF29 } from '@/lib/fechasTributarias'
 import ResumenF29 from '@/components/contabilidad/ResumenF29'
 import PagosPrevisionalesTable from '@/components/contabilidad/PagosPrevisionalesTable'
 import ObligacionesTributariasManager from '@/components/contabilidad/ObligacionesTributariasManager'
 import AparteDiarioImpuestos from '@/components/contabilidad/AparteDiarioImpuestos'
+import RecordatorioRentaAnual from '@/components/contabilidad/RecordatorioRentaAnual'
 
 function mesLabel(mes: string) {
   const [y, m] = mes.split('-').map(Number)
@@ -48,7 +50,7 @@ export default async function ContabilidadPage({
   type Empleado = { id: string; nombre: string; cargo: string | null; sueldo_base: number; tasa_afp: number; tasa_salud: number; activo: boolean }
   type PagoPrev = { id: string; empleado_id: string; mes: string; sueldo_pagado: number; afp_pagado: number; salud_pagado: number; fecha_pago: string | null; comprobante_url: string | null; estado: string; notas: string | null }
   type Obligacion = { id: string; nombre: string; monto: number; fecha_vencimiento: string | null; recurrencia: string; fecha_pago: string | null; comprobante_url: string | null; notas: string | null; activa: boolean }
-  type F29 = { id: string; mes: string; iva_credito: number; tasa_ppm: number; fecha_vencimiento: string | null; fecha_pago: string | null; comprobante_url: string | null; notas: string | null }
+  type F29 = { id: string; mes: string; iva_credito: number; tasa_ppm: number; modalidad: ModalidadF29; fecha_vencimiento: string | null; fecha_pago: string | null; comprobante_url: string | null; notas: string | null }
 
   const empleadosList = (empleados ?? []) as Empleado[]
   const pagosPrevList = (pagosPrev ?? []) as PagoPrev[]
@@ -85,6 +87,13 @@ export default async function ContabilidadPage({
 
   const totalAPagarMes = (f29Pendiente ? netoF29 : 0) + totalPrevisionesPendientes + totalObligacionesPendientes
 
+  const previred = vencimientosPrevired(mesInicio)
+
+  const mesNumero = inicioDate.getMonth() + 1
+  const mostrarRentaAnual = mesNumero >= 1 && mesNumero <= 4
+  const yearRenta = inicioDate.getFullYear()
+  const rentaYaExiste = obligacionesList.some(o => o.fecha_vencimiento === `${yearRenta}-04-30`)
+
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -100,8 +109,12 @@ export default async function ContabilidadPage({
       </div>
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
-        ⚠️ Los montos y fechas de este módulo son referenciales. Confirma siempre con tu contador antes de declarar o pagar.
+        ⚠️ Los montos y fechas de este módulo son referenciales (no incluyen el calendario de feriados). Confirma siempre con tu contador antes de declarar o pagar.
       </div>
+
+      {mostrarRentaAnual && (
+        <RecordatorioRentaAnual year={yearRenta} yaExiste={rentaYaExiste} />
+      )}
 
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-5 text-white flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -134,6 +147,8 @@ export default async function ContabilidadPage({
         mes={mesInicio}
         empleados={empleadosList}
         pagos={pagosPrevList}
+        vencimientoPresencial={previred.presencialODnp}
+        vencimientoElectronico={previred.electronico}
       />
 
       <ObligacionesTributariasManager
