@@ -63,10 +63,13 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
       collapsed ? 'w-16' : 'w-64'
     )}>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-blue-800">
+      <div className={cn(
+        'flex items-center border-b border-blue-800',
+        collapsed ? 'flex-col gap-2 px-1 py-3' : 'gap-3 px-4 py-4'
+      )}>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="Logo" className={cn('object-contain shrink-0', collapsed ? 'h-8 w-8' : 'h-9 max-w-[40px]')} />
+          <img src={logoUrl} alt="Logo" className={cn('object-contain shrink-0', collapsed ? 'h-7 w-7' : 'h-9 max-w-[40px]')} />
         ) : (
           <span className="text-2xl shrink-0">🔧</span>
         )}
@@ -79,7 +82,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         <Button
           variant="ghost"
           size="sm"
-          className="ml-auto text-blue-300 hover:text-white hover:bg-blue-800 p-1 h-7 w-7 shrink-0"
+          className={cn('text-blue-300 hover:text-white hover:bg-blue-800 p-1 h-7 w-7 shrink-0', !collapsed && 'ml-auto')}
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? '→' : '←'}
