@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { calcularPrecioSinIva, calcularIva, calcularPpm, formatCLP } from '@/lib/calculations'
+import { calcularPrecioSinIva, calcularIva, formatCLP } from '@/lib/calculations'
 import ResumenF29 from '@/components/contabilidad/ResumenF29'
 import PagosPrevisionalesTable from '@/components/contabilidad/PagosPrevisionalesTable'
 import ObligacionesTributariasManager from '@/components/contabilidad/ObligacionesTributariasManager'
+import AparteDiarioImpuestos from '@/components/contabilidad/AparteDiarioImpuestos'
 
 function mesLabel(mes: string) {
   const [y, m] = mes.split('-').map(Number)
@@ -43,21 +44,29 @@ export default async function ContabilidadPage({
   const totalBruto = (ventasMes ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
   const neto = calcularPrecioSinIva(totalBruto)
   const ivaDebito = calcularIva(neto)
-  const ppm = calcularPpm(neto)
 
   type Empleado = { id: string; nombre: string; cargo: string | null; sueldo_base: number; tasa_afp: number; tasa_salud: number; activo: boolean }
   type PagoPrev = { id: string; empleado_id: string; mes: string; sueldo_pagado: number; afp_pagado: number; salud_pagado: number; fecha_pago: string | null; comprobante_url: string | null; estado: string; notas: string | null }
   type Obligacion = { id: string; nombre: string; monto: number; fecha_vencimiento: string | null; recurrencia: string; fecha_pago: string | null; comprobante_url: string | null; notas: string | null; activa: boolean }
-  type F29 = { id: string; mes: string; iva_credito: number; fecha_vencimiento: string | null; fecha_pago: string | null; comprobante_url: string | null; notas: string | null }
+  type F29 = { id: string; mes: string; iva_credito: number; tasa_ppm: number; fecha_vencimiento: string | null; fecha_pago: string | null; comprobante_url: string | null; notas: string | null }
 
   const empleadosList = (empleados ?? []) as Empleado[]
   const pagosPrevList = (pagosPrev ?? []) as PagoPrev[]
   const obligacionesList = (obligaciones ?? []) as Obligacion[]
   const f29Row = f29 as F29 | null
 
+  const tasaPpm = f29Row?.tasa_ppm ?? 3
+  const ppm = Math.round(neto * tasaPpm / 100)
   const ivaCredito = f29Row?.iva_credito ?? 0
   const netoF29 = Math.max(0, ivaDebito - ivaCredito) + ppm
   const f29Pendiente = !f29Row?.fecha_pago
+
+  // Cuánto apartar al día (solo tiene sentido para el mes en curso)
+  const hoyDate = new Date()
+  const esMesActual = mes === `${hoyDate.getFullYear()}-${String(hoyDate.getMonth() + 1).padStart(2, '0')}`
+  const diasEnMes = finDate.getDate()
+  const diasTranscurridos = esMesActual ? hoyDate.getDate() : diasEnMes
+  const impuestoAcumulado = ivaDebito + ppm
 
   const totalPrevisionesPendientes = empleadosList.reduce((s, e) => {
     const pago = pagosPrevList.find(p => p.empleado_id === e.id)
@@ -109,8 +118,16 @@ export default async function ContabilidadPage({
       <ResumenF29
         mes={mesInicio}
         ivaDebito={ivaDebito}
-        ppm={ppm}
+        neto={neto}
         existing={f29Row}
+      />
+
+      <AparteDiarioImpuestos
+        ventaAcumulada={totalBruto}
+        impuestoAcumulado={impuestoAcumulado}
+        diasTranscurridos={diasTranscurridos}
+        diasEnMes={diasEnMes}
+        esMesActual={esMesActual}
       />
 
       <PagosPrevisionalesTable

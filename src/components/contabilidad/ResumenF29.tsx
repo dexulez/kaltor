@@ -14,6 +14,7 @@ interface F29Existente {
   id: string
   mes: string
   iva_credito: number
+  tasa_ppm: number
   fecha_vencimiento: string | null
   fecha_pago: string | null
   comprobante_url: string | null
@@ -23,7 +24,7 @@ interface F29Existente {
 interface Props {
   mes: string // 'YYYY-MM-01'
   ivaDebito: number
-  ppm: number
+  neto: number
   existing: F29Existente | null
 }
 
@@ -33,15 +34,18 @@ function vencimientoDefault(mes: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function ResumenF29({ mes, ivaDebito, ppm, existing }: Props) {
+export default function ResumenF29({ mes, ivaDebito, neto, existing }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
   const [ivaCreditoInput, setIvaCreditoInput] = useState(String(existing?.iva_credito ?? 0))
+  const [tasaPpmInput, setTasaPpmInput] = useState(String(existing?.tasa_ppm ?? 3))
   const [fechaVencimiento, setFechaVencimiento] = useState(existing?.fecha_vencimiento ?? vencimientoDefault(mes))
   const [notas, setNotas] = useState(existing?.notas ?? '')
 
   const ivaCredito = parseInt(ivaCreditoInput) || 0
+  const tasaPpm = parseFloat(tasaPpmInput) || 0
+  const ppm = Math.round(neto * tasaPpm / 100)
   const netoIva = Math.max(0, ivaDebito - ivaCredito)
   const totalF29 = netoIva + ppm
   const pagado = !!existing?.fecha_pago
@@ -54,6 +58,7 @@ export default function ResumenF29({ mes, ivaDebito, ppm, existing }: Props) {
     const { error } = await supabase.from('declaraciones_f29').upsert({
       mes,
       iva_credito: ivaCredito,
+      tasa_ppm: tasaPpm,
       fecha_vencimiento: fechaVencimiento || null,
       notas: notas.trim() || null,
     }, { onConflict: 'mes' })
@@ -68,6 +73,7 @@ export default function ResumenF29({ mes, ivaDebito, ppm, existing }: Props) {
     const { error } = await supabase.from('declaraciones_f29').upsert({
       mes,
       iva_credito: ivaCredito,
+      tasa_ppm: tasaPpm,
       fecha_vencimiento: fechaVencimiento || null,
       notas: notas.trim() || null,
       fecha_pago: hoy,
@@ -114,10 +120,15 @@ export default function ResumenF29({ mes, ivaDebito, ppm, existing }: Props) {
           <Label className="text-xs">IVA crédito (compras con factura)</Label>
           <Input type="number" min={0} value={ivaCreditoInput} onChange={e => setIvaCreditoInput(e.target.value)} disabled={pagado} />
         </div>
-        <div className="bg-orange-50 rounded-lg p-3 text-center">
-          <p className="text-xs text-gray-500 mb-1">PPM 3%</p>
+        <div className="bg-orange-50 rounded-lg p-3 text-center space-y-1">
+          <p className="text-xs text-gray-500">PPM</p>
+          <div className="flex items-center justify-center gap-1">
+            <Input type="number" min={0} max={100} step={0.01} value={tasaPpmInput}
+              onChange={e => setTasaPpmInput(e.target.value)} disabled={pagado}
+              className="h-6 w-14 text-center text-xs px-1" />
+            <span className="text-xs text-gray-500">%</span>
+          </div>
           <p className="font-bold text-orange-600">{formatCLP(ppm)}</p>
-          <p className="text-xs text-gray-400">calculado</p>
         </div>
         <div className="bg-green-50 border-2 border-green-400 rounded-lg p-3 text-center">
           <p className="text-xs text-gray-600 font-semibold mb-1">TOTAL F29</p>
