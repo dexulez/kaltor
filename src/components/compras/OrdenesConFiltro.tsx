@@ -310,7 +310,7 @@ export default function OrdenesConFiltro({ borradores, ordenes, hoyStr, puedeCre
                         </span>
                       ) : montoPagadoOC > 0 ? (
                         <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
-                          🟡 Parcial
+                          🟡 Parcial{o.fecha_pago ? ` · ${new Date(o.fecha_pago).toLocaleDateString('es-CL')}` : ''}
                         </span>
                       ) : (
                         <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
