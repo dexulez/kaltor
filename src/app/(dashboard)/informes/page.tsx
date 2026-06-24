@@ -2247,7 +2247,7 @@ async function TabGastos({ desde, hasta, puedeExportar }: { desde: string; hasta
   const prevDesde = new Date(new Date(desde).getTime() - diasPeriodo * 86400000).toISOString().split('T')[0]
 
   const [{ data: gastos, error }, { data: gastosPrev }] = await Promise.all([
-    supabase.from('gastos').select('id, concepto, monto, categoria, metodo_pago, fecha').gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: false }),
+    supabase.from('gastos').select('id, concepto, monto, categoria, metodo_pago, tipo_documento, numero_documento, fecha').gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: false }),
     supabase.from('gastos').select('monto, categoria, fecha').gte('fecha', prevDesde).lte('fecha', prevHasta),
   ])
 
@@ -2260,7 +2260,7 @@ async function TabGastos({ desde, hasta, puedeExportar }: { desde: string; hasta
     )
   }
 
-  type GRow = { id: string; concepto: string; monto: number; categoria: string; metodo_pago: string; fecha: string }
+  type GRow = { id: string; concepto: string; monto: number; categoria: string; metodo_pago: string; tipo_documento: string | null; numero_documento: string | null; fecha: string }
   const lista = (gastos ?? []) as GRow[]
   const totalGastos = lista.reduce((s, g) => s + g.monto, 0)
   const totalPrev   = ((gastosPrev ?? []) as { monto: number }[]).reduce((s, g) => s + g.monto, 0)
@@ -2299,7 +2299,10 @@ async function TabGastos({ desde, hasta, puedeExportar }: { desde: string; hasta
   })
   const topConceptosRows = topConceptos.map(([c, v]) => [c, formatCLP(v), totalGastos ? `${Math.round(v * 100 / totalGastos)}%` : '—'])
   const metodoGastoRows = Object.entries(porMetodo).sort((a, b) => b[1] - a[1]).map(([m, v]) => [m, formatCLP(v), totalGastos ? `${Math.round(v / totalGastos * 100)}%` : '—'])
-  const registroGastosRows = lista.map(g => [g.fecha, g.concepto, g.categoria, g.metodo_pago, formatCLP(g.monto)])
+  const docLabel = (g: GRow) => g.tipo_documento
+    ? `${g.tipo_documento === 'factura' ? 'Factura' : 'Boleta'}${g.numero_documento ? ` ${g.numero_documento}` : ''}`
+    : '—'
+  const registroGastosRows = lista.map(g => [g.fecha, g.concepto, g.categoria, g.metodo_pago, docLabel(g), formatCLP(g.monto)])
 
   return (
     <div className="space-y-5">
@@ -2313,7 +2316,7 @@ async function TabGastos({ desde, hasta, puedeExportar }: { desde: string; hasta
             { titulo: 'Por categoría (actual vs anterior)', headers: ['Categoría', 'Anterior', 'Actual', 'Variación', 'Part. %'], rows: categoriaCompRows },
             { titulo: 'Top conceptos', headers: ['Concepto', 'Total', 'Part. %'], rows: topConceptosRows },
             { titulo: 'Por método de pago', headers: ['Método', 'Total', 'Part. %'], rows: metodoGastoRows },
-            { titulo: 'Registro de gastos', headers: ['Fecha', 'Concepto', 'Categoría', 'Método', 'Monto'], rows: registroGastosRows },
+            { titulo: 'Registro de gastos', headers: ['Fecha', 'Concepto', 'Categoría', 'Método', 'Documento', 'Monto'], rows: registroGastosRows },
           ]}
         />
       </div>
@@ -2400,7 +2403,7 @@ async function TabGastos({ desde, hasta, puedeExportar }: { desde: string; hasta
 
       <Section title="Registro de gastos">
         <Tabla
-          headers={['Fecha', 'Concepto', 'Categoría', 'Método', 'Monto']}
+          headers={['Fecha', 'Concepto', 'Categoría', 'Método', 'Documento', 'Monto']}
           rows={registroGastosRows}
         />
       </Section>

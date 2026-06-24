@@ -25,6 +25,8 @@ interface Props {
   productos: Product[]
 }
 
+const PROVEEDOR_OCASIONAL = 'Varios / Compra ocasional'
+
 export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -34,10 +36,18 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
   const [costoEnvio, setCostoEnvio] = useState('0')
   const [fechaEstimada, setFechaEstimada] = useState('')
   const [notas, setNotas] = useState('')
+  const [compraDirecta, setCompraDirecta] = useState(false)
+  const [tipoDocumento, setTipoDocumento] = useState<'boleta' | 'factura'>('boleta')
+  const [numeroDocumento, setNumeroDocumento] = useState('')
   const [items, setItems] = useState<ItemOC[]>([
     { id: crypto.randomUUID(), product_id: null, nombre: '', cantidad_solicitada: 1, precio_unitario: 0 },
   ])
   const [busquedaProducto, setBusquedaProducto] = useState<Record<string, string>>({})
+
+  const proveedorOcasional = proveedores.find(p => p.nombre === PROVEEDOR_OCASIONAL)
+  const proveedoresOrdenados = proveedorOcasional
+    ? [proveedorOcasional, ...proveedores.filter(p => p.id !== proveedorOcasional.id)]
+    : proveedores
   const proveedorSeleccionado = proveedores.find(p => p.id === supplierId)
   const proveedorValue = proveedorSeleccionado ? supplierId : ''
 
@@ -68,6 +78,58 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
   const subtotalItems = items.reduce((s, i) => s + i.precio_unitario * i.cantidad_solicitada, 0)
   const total = subtotalItems + costoEnvioNum
 
+  async function actualizarStock(item: ItemOC, ocId: string, ocNumero: string, supplierIdActual: string) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: perfil } = user
+      ? await supabase.from('user_profiles').select('nombre_completo').eq('id', user.id).single()
+      : { data: null }
+    const nombreUsuario = (perfil as { nombre_completo?: string } | null)?.nombre_completo ?? null
+
+    let productId = item.product_id
+    if (!productId) {
+      const { data: match } = await supabase.from('products').select('id')
+        .ilike('nombre', item.nombre.trim()).limit(1).maybeSingle()
+      if (match) {
+        productId = match.id
+      } else {
+        const { data: cat } = await supabase
+          .from('product_categories').select('id').ilike('nombre', 'insumo%').limit(1).maybeSingle()
+        const categoriaId = (cat as { id: string } | null)?.id
+        if (categoriaId) {
+          const { data: nuevo } = await supabase.from('products').insert({
+            nombre: item.nombre.trim(),
+            categoria_id: categoriaId,
+            precio_costo: item.precio_unitario,
+            precio_venta: 0,
+            stock_actual: 0,
+            stock_minimo: 1,
+            proveedor_id: supplierIdActual,
+          }).select('id').single()
+          if (nuevo) productId = nuevo.id
+        }
+      }
+    }
+    if (!productId) return
+
+    const { data: producto } = await supabase.from('products').select('stock_actual').eq('id', productId).single()
+    if (!producto) return
+    const stockAnterior = producto.stock_actual
+    const stockNuevo = stockAnterior + item.cantidad_solicitada
+    await supabase.from('products').update({ stock_actual: stockNuevo, activo: true }).eq('id', productId)
+    await supabase.from('stock_movements').insert({
+      product_id: productId,
+      tipo: 'entrada',
+      cantidad: item.cantidad_solicitada,
+      stock_anterior: stockAnterior,
+      stock_nuevo: stockNuevo,
+      razon: `Compra directa ${ocNumero}`,
+      referencia_id: ocId,
+      referencia_tipo: 'purchase_order',
+      usuario_id: user?.id ?? null,
+      nombre_usuario: nombreUsuario,
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!supplierId) { toast.error('Selecciona un proveedor'); return }
@@ -77,11 +139,14 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
 
     const { data: oc, error: oe } = await supabase.from('purchase_orders').insert({
       supplier_id: supplierId,
-      estado: 'pendiente',
+      estado: compraDirecta ? 'recibida_completa' : 'pendiente',
       metodo_pago: metodoPago,
       costo_envio_total: costoEnvioNum,
       total,
-      fecha_estimada_llegada: fechaEstimada || null,
+      fecha_estimada_llegada: compraDirecta ? null : (fechaEstimada || null),
+      fecha_recepcion: compraDirecta ? new Date().toISOString() : null,
+      tipo_documento: compraDirecta ? tipoDocumento : null,
+      numero_factura_proveedor: compraDirecta && numeroDocumento.trim() ? numeroDocumento.trim() : null,
       notas: notas.trim() || null,
     }).select().single()
 
@@ -94,7 +159,7 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
       product_id: i.product_id || null,
       nombre: i.nombre.trim(),
       cantidad_solicitada: i.cantidad_solicitada,
-      cantidad_recibida: 0,
+      cantidad_recibida: compraDirecta ? i.cantidad_solicitada : 0,
       precio_unitario: i.precio_unitario,
       costo_envio_prorrateado: costoEnvioProrrateado,
       subtotal: i.precio_unitario * i.cantidad_solicitada,
@@ -102,7 +167,14 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
 
     await supabase.from('purchase_order_items').insert(itemsPayload)
 
-    toast.success(`Orden de compra ${oc.numero_oc} creada`)
+    if (compraDirecta) {
+      for (const item of itemsValidos) {
+        await actualizarStock(item, oc.id, oc.numero_oc, supplierId)
+      }
+      toast.success(`Compra ${oc.numero_oc} registrada y stock actualizado`)
+    } else {
+      toast.success(`Orden de compra ${oc.numero_oc} creada`)
+    }
     router.push(`/compras/orden/${oc.id}`)
     router.refresh()
   }
@@ -112,6 +184,18 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
       {/* Encabezado */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
         <h2 className="font-semibold text-gray-800">Datos de la orden</h2>
+
+        <label className="flex items-start gap-3 p-3 rounded-xl border border-green-200 bg-green-50 cursor-pointer">
+          <input type="checkbox" checked={compraDirecta} onChange={e => setCompraDirecta(e.target.checked)}
+            className="w-4 h-4 mt-0.5 accent-green-600" />
+          <div>
+            <p className="text-sm font-semibold text-green-800">✅ Ya tengo la mercancía en mano</p>
+            <p className="text-xs text-green-700 mt-0.5">
+              Para compras directas (insumos, repuestos sueltos) que ya pagaste — se registra como recibida de inmediato y se actualiza el stock, sin pasar por todo el flujo de envío/confirmación de la OC.
+            </p>
+          </div>
+        </label>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Proveedor <span className="text-red-500">*</span></Label>
@@ -124,8 +208,8 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
                 </span>
               </SelectTrigger>
               <SelectContent>
-                {proveedores.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
+                {proveedoresOrdenados.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.nombre === PROVEEDOR_OCASIONAL ? `🏪 ${p.nombre}` : p.nombre}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -148,10 +232,29 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
             <Label>Costo de envío (CLP)</Label>
             <Input type="number" min={0} value={costoEnvio} onChange={e => setCostoEnvio(e.target.value)} placeholder="0" />
           </div>
-          <div className="space-y-1.5">
-            <Label>Fecha estimada de llegada</Label>
-            <Input type="date" value={fechaEstimada} onChange={e => setFechaEstimada(e.target.value)} />
-          </div>
+          {compraDirecta ? (
+            <>
+              <div className="space-y-1.5">
+                <Label>Tipo de documento</Label>
+                <Select value={tipoDocumento} onValueChange={v => setTipoDocumento((v ?? 'boleta') as typeof tipoDocumento)}>
+                  <SelectTrigger><span className="text-sm">{tipoDocumento === 'boleta' ? 'Boleta' : 'Factura'}</span></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="boleta">Boleta</SelectItem>
+                    <SelectItem value="factura">Factura</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>N° de documento</Label>
+                <Input value={numeroDocumento} onChange={e => setNumeroDocumento(e.target.value)} placeholder="Opcional" />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>Fecha estimada de llegada</Label>
+              <Input type="date" value={fechaEstimada} onChange={e => setFechaEstimada(e.target.value)} />
+            </div>
+          )}
           <div className="sm:col-span-2 space-y-1.5">
             <Label>Notas</Label>
             <Textarea value={notas} onChange={e => setNotas(e.target.value)} rows={2} placeholder="Observaciones, condiciones especiales..." />
@@ -162,7 +265,7 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
       {/* Items */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="bg-gray-50 px-4 py-3 border-b flex items-center justify-between">
-          <p className="font-semibold text-gray-800">Productos a ordenar</p>
+          <p className="font-semibold text-gray-800">{compraDirecta ? 'Productos comprados' : 'Productos a ordenar'}</p>
           <Button type="button" variant="outline" size="sm" onClick={agregarItem}>+ Agregar item</Button>
         </div>
         <div className="divide-y">
@@ -257,8 +360,8 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
       </div>
 
       <div className="flex gap-3">
-        <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
-          {loading ? 'Creando...' : 'Crear orden de compra'}
+        <Button type="submit" className={compraDirecta ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} disabled={loading}>
+          {loading ? 'Guardando...' : compraDirecta ? 'Registrar compra recibida' : 'Crear orden de compra'}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
       </div>

@@ -43,6 +43,8 @@ export default function GastoRapidoModal({ variant = 'button' }: Props) {
   const [monto, setMonto] = useState('')
   const [categoria, setCategoria] = useState('varios')
   const [metodo, setMetodo] = useState('efectivo')
+  const [tipoDocumento, setTipoDocumento] = useState<'boleta' | 'factura' | 'sin_documento'>('boleta')
+  const [numeroDocumento, setNumeroDocumento] = useState('')
   const [saving, setSaving] = useState(false)
 
   async function guardar() {
@@ -54,12 +56,14 @@ export default function GastoRapidoModal({ variant = 'button' }: Props) {
       monto: parseInt(monto),
       categoria,
       metodo_pago: metodo,
+      tipo_documento: tipoDocumento === 'sin_documento' ? null : tipoDocumento,
+      numero_documento: tipoDocumento !== 'sin_documento' && numeroDocumento.trim() ? numeroDocumento.trim() : null,
       fecha: new Intl.DateTimeFormat('sv', { timeZone: 'America/Santiago' }).format(new Date()),
     })
     if (error) { toast.error('Error: ' + error.message); setSaving(false); return }
     toast.success(`Gasto registrado: ${formatCLP(parseInt(monto))}`)
     setOpen(false); setSaving(false)
-    setConcepto(''); setMonto(''); setCategoria('varios'); setMetodo('efectivo')
+    setConcepto(''); setMonto(''); setCategoria('varios'); setMetodo('efectivo'); setTipoDocumento('boleta'); setNumeroDocumento('')
     router.refresh()
   }
 
@@ -115,6 +119,26 @@ export default function GastoRapidoModal({ variant = 'button' }: Props) {
                     {CATEGORIAS_GASTO.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Documento</Label>
+                  <Select value={tipoDocumento} onValueChange={v => setTipoDocumento((v ?? 'boleta') as typeof tipoDocumento)}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="boleta">Boleta</SelectItem>
+                      <SelectItem value="factura">Factura</SelectItem>
+                      <SelectItem value="sin_documento">Sin documento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {tipoDocumento !== 'sin_documento' && (
+                  <div>
+                    <Label>N° documento</Label>
+                    <Input value={numeroDocumento} onChange={e => setNumeroDocumento(e.target.value)}
+                      placeholder="Opcional" className="mt-1" />
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-2 mt-4">
