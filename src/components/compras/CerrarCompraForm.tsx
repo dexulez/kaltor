@@ -56,12 +56,96 @@ export default function CerrarCompraForm({ oc }: Props) {
     })
   }
 
+  async function recibirPendientes() {
+    const items = (oc.purchase_order_items ?? []).filter(i => {
+      const extra = i as unknown as Record<string, unknown>
+      return i.cantidad_solicitada > 0 && extra.disponible_proveedor !== false && i.cantidad_recibida < i.cantidad_solicitada
+    })
+    if (items.length === 0) return
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: perfil } = user
+      ? await supabase.from('user_profiles').select('nombre_completo').eq('id', user.id).single()
+      : { data: null }
+    const nombreUsuario = (perfil as { nombre_completo?: string } | null)?.nombre_completo ?? null
+
+    for (const item of items) {
+      const cantidadNuevamenteRecibida = item.cantidad_solicitada - item.cantidad_recibida
+      await supabase.from('purchase_order_items').update({ cantidad_recibida: item.cantidad_solicitada }).eq('id', item.id)
+
+      let productId = item.product_id ?? null
+      if (!productId) {
+        let query = supabase.from('products').select('id').ilike('nombre', item.nombre.trim())
+        if (oc.supplier_id) query = query.eq('proveedor_id', oc.supplier_id)
+        const { data: match } = await query.limit(1).maybeSingle()
+        if (match) {
+          productId = match.id
+          await supabase.from('purchase_order_items').update({ product_id: productId }).eq('id', item.id)
+        } else {
+          const { data: cat } = await supabase
+            .from('product_categories').select('id').ilike('nombre', 'repuesto%').limit(1).maybeSingle()
+          const categoriaId = (cat as { id: string } | null)?.id
+          if (categoriaId) {
+            const costoBase = item.precio_aceptado ?? item.precio_cotizado ?? (item.precio_unitario > 0 ? item.precio_unitario : 0)
+            const { data: nuevo } = await supabase.from('products').insert({
+              nombre: item.nombre.trim(),
+              categoria_id: categoriaId,
+              precio_costo: costoBase,
+              precio_venta: 0,
+              stock_actual: 0,
+              stock_minimo: 1,
+              ...(oc.supplier_id ? { proveedor_id: oc.supplier_id } : {}),
+            }).select('id').single()
+            if (nuevo) {
+              productId = nuevo.id
+              await supabase.from('purchase_order_items').update({ product_id: productId }).eq('id', item.id)
+            }
+          }
+        }
+      }
+
+      if (productId) {
+        const { data: producto } = await supabase.from('products').select('stock_actual, precio_costo, costo_envio').eq('id', productId).single()
+        if (producto) {
+          const stockAnterior = producto.stock_actual
+          const stockNuevo = stockAnterior + cantidadNuevamenteRecibida
+          const costoNuevo = item.precio_aceptado ?? item.precio_cotizado ?? (item.precio_unitario > 0 ? item.precio_unitario : null) ?? producto.precio_costo ?? 0
+          const costoEnvioNuevo = item.costo_envio_prorrateado ?? 0
+
+          await supabase.from('products').update({
+            stock_actual: stockNuevo,
+            activo: true,
+            ...(costoNuevo > 0 ? { precio_costo: costoNuevo } : {}),
+            ...(costoEnvioNuevo > 0 ? { costo_envio: costoEnvioNuevo } : {}),
+          }).eq('id', productId)
+          await supabase.from('stock_movements').insert({
+            product_id: productId,
+            tipo: 'entrada',
+            cantidad: cantidadNuevamenteRecibida,
+            stock_anterior: stockAnterior,
+            stock_nuevo: stockNuevo,
+            razon: `Recepción OC ${oc.numero_oc} (cierre de compra)`,
+            referencia_id: oc.id,
+            referencia_tipo: 'purchase_order',
+            usuario_id: user?.id ?? null,
+            nombre_usuario: nombreUsuario,
+          })
+        }
+      }
+    }
+  }
+
   async function handleCerrar() {
     if (!metodoPago) { toast.error('Selecciona el método de pago'); return }
     setLoading(true)
 
     try {
-      // 1. Subir comprobantes (comprimidos) via API route
+      // 1. Recibir cualquier ítem que aún no se haya marcado como recibido —
+      // antes esto se saltaba si nunca se usó "Registrar recepción" y el stock
+      // del inventario nunca se actualizaba aunque la OC quedara "Recibida".
+      await recibirPendientes()
+
+      // 2. Subir comprobantes (comprimidos) via API route
       let urlsSubidas: string[] = []
       if (archivos.length > 0) {
         const comprimidos = await comprimirArchivos(archivos.map(a => a.file), 500)
@@ -79,7 +163,7 @@ export default function CerrarCompraForm({ oc }: Props) {
         }
       }
 
-      // 2. Cerrar la OC
+      // 3. Cerrar la OC
       const existingUrls = (oc.comprobante_pago_urls ?? []) as string[]
       const { error } = await supabase
         .from('purchase_orders')
@@ -94,7 +178,7 @@ export default function CerrarCompraForm({ oc }: Props) {
 
       if (error) { toast.error('Error al cerrar compra: ' + error.message); setLoading(false); return }
 
-      // 3. Si crédito, actualizar deuda proveedor
+      // 4. Si crédito, actualizar deuda proveedor
       if (metodoPago === 'credito' && oc.supplier_id) {
         const saldoActual = oc.suppliers?.saldo_deudor ?? 0
         await supabase
@@ -103,7 +187,7 @@ export default function CerrarCompraForm({ oc }: Props) {
           .eq('id', oc.supplier_id)
       }
 
-      toast.success('Compra cerrada' + (urlsSubidas.length ? ` · ${urlsSubidas.length} comprobante(s) adjuntado(s)` : ''))
+      toast.success('Compra cerrada, inventario actualizado' + (urlsSubidas.length ? ` · ${urlsSubidas.length} comprobante(s) adjuntado(s)` : ''))
       router.refresh()
     } catch {
       toast.error('Error de conexión')
