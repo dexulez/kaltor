@@ -343,7 +343,10 @@ export default function ConfirmarPedidoForm({
                       </p>
                     )}
                     {precioFinal > 0 && disponible && (
-                      <p className="text-xs text-gray-400">{formatCLP(precioFinal)} c/u</p>
+                      <>
+                        <p className="text-sm font-semibold text-gray-700">{formatCLP(precioFinal * item.cantidad_solicitada)}</p>
+                        <p className="text-xs text-gray-400">{formatCLP(precioFinal)} c/u</p>
+                      </>
                     )}
                   </div>
                 </div>
@@ -429,11 +432,14 @@ export default function ConfirmarPedidoForm({
           <p className="text-sm text-indigo-700">Por favor empaca los siguientes ítems:</p>
           <ul className="space-y-1 mt-1">
             {items.filter(i => i.disponible_proveedor !== false).map(i => (
-              <li key={i.id} className="text-sm text-gray-800">
-                • {i.nombre} × {i.cantidad_solicitada}
-                {(i.precio_cotizado ?? i.precio_unitario) > 0 &&
-                  <span className="text-gray-400 ml-1">— {formatCLP(i.precio_cotizado ?? i.precio_unitario)}</span>
-                }
+              <li key={i.id} className="text-sm text-gray-800 flex items-baseline justify-between gap-2">
+                <span>• {i.nombre} × {i.cantidad_solicitada}</span>
+                {(i.precio_cotizado ?? i.precio_unitario) > 0 && (
+                  <span className="text-right shrink-0">
+                    <span className="text-gray-700 font-semibold">{formatCLP((i.precio_cotizado ?? i.precio_unitario) * i.cantidad_solicitada)}</span>
+                    <span className="text-gray-400 text-xs ml-1">({formatCLP(i.precio_cotizado ?? i.precio_unitario)} c/u)</span>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -461,11 +467,14 @@ export default function ConfirmarPedidoForm({
           <p className="text-sm text-blue-700">Cuando esté listo y despachado, confirma el envío:</p>
           <ul className="space-y-1 mt-1">
             {items.filter(i => i.disponible_proveedor !== false).map(i => (
-              <li key={i.id} className="text-sm text-gray-800">
-                • {i.nombre} × {i.cantidad_solicitada}
-                {(i.precio_cotizado ?? i.precio_unitario) > 0 &&
-                  <span className="text-gray-400 ml-1">— {formatCLP(i.precio_cotizado ?? i.precio_unitario)}</span>
-                }
+              <li key={i.id} className="text-sm text-gray-800 flex items-baseline justify-between gap-2">
+                <span>• {i.nombre} × {i.cantidad_solicitada}</span>
+                {(i.precio_cotizado ?? i.precio_unitario) > 0 && (
+                  <span className="text-right shrink-0">
+                    <span className="text-gray-700 font-semibold">{formatCLP((i.precio_cotizado ?? i.precio_unitario) * i.cantidad_solicitada)}</span>
+                    <span className="text-gray-400 text-xs ml-1">({formatCLP(i.precio_cotizado ?? i.precio_unitario)} c/u)</span>
+                  </span>
+                )}
               </li>
             ))}
           </ul>

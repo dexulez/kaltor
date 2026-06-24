@@ -85,6 +85,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
   })
   const totalRecibido = itemsRegulares.reduce((s, i) => s + i.cantidad_recibida, 0)
   const totalSolicitado = itemsRegulares.reduce((s, i) => s + i.cantidad_solicitada, 0)
+  const subtotalProductos = itemsRegulares.reduce((s, i) => s + (i.subtotal ?? 0), 0)
   const montoPagado = (orden as unknown as Record<string, unknown>).monto_pagado as number ?? 0
   const plazoPagoDias = (orden as unknown as Record<string, unknown>).plazo_pago_dias as number ?? 30
   const fechaVencPago = (orden as unknown as Record<string, unknown>).fecha_vencimiento_pago as string | null
@@ -252,6 +253,12 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
             })}
           </tbody>
           <tfoot className="border-t bg-gray-50">
+            <tr>
+              <td colSpan={4} className="px-4 py-2 text-right text-gray-600">
+                Subtotal productos
+              </td>
+              <td className="px-4 py-2 text-right font-medium">{formatCLP(subtotalProductos)}</td>
+            </tr>
             <tr>
               <td colSpan={4} className="px-4 py-2 text-right font-semibold text-gray-700">
                 Costo de envío
