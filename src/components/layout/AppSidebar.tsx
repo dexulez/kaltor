@@ -117,7 +117,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         )}
       >
         <span className="text-base shrink-0">{item.icon}</span>
-        <span className="truncate flex-1">{item.label}</span>
+        <span className="flex-1 leading-tight">{item.label}</span>
         {mostrarBadge && (
           <span className="bg-orange-400 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center animate-pulse">
             {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
@@ -130,7 +130,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
   return (
     <aside className={cn(
       'hidden md:flex flex-col bg-blue-900 text-white transition-all duration-300 shrink-0',
-      collapsed ? 'w-16' : 'w-64'
+      collapsed ? 'w-16' : 'w-72'
     )}>
       {/* Logo */}
       <div className={cn(
@@ -198,7 +198,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
                       </span>
                     )}
                   </span>
-                  {!collapsed && <span className="truncate flex-1 text-left">{grupo.label}</span>}
+                  {!collapsed && <span className="flex-1 text-left leading-tight">{grupo.label}</span>}
                   {!collapsed && mostrarBadgeGrupo && (
                     <span className="bg-orange-400 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center animate-pulse">
                       {badgeGrupo > 9 ? '9+' : badgeGrupo}
