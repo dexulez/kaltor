@@ -26,7 +26,7 @@ export default async function PedidoProveedorPage({ params }: { params: Promise<
       .select('id, numero_oc, estado, created_at, confirmado_proveedor_at, comprobante_envio_url, notas, supplier_id, suppliers(nombre, telefono, email, whatsapp)')
       .eq('id', id).single(),
     supabase.from('purchase_order_items')
-      .select('id, nombre, cantidad_solicitada, cantidad_recibida, precio_unitario, disponible_proveedor, cantidad_disponible_proveedor, precio_cotizado, nota_proveedor, alternativa, descuento_tipo, descuento_valor, descuento_desde_cantidad')
+      .select('id, nombre, cantidad_solicitada, cantidad_recibida, precio_unitario, disponible_proveedor, cantidad_disponible_proveedor, precio_cotizado, precio_aceptado, nota_proveedor, alternativa, descuento_tipo, descuento_valor, descuento_desde_cantidad')
       .eq('purchase_order_id', id)
       .order('nombre'),
     supabase.from('system_config')
@@ -76,7 +76,7 @@ export default async function PedidoProveedorPage({ params }: { params: Promise<
     ? ((orden as Record<string, unknown>).suppliers as { nombre: string }[])[0]?.nombre
     : ((orden as Record<string, unknown>).suppliers as { nombre: string } | null)?.nombre ?? 'Proveedor'
 
-  type Item = { id: string; nombre: string; cantidad_solicitada: number; cantidad_recibida?: number; precio_unitario: number; disponible_proveedor: boolean | null; cantidad_disponible_proveedor?: number | null; precio_cotizado?: number | null; nota_proveedor?: string | null; alternativa?: string | null; descuento_tipo?: string | null; descuento_valor?: number | null; descuento_desde_cantidad?: number | null }
+  type Item = { id: string; nombre: string; cantidad_solicitada: number; cantidad_recibida?: number; precio_unitario: number; disponible_proveedor: boolean | null; cantidad_disponible_proveedor?: number | null; precio_cotizado?: number | null; precio_aceptado?: number | null; nota_proveedor?: string | null; alternativa?: string | null; descuento_tipo?: string | null; descuento_valor?: number | null; descuento_desde_cantidad?: number | null }
 
   // Estadísticas del historial
   const totalEnviados  = historial.filter(o => ['en_transito','recibida_parcial','recibida_completa'].includes(o.estado)).length
@@ -169,6 +169,10 @@ export default async function PedidoProveedorPage({ params }: { params: Promise<
                 )
                 const totalItems = itemsVisibles.length
                 const recibidos  = itemsVisibles.filter((i: HistorialItem) => (i.cantidad_recibida ?? 0) > 0).length
+                // El total guardado en la OC puede quedar desactualizado si se agregan
+                // o editan ítems después; se recalcula en vivo a partir de los ítems visibles.
+                const totalCalculado = itemsVisibles.reduce((s: number, i: HistorialItem) =>
+                  s + i.cantidad_solicitada * (i.precio_aceptado ?? i.precio_cotizado ?? i.precio_unitario), 0)
                 const fechaStr   = new Intl.DateTimeFormat('es-CL', {
                   timeZone: TZ, day: '2-digit', month: 'short', year: 'numeric',
                 }).format(new Date(oc.created_at))
@@ -186,7 +190,7 @@ export default async function PedidoProveedorPage({ params }: { params: Promise<
                         </span>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-gray-900">{formatCLP(oc.total ?? 0)}</p>
+                        <p className="text-sm font-bold text-gray-900">{formatCLP(totalCalculado || (oc.total ?? 0))}</p>
                         <p className="text-[10px] text-gray-400">{fechaStr}</p>
                       </div>
                     </div>
