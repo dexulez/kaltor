@@ -36,6 +36,15 @@ export async function POST(
 
         await tryUpdate({ precio_cotizado: sel.aceptado ? sel.precioAceptado : null })
         await tryUpdate({ cantidad_disponible_proveedor: sel.aceptado ? sel.cantidadAceptada : 0 })
+        await tryUpdate({ precio_aceptado: sel.aceptado ? sel.precioAceptado : null })
+        // La cantidad y el precio que el admin confirma pasan a ser los
+        // definitivos del ítem (lo que se va a recibir y a cobrar). Si el
+        // ítem no se acepta, se deja en 0 para que no se siga cobrando.
+        if (sel.aceptado) {
+          await tryUpdate({ cantidad_solicitada: sel.cantidadAceptada, subtotal: sel.cantidadAceptada * sel.precioAceptado })
+        } else {
+          await tryUpdate({ subtotal: 0 })
+        }
       })
     )
 
