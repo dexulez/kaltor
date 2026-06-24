@@ -186,8 +186,8 @@ export default function NotificacionesBell({ collapsed }: { collapsed?: boolean 
       {open && (
         <div
           className={`absolute z-[100] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden
-            ${collapsed ? 'left-14 bottom-0' : 'left-0 right-0 bottom-full mb-1'}`}
-          style={{ width: collapsed ? '340px' : undefined, maxHeight: '480px' }}
+            ${collapsed ? 'left-14 bottom-0' : 'left-0 bottom-full mb-1'}`}
+          style={{ width: '360px', maxHeight: '480px' }}
         >
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
             <div className="flex items-center gap-2">
@@ -241,6 +241,13 @@ export default function NotificacionesBell({ collapsed }: { collapsed?: boolean 
               </div>
             ))}
           </div>
+
+          <button
+            onClick={() => { setOpen(false); router.push('/notificaciones') }}
+            className="w-full text-center text-sm font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-4 py-2.5 border-t bg-gray-50 transition-colors"
+          >
+            🔔 Ver centro de notificaciones →
+          </button>
         </div>
       )}
     </div>
