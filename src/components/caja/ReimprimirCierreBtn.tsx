@@ -142,11 +142,11 @@ export default function ReimprimirCierreBtn({
       }))
     }
 
-    // Gastos fijos activos (opcional)
-    type GastoRow = { nombre: string; categoria: string; monto: number }
+    // Gastos del día (opcional)
+    type GastoRow = { concepto: string; categoria: string; monto: number }
     let gastos: GastoRow[] = []
     if (verGastos) {
-      const { data: gd } = await supabase.from('gastos_fijos').select('nombre, categoria, monto').eq('activo', true).order('categoria')
+      const { data: gd } = await supabase.from('gastos').select('concepto, categoria, monto').eq('fecha', fecha).order('categoria')
       gastos = (gd ?? []) as GastoRow[]
     }
 
@@ -191,7 +191,7 @@ export default function ReimprimirCierreBtn({
               {[
                 { key: 'ventas',  label: '📋 Transacciones de venta',  val: verVentas,  set: setVerVentas },
                 { key: 'compras', label: '📦 Compras recibidas',        val: verCompras, set: setVerCompras },
-                { key: 'gastos',  label: '💸 Gastos fijos',             val: verGastos,  set: setVerGastos },
+                { key: 'gastos',  label: '💸 Gastos del día',           val: verGastos,  set: setVerGastos },
               ].map(t => (
                 <label key={t.key} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
                   <input
@@ -228,7 +228,7 @@ interface CierreData {
   formato: 'a4' | 'ticket80' | 'ticket57'
   detalleVentas?: { numero: string; cliente: string; items: string; metodo: string; total: number }[]
   detalleCompras?: { numero: string; proveedor: string; items: number; total: number }[]
-  gastos?: { nombre: string; categoria: string; monto: number }[]
+  gastos?: { concepto: string; categoria: string; monto: number }[]
 }
 
 function imprimirCierre(d: CierreData) {
@@ -281,13 +281,13 @@ function imprimirCierre(d: CierreData) {
         : `<table style="width:100%;font-size:8pt;border-collapse:collapse"><thead style="background:#f0fdf4"><tr><th style="text-align:left;padding:1.5mm 2mm">OC</th><th style="text-align:left;padding:1.5mm 2mm">Proveedor</th><th style="text-align:center;padding:1.5mm 2mm">Ítems</th><th style="text-align:right;padding:1.5mm 2mm">Total</th></tr></thead><tbody>${d.detalleCompras!.map(c => `<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${c.numero}</td><td style="padding:1.5mm 2mm">${c.proveedor}</td><td style="text-align:center;padding:1.5mm 2mm">${c.items}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold">${fmt(c.total)}</td></tr>`).join('')}<tfoot style="background:#f0fdf4;font-weight:bold"><tr><td colspan="3" style="padding:1.5mm 2mm">TOTAL (${d.detalleCompras!.length} OC)</td><td style="text-align:right;padding:1.5mm 2mm">${fmt(d.detalleCompras!.reduce((s,c)=>s+c.total,0))}</td></tr></tfoot></table>`)
     : ''
 
-  // Gastos fijos
+  // Gastos del día
   const gastosH = (d.gastos?.length ?? 0) > 0
     ? (() => {
         const totalG = d.gastos!.reduce((s,g)=>s+g.monto,0)
         return isTicket
-          ? d.gastos!.map(g => `<div style="display:flex;justify-content:space-between;font-size:8pt;margin-bottom:1mm"><span>${g.nombre}</span><span>${fmt(g.monto)}</span></div>`).join('') + `<div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #000;padding-top:1mm"><span>TOTAL GASTOS</span><span style="color:#dc2626">${fmt(totalG)}</span></div>`
-          : `<table style="width:100%;font-size:8pt;border-collapse:collapse"><thead style="background:#fff7ed"><tr><th style="text-align:left;padding:1.5mm 2mm">Gasto</th><th style="text-align:left;padding:1.5mm 2mm">Categoría</th><th style="text-align:right;padding:1.5mm 2mm">Monto</th></tr></thead><tbody>${d.gastos!.map(g=>`<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${g.nombre}</td><td style="padding:1.5mm 2mm;color:#555">${g.categoria}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold;color:#dc2626">${fmt(g.monto)}</td></tr>`).join('')}<tfoot style="background:#fff7ed;font-weight:bold"><tr><td colspan="2" style="padding:1.5mm 2mm">TOTAL GASTOS FIJOS</td><td style="text-align:right;padding:1.5mm 2mm;color:#dc2626">${fmt(totalG)}</td></tr></tfoot></table>`
+          ? d.gastos!.map(g => `<div style="display:flex;justify-content:space-between;font-size:8pt;margin-bottom:1mm"><span>${g.concepto}</span><span>${fmt(g.monto)}</span></div>`).join('') + `<div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #000;padding-top:1mm"><span>TOTAL GASTOS</span><span style="color:#dc2626">${fmt(totalG)}</span></div>`
+          : `<table style="width:100%;font-size:8pt;border-collapse:collapse"><thead style="background:#fff7ed"><tr><th style="text-align:left;padding:1.5mm 2mm">Gasto</th><th style="text-align:left;padding:1.5mm 2mm">Categoría</th><th style="text-align:right;padding:1.5mm 2mm">Monto</th></tr></thead><tbody>${d.gastos!.map(g=>`<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${g.concepto}</td><td style="padding:1.5mm 2mm;color:#555">${g.categoria}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold;color:#dc2626">${fmt(g.monto)}</td></tr>`).join('')}<tfoot style="background:#fff7ed;font-weight:bold"><tr><td colspan="2" style="padding:1.5mm 2mm">TOTAL GASTOS</td><td style="text-align:right;padding:1.5mm 2mm;color:#dc2626">${fmt(totalG)}</td></tr></tfoot></table>`
       })()
     : ''
 
@@ -298,7 +298,7 @@ function imprimirCierre(d: CierreData) {
     + (d.comisiones.length > 0 ? sec('💼 Comisiones técnicos', comisionesH) : '')
     + (detalleVentasH ? sec('📋 Detalle de transacciones de venta', detalleVentasH) : '')
     + (detalleComprasH ? sec('📦 Detalle de compras recibidas', detalleComprasH) : '')
-    + (gastosH ? sec('💸 Gastos fijos del local', gastosH) : '')
+    + (gastosH ? sec('💸 Gastos del día', gastosH) : '')
     + (d.cierreObs ? sec('Observaciones', obsH) : '')
     + firmas
 
