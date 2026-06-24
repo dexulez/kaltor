@@ -6,6 +6,7 @@ import { formatCLP } from '@/lib/calculations'
 import { Equipment, RepairOrder } from '@/types'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
 import { tieneSubPermiso } from '@/lib/modulos'
+import EliminarClienteBtn from '@/components/clientes/EliminarClienteBtn'
 
 const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
   recibido:           { label: 'Recibido',           color: 'bg-gray-100 text-gray-700' },
@@ -48,6 +49,7 @@ export default async function ClienteDetallePage({
   const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
   const permisos = perfilUsuario?.permisos_modulos as Record<string, boolean> | null
   const puedeEditar = tieneSubPermiso('clientes.editar', rolNombre, permisos)
+  const puedeEliminar = tieneSubPermiso('clientes.eliminar', rolNombre, permisos)
 
   const [{ data: cliente }, { data: ots }, { data: ventas }] = await Promise.all([
     supabase.from('customers').select('*').eq('id', id).single(),
@@ -107,6 +109,7 @@ export default async function ClienteDetallePage({
               <Button variant="outline" size="sm">✏️ Editar</Button>
             </Link>
           )}
+          {puedeEliminar && <EliminarClienteBtn clienteId={id} nombreCliente={cliente.nombre} />}
           <Link href={`/reparaciones/nueva?cliente=${id}`}>
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700">+ Nueva OT</Button>
           </Link>

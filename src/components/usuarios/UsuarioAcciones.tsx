@@ -34,6 +34,7 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
   const [rolId, setRolId] = useState(rolActualId ?? '')
   const [loading, setLoading] = useState(false)
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [tempPwd, setTempPwd] = useState<string | null>(null)
   const [generandoPwd, setGenerandoPwd] = useState(false)
@@ -77,9 +78,12 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
     if (!res.ok) { toast.error(data.error ?? 'Error al eliminar'); setDeleting(false); return }
     toast.success('Usuario eliminado')
     setShowConfirmDelete(false)
+    setConfirmText('')
     router.refresh()
     setDeleting(false)
   }
+
+  const confirmacionValida = confirmText.trim().toUpperCase() === 'ELIMINAR'
 
   const rolNombre = roles.find(r => r.id === rolId)?.nombre ?? ''
   const rolLabel = ROL_LABEL[rolNombre] ?? rolNombre ?? 'Sin rol'
@@ -154,7 +158,7 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
         </div>
       )}
 
-      <Dialog open={showConfirmDelete} onOpenChange={setShowConfirmDelete}>
+      <Dialog open={showConfirmDelete} onOpenChange={v => { setShowConfirmDelete(v); if (!v) setConfirmText('') }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-red-600">Eliminar usuario</DialogTitle>
@@ -164,8 +168,22 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
               ¿Estás seguro que deseas eliminar a <strong>{nombreUsuario}</strong>?
             </p>
             <p className="text-xs text-gray-400 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              Esta acción es permanente. El usuario perderá acceso inmediatamente y no podrá ser recuperado.
+              El usuario perderá acceso inmediatamente y desaparecerá de la lista. Sus ventas, OTs y movimientos
+              quedan intactos — no se borra el historial.
             </p>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-600">
+                Escribe <strong>ELIMINAR</strong> para confirmar
+              </label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={e => setConfirmText(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                placeholder="ELIMINAR"
+                autoFocus
+              />
+            </div>
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -178,7 +196,7 @@ export default function UsuarioAcciones({ userId, nombreUsuario, rolActualId, ac
               <Button
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                 onClick={eliminarUsuario}
-                disabled={deleting}
+                disabled={deleting || !confirmacionValida}
               >
                 {deleting ? 'Eliminando...' : 'Sí, eliminar'}
               </Button>

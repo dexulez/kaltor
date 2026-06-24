@@ -55,7 +55,7 @@ export default async function UsuariosPage() {
     supabase.from('roles').select('id, nombre').order('nombre'),
   ])
 
-  const todosLosUsuarios = (usuarios ?? []) as UsuarioListItem[]
+  const todosLosUsuarios = ((usuarios ?? []) as UsuarioListItem[]).filter(u => !(u as unknown as { eliminado_at?: string | null }).eliminado_at)
   const usuariosList = todosLosUsuarios.filter(u => getRoleName(u.roles) !== 'comprador_externo')
   const compradoresList = todosLosUsuarios.filter(u => getRoleName(u.roles) === 'comprador_externo')
   const rolesStaff = (roles ?? []).filter(r => r.nombre !== 'comprador_externo')

@@ -30,8 +30,18 @@ export async function DELETE(req: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const { error } = await admin.auth.admin.deleteUser(userId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  // No se borra de verdad: repair_orders/sales/stock_movements/etc. referencian
+  // user_profiles sin ON DELETE CASCADE, así que un borrado físico falla apenas
+  // el usuario tiene cualquier historial. En vez de eso: se bloquea el login
+  // (ban) y se marca como eliminado, dejando intacto todo su rastro.
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, { ban_duration: '876000h' })
+  if (banError) return NextResponse.json({ error: banError.message }, { status: 400 })
+
+  const { error: updError } = await admin
+    .from('user_profiles')
+    .update({ activo: false, eliminado_at: new Date().toISOString() })
+    .eq('id', userId)
+  if (updError) return NextResponse.json({ error: updError.message }, { status: 400 })
 
   return NextResponse.json({ ok: true })
 }
