@@ -40,15 +40,16 @@ async function comprimirFoto(file: File): Promise<File> {
   return new File([blob], 'comprobante.jpg', { type: 'image/jpeg' })
 }
 
-type Etapa = 'disponibilidad' | 'esperando' | 'envio' | 'finalizado'
+type Etapa = 'disponibilidad' | 'esperando' | 'preparando' | 'envio' | 'finalizado'
 
 type ProductoAdicional = { id: string; nombre: string; cantidad: string; precio: string; nota: string }
 
 function getEtapaInicial(estado: string, yaConfirmado: boolean): Etapa {
-  if (estado === 'confirmada') return 'envio'
+  if (estado === 'preparando') return 'envio'
+  if (estado === 'confirmada') return 'preparando'
   if (estado === 'proveedor_respondio') return 'esperando'
   if (estado === 'en_transito' || estado === 'recibida_parcial' || estado === 'recibida_completa') return 'finalizado'
-  if (estado === 'pendiente' && yaConfirmado) return 'envio'
+  if (estado === 'pendiente' && yaConfirmado) return 'preparando'
   return 'disponibilidad'
 }
 
@@ -58,8 +59,9 @@ function BarraEstado({ estado }: { estado: string }) {
     { id: 'pedido',      label: 'Pedido enviado',     icon: '📤' },
     { id: 'cotizacion',  label: 'Tu cotización',       icon: '💬' },
     { id: 'confirmado',  label: 'Taller confirmó',     icon: '✅' },
+    { id: 'preparando',  label: 'Preparando pedido',  icon: '📦' },
     { id: 'en_camino',   label: 'En camino',           icon: '🚚' },
-    { id: 'recibido',    label: 'Recibido',            icon: '📦' },
+    { id: 'recibido',    label: 'Recibido',            icon: '📥' },
   ]
 
   // Qué pasos están completados según el estado
@@ -78,18 +80,22 @@ function BarraEstado({ estado }: { estado: string }) {
       break
     case 'confirmada':
       completados.add('pedido'); completados.add('cotizacion'); completados.add('confirmado')
+      activo.id = 'preparando'; activo.label = 'Comienza a preparar tu pedido'
+      break
+    case 'preparando':
+      completados.add('pedido'); completados.add('cotizacion'); completados.add('confirmado'); completados.add('preparando')
       activo.id = 'en_camino'; activo.label = 'Listo para despachar'
       break
     case 'en_transito':
-      completados.add('pedido'); completados.add('cotizacion'); completados.add('confirmado'); completados.add('en_camino')
+      completados.add('pedido'); completados.add('cotizacion'); completados.add('confirmado'); completados.add('preparando'); completados.add('en_camino')
       activo.id = 'recibido'; activo.label = 'El taller está esperando tu envío'
       break
     case 'recibida_parcial':
-      completados.add('pedido'); completados.add('cotizacion'); completados.add('confirmado'); completados.add('en_camino')
+      completados.add('pedido'); completados.add('cotizacion'); completados.add('confirmado'); completados.add('preparando'); completados.add('en_camino')
       activo.id = 'recibido'; activo.label = 'Recepción parcial registrada'
       break
     case 'recibida_completa':
-      completados.add('pedido'); completados.add('cotizacion'); completados.add('confirmado')
+      completados.add('pedido'); completados.add('cotizacion'); completados.add('confirmado'); completados.add('preparando')
       completados.add('en_camino'); completados.add('recibido')
       activo.id = ''; activo.label = '¡Todo completado!'
       break
@@ -218,6 +224,21 @@ export default function ConfirmarPedidoForm({
       setEtapa('esperando')
     } catch (err) {
       toast.error('Error al confirmar. Intenta nuevamente.')
+      console.error(err)
+    }
+    setGuardando(false)
+  }
+
+  async function confirmarPreparando() {
+    setGuardando(true)
+    try {
+      const res = await fetch(`/api/pedido/${ordenId}/preparando`, { method: 'POST' })
+      if (!res.ok) throw new Error(await res.text())
+      toast.success('¡Marcado como en preparación! El taller fue notificado.')
+      setEstadoLocal('preparando')
+      setEtapa('envio')
+    } catch (err) {
+      toast.error('Error al actualizar. Intenta nuevamente.')
       console.error(err)
     }
     setGuardando(false)
@@ -397,6 +418,38 @@ export default function ConfirmarPedidoForm({
     )
   }
 
+  // ── Etapa 1.5: Preparando pedido ──────────────────────────────────────────
+  if (etapa === 'preparando') {
+    return (
+      <div className="space-y-4">
+        <BarraEstado estado={estadoLocal} />
+
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-2">
+          <p className="text-xs font-semibold text-indigo-800 uppercase">✅ Taller confirmó tu cotización</p>
+          <p className="text-sm text-indigo-700">Por favor empaca los siguientes ítems:</p>
+          <ul className="space-y-1 mt-1">
+            {items.filter(i => i.disponible_proveedor !== false).map(i => (
+              <li key={i.id} className="text-sm text-gray-800">
+                • {i.nombre} × {i.cantidad_solicitada}
+                {(i.precio_cotizado ?? i.precio_unitario) > 0 &&
+                  <span className="text-gray-400 ml-1">— {formatCLP(i.precio_cotizado ?? i.precio_unitario)}</span>
+                }
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <button
+          onClick={confirmarPreparando}
+          disabled={guardando}
+          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm transition-colors"
+        >
+          {guardando ? 'Actualizando...' : '📦 Ya empecé a preparar el pedido'}
+        </button>
+      </div>
+    )
+  }
+
   // ── Etapa 2: Comprobante de envío ─────────────────────────────────────────
   if (etapa === 'envio') {
     return (
@@ -404,8 +457,8 @@ export default function ConfirmarPedidoForm({
         <BarraEstado estado={estadoLocal} />
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
-          <p className="text-xs font-semibold text-blue-800 uppercase">✅ Taller confirmó tu cotización</p>
-          <p className="text-sm text-blue-700">Por favor empaca los siguientes ítems y confirma el envío:</p>
+          <p className="text-xs font-semibold text-blue-800 uppercase">📦 Preparando tu pedido</p>
+          <p className="text-sm text-blue-700">Cuando esté listo y despachado, confirma el envío:</p>
           <ul className="space-y-1 mt-1">
             {items.filter(i => i.disponible_proveedor !== false).map(i => (
               <li key={i.id} className="text-sm text-gray-800">

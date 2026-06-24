@@ -286,7 +286,7 @@ export interface PurchaseOrder {
   id: string
   numero_oc: string
   supplier_id: string
-  estado: 'pendiente' | 'enviada' | 'proveedor_respondio' | 'confirmada' | 'en_transito' | 'recibida_parcial' | 'recibida_completa' | 'cancelada'
+  estado: 'pendiente' | 'enviada' | 'proveedor_respondio' | 'confirmada' | 'preparando' | 'en_transito' | 'recibida_parcial' | 'recibida_completa' | 'cancelada'
   metodo_pago?: string
   plazo_pago_dias?: number
   fecha_vencimiento_pago?: string

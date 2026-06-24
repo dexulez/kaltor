@@ -22,6 +22,7 @@ const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
   enviada:             { label: 'Enviada al proveedor',   color: 'bg-purple-100 text-purple-700' },
   proveedor_respondio: { label: '⚡ Proveedor respondió', color: 'bg-teal-100 text-teal-700' },
   confirmada:          { label: 'Confirmada',             color: 'bg-indigo-100 text-indigo-700' },
+  preparando:          { label: 'Preparando pedido',     color: 'bg-violet-100 text-violet-700' },
   en_transito:         { label: 'En tránsito',            color: 'bg-blue-100 text-blue-700' },
   recibida_parcial:    { label: 'Recibida parcial',       color: 'bg-amber-100 text-amber-700' },
   recibida_completa:   { label: 'Recibida',               color: 'bg-green-100 text-green-700' },
@@ -267,7 +268,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
       {/* Revisión de respuesta del proveedor */}
       {(() => {
         const confirmadoAt = (orden as unknown as Record<string, unknown>).confirmado_proveedor_at
-        const estadosYaConfirmados = ['confirmada', 'en_transito', 'recibida_parcial', 'recibida_completa', 'cancelada']
+        const estadosYaConfirmados = ['confirmada', 'preparando', 'en_transito', 'recibida_parcial', 'recibida_completa', 'cancelada']
         const proveedorRespondioItems = (orden.purchase_order_items ?? []).some(
           i => (i as unknown as Record<string, unknown>).disponible_proveedor !== null
         )
@@ -323,12 +324,14 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
         )
       })()}
 
-      {/* Enlace al proveedor cuando está en estado 'enviada' o 'confirmada' */}
-      {['enviada', 'confirmada'].includes(orden.estado) && (
+      {/* Enlace al proveedor cuando está en estado 'enviada', 'confirmada' o 'preparando' */}
+      {['enviada', 'confirmada', 'preparando'].includes(orden.estado) && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3 flex-wrap">
           <div className="flex-1">
             <p className="text-sm font-semibold text-blue-800">
-              {orden.estado === 'enviada' ? '⏳ Esperando respuesta del proveedor' : '✅ Confirmada — esperando envío del proveedor'}
+              {orden.estado === 'enviada' ? '⏳ Esperando respuesta del proveedor'
+                : orden.estado === 'preparando' ? '📦 El proveedor está preparando el pedido'
+                : '✅ Confirmada — esperando envío del proveedor'}
             </p>
             <p className="text-xs text-blue-600 mt-0.5">
               Link del proveedor: <span className="font-mono">/pedido/{id}</span>

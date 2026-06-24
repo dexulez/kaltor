@@ -11,6 +11,7 @@ const OC_ESTADO: Record<string, { label: string; color: string }> = {
   enviada:             { label: 'Enviada al proveedor',   color: 'bg-green-100 text-green-700' },
   proveedor_respondio: { label: '⚡ Respondida',          color: 'bg-green-100 text-green-800' },
   confirmada:          { label: 'Confirmada',             color: 'bg-violet-100 text-violet-700' },
+  preparando:          { label: 'Preparando pedido',    color: 'bg-fuchsia-100 text-fuchsia-700' },
   en_transito:         { label: 'En tránsito',            color: 'bg-blue-100 text-blue-700' },
   recibida_parcial:    { label: 'Rec. parcial',           color: 'bg-orange-100 text-orange-700' },
   recibida_completa:   { label: 'Recibida',               color: 'bg-emerald-100 text-emerald-700' },
@@ -60,6 +61,14 @@ const FILTROS_CONFIG = [
     estados: ['confirmada'],
     colorActivo: 'bg-violet-600 text-white border-violet-600',
     colorInactivo: 'bg-violet-50 text-violet-700 border-violet-200 hover:border-violet-400',
+  },
+  {
+    key: 'preparando',
+    label: 'Preparando pedido',
+    icon: '📦',
+    estados: ['preparando'],
+    colorActivo: 'bg-fuchsia-600 text-white border-fuchsia-600',
+    colorInactivo: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 hover:border-fuchsia-400',
   },
   {
     key: 'transito',

@@ -10,6 +10,7 @@ const ESTADO_INFO: Record<string, { label: string; color: string; icon: string }
   enviada:             { label: 'Enviado a ti',        color: 'bg-purple-100 text-purple-800', icon: '📤' },
   proveedor_respondio: { label: 'Cotización enviada',  color: 'bg-teal-100 text-teal-800',    icon: '💬' },
   confirmada:          { label: 'Confirmado',          color: 'bg-indigo-100 text-indigo-800', icon: '✅' },
+  preparando:          { label: 'Preparando pedido',  color: 'bg-violet-100 text-violet-800', icon: '📦' },
   en_transito:         { label: 'En camino',           color: 'bg-blue-100 text-blue-800',    icon: '🚚' },
   recibida_parcial:    { label: 'Recibido parcial',    color: 'bg-orange-100 text-orange-800', icon: '📦' },
   recibida_completa:   { label: 'Recibido completo',   color: 'bg-green-100 text-green-800',  icon: '✅' },
@@ -162,7 +163,7 @@ export default async function PedidoProveedorPage({ params }: { params: Promise<
               {historial.map(oc => {
                 const esActual   = oc.id === id
                 const estadoInfo = ESTADO_INFO[oc.estado] ?? { label: oc.estado, color: 'bg-gray-100 text-gray-700', icon: '•' }
-                const confirmado  = ['confirmada','en_transito','recibida_parcial','recibida_completa'].includes(oc.estado)
+                const confirmado  = ['confirmada','preparando','en_transito','recibida_parcial','recibida_completa'].includes(oc.estado)
                 const itemsVisibles = (oc.purchase_order_items ?? []).filter((i: HistorialItem) =>
                   i.cantidad_solicitada > 0 && !(confirmado && i.disponible_proveedor === false)
                 )
@@ -195,7 +196,7 @@ export default async function PedidoProveedorPage({ params }: { params: Promise<
                       {(oc.purchase_order_items ?? []).filter((item: HistorialItem) => {
                         if (item.cantidad_solicitada <= 0) return false
                         // En órdenes confirmadas o más avanzadas, ocultar ítems rechazados
-                        const confirmado = ['confirmada','en_transito','recibida_parcial','recibida_completa'].includes(oc.estado)
+                        const confirmado = ['confirmada','preparando','en_transito','recibida_parcial','recibida_completa'].includes(oc.estado)
                         if (confirmado && item.disponible_proveedor === false) return false
                         return true
                       }).map((item: HistorialItem) => {

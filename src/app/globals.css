@@ -127,4 +127,14 @@
   html {
     @apply font-sans;
   }
+
+  /* Permitir escribir la cantidad directamente sin las flechitas de incrementar/decrementar */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
 }

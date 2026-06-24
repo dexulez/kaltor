@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 
 export type TipoNotificacion =
   | 'envio_proveedor'
+  | 'preparando_pedido'
   | 'solicitud_compra'
   | 'mercancia_recibida'
   | 'ot_listo'
@@ -13,6 +14,7 @@ export type TipoNotificacion =
 
 export const NOTIF_ICONS: Record<TipoNotificacion, string> = {
   envio_proveedor:   '🚚',
+  preparando_pedido: '📦',
   solicitud_compra:  '🛒',
   mercancia_recibida:'📦',
   ot_listo:          '✅',
@@ -25,6 +27,7 @@ export const NOTIF_ICONS: Record<TipoNotificacion, string> = {
 
 export const NOTIF_COLORS: Record<TipoNotificacion, string> = {
   envio_proveedor:   'bg-blue-100 text-blue-700',
+  preparando_pedido: 'bg-indigo-100 text-indigo-700',
   solicitud_compra:  'bg-orange-100 text-orange-700',
   mercancia_recibida:'bg-green-100 text-green-700',
   ot_listo:          'bg-emerald-100 text-emerald-700',
