@@ -58,11 +58,39 @@ export default function RevisionRespuestaProveedor({
     return init
   })
 
+  // El precio_cotizado ya trae el descuento aplicado según la cantidad que el
+  // proveedor marcó como disponible. Si el admin acepta otra cantidad, hay que
+  // recuperar el precio base y volver a evaluar el umbral del descuento.
+  function precioSegunCantidad(item: ItemConRespuesta, cantidad: number): number {
+    const valor = item.descuento_valor ?? 0
+    const precioCotizado = item.precio_cotizado ?? item.precio_unitario ?? 0
+    if (!valor) return precioCotizado
+    const minimo = item.descuento_desde_cantidad ?? 0
+    const cantidadCotizada = item.cantidad_disponible_proveedor ?? item.cantidad_solicitada
+    const aplicadoEnCotizacion = !minimo || cantidadCotizada >= minimo
+    const base = !aplicadoEnCotizacion
+      ? precioCotizado
+      : item.descuento_tipo === 'monto'
+        ? precioCotizado + valor
+        : Math.round(precioCotizado / (1 - valor / 100))
+    const aplicaAhora = !minimo || cantidad >= minimo
+    if (!aplicaAhora) return base
+    return item.descuento_tipo === 'monto' ? Math.max(0, base - valor) : Math.max(0, Math.round(base * (1 - valor / 100)))
+  }
+
   function setAceptado(itemId: string, val: boolean) {
     setSeleccion(prev => ({ ...prev, [itemId]: { ...prev[itemId], aceptado: val } }))
   }
   function setCantidad(itemId: string, val: number) {
-    setSeleccion(prev => ({ ...prev, [itemId]: { ...prev[itemId], cantidadAceptada: val } }))
+    const item = items.find(i => i.id === itemId)
+    setSeleccion(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        cantidadAceptada: val,
+        precioAceptado: item?.descuento_valor ? precioSegunCantidad(item, val) : prev[itemId].precioAceptado,
+      },
+    }))
   }
   function setPrecio(itemId: string, val: number) {
     setSeleccion(prev => ({ ...prev, [itemId]: { ...prev[itemId], precioAceptado: val } }))
