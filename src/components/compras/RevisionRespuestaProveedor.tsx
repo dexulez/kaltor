@@ -197,6 +197,8 @@ export default function RevisionRespuestaProveedor({
               const rowBg = s.aceptado
                 ? ''
                 : 'bg-gray-50 opacity-60'
+              const descuentoAplicado = !!item.descuento_valor &&
+                (!item.descuento_desde_cantidad || s.cantidadAceptada >= item.descuento_desde_cantidad)
 
               return (
                 <>
@@ -236,9 +238,10 @@ export default function RevisionRespuestaProveedor({
                           ? <span className="text-amber-500 text-xs font-medium">⚠️ no recibido</span>
                           : <span className="text-gray-300">—</span>}
                       {!!item.descuento_valor && (
-                        <p className="text-[10px] text-amber-600 mt-0.5">
+                        <p className={`text-[10px] mt-0.5 font-medium ${descuentoAplicado ? 'text-green-600' : 'text-amber-600'}`}>
                           🏷️ {item.descuento_tipo === 'monto' ? formatCLP(item.descuento_valor) : `${item.descuento_valor}%`} dto.
                           {item.descuento_desde_cantidad ? ` desde ${item.descuento_desde_cantidad} un.` : ''}
+                          {descuentoAplicado ? ' ✓ aplicado' : ''}
                         </p>
                       )}
                     </td>
@@ -262,11 +265,13 @@ export default function RevisionRespuestaProveedor({
                         className={`w-24 border rounded px-2 py-0.5 text-xs text-right focus:outline-none focus:ring-1 disabled:opacity-40 ${
                           !item.precio_cotizado && s.aceptado && s.precioAceptado === 0
                             ? 'border-amber-400 focus:ring-amber-400 bg-amber-50'
-                            : 'border-gray-200 focus:ring-teal-400'
+                            : descuentoAplicado
+                              ? 'border-green-400 focus:ring-green-400 bg-green-50 text-green-700 font-medium'
+                              : 'border-gray-200 focus:ring-teal-400'
                         }`}
                       />
                     </td>
-                    <td className="px-3 py-3 text-right font-medium">
+                    <td className={`px-3 py-3 text-right font-medium ${s.aceptado && descuentoAplicado ? 'text-green-700' : ''}`}>
                       {s.aceptado ? formatCLP(s.cantidadAceptada * s.precioAceptado) : '—'}
                     </td>
                   </tr>
