@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { formatCLP } from '@/lib/calculations'
 import ExportButtons from '@/components/informes/ExportButtons'
+import MultiSelectDropdown from '@/components/ui/multi-select-dropdown'
 
 interface LogEntry {
   fecha: string
@@ -19,67 +20,15 @@ interface Props {
   puedeExportar: boolean
 }
 
-function MultiSelectDropdown({ label, opciones, seleccion, onChange }: {
-  label: string
-  opciones: string[]
-  seleccion: Set<string>
-  onChange: (next: Set<string>) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    if (open) document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  function toggle(valor: string) {
-    const next = new Set(seleccion)
-    if (next.has(valor)) next.delete(valor)
-    else next.add(valor)
-    onChange(next)
-  }
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-          seleccion.size > 0 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:border-blue-300'
-        }`}
-      >
-        {label}{seleccion.size > 0 ? ` (${seleccion.size})` : ''}
-        <span className="text-gray-400">▾</span>
-      </button>
-      {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl w-56 max-h-72 overflow-y-auto py-1.5">
-          {opciones.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-gray-400">Sin opciones</p>
-          ) : opciones.map(op => (
-            <label key={op} className="flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
-              <input type="checkbox" checked={seleccion.has(op)} onChange={() => toggle(op)} className="w-3.5 h-3.5 accent-blue-600 shrink-0" />
-              <span className="truncate">{op}</span>
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function AuditoriaLog({ entries, puedeExportar }: Props) {
   const [usuariosSel, setUsuariosSel] = useState<Set<string>>(new Set())
   const [modulosSel, setModulosSel] = useState<Set<string>>(new Set())
   const [accionesSel, setAccionesSel] = useState<Set<string>>(new Set())
   const [busquedaDetalle, setBusquedaDetalle] = useState('')
 
-  const usuariosOpciones = useMemo(() => [...new Set(entries.map(e => e.usuario))].sort(), [entries])
-  const modulosOpciones = useMemo(() => [...new Set(entries.map(e => e.modulo))].sort(), [entries])
-  const accionesOpciones = useMemo(() => [...new Set(entries.map(e => e.accion))].sort(), [entries])
+  const usuariosOpciones = useMemo(() => [...new Set(entries.map(e => e.usuario))].sort().map(v => ({ value: v, label: v })), [entries])
+  const modulosOpciones = useMemo(() => [...new Set(entries.map(e => e.modulo))].sort().map(v => ({ value: v, label: v })), [entries])
+  const accionesOpciones = useMemo(() => [...new Set(entries.map(e => e.accion))].sort().map(v => ({ value: v, label: v })), [entries])
 
   const filtrados = useMemo(() => {
     const q = busquedaDetalle.trim().toLowerCase()

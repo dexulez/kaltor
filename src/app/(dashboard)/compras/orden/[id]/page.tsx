@@ -71,6 +71,9 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
 
   const orden = oc as OrdenDetalle
 
+  // Una vez que el proveedor registró el envío, ya no se puede corregir la OC
+  const puedeEditarAhora = puedeEditar && !['en_transito', 'recibida_parcial', 'recibida_completa', 'cancelada'].includes(orden.estado)
+
   const estado = ESTADO_LABELS[orden.estado] ?? { label: orden.estado, color: 'bg-gray-100 text-gray-700' }
   const itemsRegulares = (orden.purchase_order_items ?? []).filter(i => {
     if (i.cantidad_solicitada <= 0) return false
@@ -106,7 +109,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
             estado={orden.estado}
           />
           {puedeCancelar && <CancelarEliminarOCBtn ordenId={id} numero={orden.numero_oc} estado={orden.estado} />}
-          {puedeEditar && (
+          {puedeEditarAhora && (
             <Link href={`/compras/orden/${id}/editar`}>
               <Button variant="outline" className="gap-1.5">✏️ Editar / Corregir</Button>
             </Link>

@@ -23,6 +23,7 @@ export default function RecibirMercanciaForm({ oc }: Props) {
   const [loading, setLoading] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [numeroFactura, setNumeroFactura] = useState((oc as unknown as Record<string, unknown>).numero_factura_proveedor as string ?? '')
+  const [costoEnvio, setCostoEnvio] = useState(String((oc as unknown as Record<string, unknown>).costo_envio_total ?? 0))
   const [cantidades, setCantidades] = useState<Record<string, number>>(() => {
     const activos = (oc.purchase_order_items ?? []).filter(i => {
       const extra = i as unknown as Record<string, unknown>
@@ -77,12 +78,18 @@ export default function RecibirMercanciaForm({ oc }: Props) {
       : { data: null }
     const nombreUsuario = (perfil as { nombre_completo?: string } | null)?.nombre_completo ?? null
 
+    const costoEnvioNum = parseInt(costoEnvio) || 0
+    const costoEnvioProrrateado = items.length > 0 ? Math.round(costoEnvioNum / items.length) : 0
+
     for (const item of items) {
       const nuevaCantidad = cantidades[item.id] ?? item.cantidad_recibida
       const cantidadNuevamenteRecibida = nuevaCantidad - item.cantidad_recibida
       if (cantidadNuevamenteRecibida <= 0) continue
 
-      await supabase.from('purchase_order_items').update({ cantidad_recibida: nuevaCantidad }).eq('id', item.id)
+      await supabase.from('purchase_order_items').update({
+        cantidad_recibida: nuevaCantidad,
+        costo_envio_prorrateado: costoEnvioProrrateado,
+      }).eq('id', item.id)
 
       // Intentar resolver product_id si no está vinculado (item creado manualmente)
       let productId = item.product_id ?? null
@@ -127,7 +134,7 @@ export default function RecibirMercanciaForm({ oc }: Props) {
           const stockNuevo = stockAnterior + cantidadNuevamenteRecibida
           // Precio confirmado: precio_aceptado > precio_cotizado > precio_unitario (ignorar $0 del original)
           const costoNuevo = item.precio_aceptado ?? item.precio_cotizado ?? (item.precio_unitario > 0 ? item.precio_unitario : null) ?? producto.precio_costo ?? 0
-          const costoEnvioNuevo = item.costo_envio_prorrateado ?? 0
+          const costoEnvioNuevo = costoEnvioProrrateado
 
           await supabase.from('products').update({
             stock_actual: stockNuevo,
@@ -160,9 +167,12 @@ export default function RecibirMercanciaForm({ oc }: Props) {
         ? 'recibida_parcial'
         : 'en_transito'
 
+    const subtotalItems = items.reduce((s, i) => s + (i.subtotal ?? 0), 0)
     await supabase.from('purchase_orders').update({
       estado: nuevoEstado,
       fecha_recepcion: new Date().toISOString(),
+      costo_envio_total: costoEnvioNum,
+      total: subtotalItems + costoEnvioNum,
       ...(numeroFactura.trim() ? { numero_factura_proveedor: numeroFactura.trim() } : {}),
     }).eq('id', oc.id)
 
@@ -206,6 +216,17 @@ export default function RecibirMercanciaForm({ oc }: Props) {
               value={numeroFactura}
               onChange={e => setNumeroFactura(e.target.value)}
               placeholder="Ej: 001234 (opcional)"
+              className="flex-1 text-xs border border-amber-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-amber-800 shrink-0">Costo de envío real (CLP)</label>
+            <input
+              type="number"
+              min={0}
+              value={costoEnvio}
+              onChange={e => setCostoEnvio(e.target.value)}
+              placeholder="0"
               className="flex-1 text-xs border border-amber-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
             />
           </div>

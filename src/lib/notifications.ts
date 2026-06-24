@@ -38,6 +38,19 @@ export const NOTIF_COLORS: Record<TipoNotificacion, string> = {
   sistema:           'bg-gray-100 text-gray-700',
 }
 
+export const NOTIF_LABELS: Record<TipoNotificacion, string> = {
+  envio_proveedor:   'Envío de proveedor',
+  preparando_pedido: 'Preparando pedido',
+  solicitud_compra:  'Solicitud de compra',
+  mercancia_recibida:'Mercancía recibida',
+  ot_listo:          'OT lista',
+  ot_entregada:      'OT entregada',
+  stock_bajo:        'Stock bajo',
+  nuevo_abono:       'Nuevo abono',
+  pedido_b2b:        'Pedido B2B',
+  sistema:           'Sistema',
+}
+
 export async function crearNotificacion({
   tipo, titulo, mensaje, url, usuario_id, metadata,
 }: {
