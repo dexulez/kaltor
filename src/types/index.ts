@@ -301,8 +301,6 @@ export interface PurchaseOrder {
   notas?: string
   usuario_id?: string
   comprobante_pago_urls?: string[] | null
-  pagado?: boolean
-  fecha_pago?: string | null
   created_at: string
   updated_at: string
   suppliers?: Supplier

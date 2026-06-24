@@ -12,7 +12,6 @@ import PagarOCBtn from '@/components/compras/PagarOCBtn'
 import EliminarAbonoBtn from '@/components/compras/EliminarAbonoBtn'
 import AgregarComprobanteBtn from '@/components/compras/AgregarComprobanteBtn'
 import ComprobanteGallery from '@/components/compras/ComprobanteGallery'
-import TogglePagoOCBtn from '@/components/compras/TogglePagoOCBtn'
 import ProductosSugeridosProveedor from '@/components/compras/ProductosSugeridosProveedor'
 import { Button } from '@/components/ui/button'
 import { PurchaseOrder, PurchaseOrderItem, Supplier } from '@/types'
@@ -146,7 +145,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
             <p className="text-xs text-gray-400 uppercase tracking-wide">Total OC</p>
             <p className="font-bold text-gray-900">{formatCLP(orden.total)}</p>
           </div>
-          {orden.metodo_pago === 'credito' && (
+          {orden.estado !== 'cancelada' && (
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide">Pagado / Pendiente</p>
               <p className="font-medium">
@@ -363,8 +362,8 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
       {/* Cerrar compra / registrar pago */}
       {puedePagar && <CerrarCompraForm oc={orden} />}
 
-      {/* Pago parcial/total de deuda por OC */}
-      {puedePagar && orden.metodo_pago === 'credito' && !['cancelada', 'pendiente', 'enviada', 'proveedor_respondio', 'confirmada'].includes(orden.estado) && (
+      {/* Pago parcial/total — varios abonos, cada uno con su propio método de pago */}
+      {puedePagar && !['cancelada', 'pendiente', 'enviada', 'proveedor_respondio', 'confirmada'].includes(orden.estado) && (
         <PagarOCBtn
           ordenId={id}
           supplierId={orden.supplier_id}
@@ -372,37 +371,39 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
           totalOC={orden.total}
           montoPagado={montoPagado}
           saldoDeudorProveedor={orden.suppliers?.saldo_deudor ?? 0}
+          metodoPagoOC={orden.metodo_pago}
         />
       )}
 
-      {/* Pago (efectivo/transferencia/débito) y comprobantes */}
+      {/* Comprobantes */}
       {(() => {
-        if (orden.metodo_pago === 'credito' || orden.estado === 'cancelada') return null
+        if (orden.estado === 'cancelada') return null
         const comprobantes = (orden.comprobante_pago_urls ?? []).filter(Boolean)
-        const pagado = !!orden.pagado
+        const saldoPendiente = Math.max(0, orden.total - montoPagado)
         return (
           <div className="bg-white rounded-xl border overflow-hidden">
             <div className="bg-blue-50 border-b border-blue-100 px-4 py-3 flex items-center justify-between flex-wrap gap-2">
               <div>
-                <p className="font-semibold text-blue-800 text-sm">Pago y comprobantes</p>
+                <p className="font-semibold text-blue-800 text-sm">Comprobantes</p>
                 <p className="text-xs text-blue-600 mt-0.5">
                   {comprobantes.length > 0
                     ? `${comprobantes.length} archivo(s) adjunto(s)`
                     : 'Sin comprobantes adjuntos aún'}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                {pagado ? (
-                  <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">
-                    ✓ Pagado{orden.fecha_pago ? ` el ${new Date(orden.fecha_pago).toLocaleDateString('es-CL')}` : ''}
-                  </span>
-                ) : (
-                  <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-medium">
-                    ⏳ Por pagar
-                  </span>
-                )}
-                {puedePagar && <TogglePagoOCBtn ordenId={id} pagado={pagado} />}
-              </div>
+              {saldoPendiente <= 0 ? (
+                <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">
+                  ✓ Pagado completo
+                </span>
+              ) : montoPagado > 0 ? (
+                <span className="text-xs bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full font-medium">
+                  🟡 Pago parcial — {formatCLP(montoPagado)} de {formatCLP(orden.total)}
+                </span>
+              ) : (
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-medium">
+                  ⏳ Por pagar
+                </span>
+              )}
             </div>
             <div className="p-4 flex items-start gap-4 flex-wrap">
               {comprobantes.length > 0 ? (
@@ -458,6 +459,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
                         monto={p.monto}
                         montoPagadoActual={montoPagado}
                         saldoDeudorProveedor={orden.suppliers?.saldo_deudor ?? 0}
+                        metodoPagoOC={orden.metodo_pago}
                       />
                     )}
                   </td>

@@ -14,10 +14,11 @@ interface Props {
   totalOC: number
   montoPagado: number
   saldoDeudorProveedor: number
+  metodoPagoOC?: string
 }
 
 export default function PagarOCBtn({
-  ordenId, supplierId, numero, totalOC, montoPagado, saldoDeudorProveedor,
+  ordenId, supplierId, numero, totalOC, montoPagado, saldoDeudorProveedor, metodoPagoOC,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -54,11 +55,13 @@ export default function PagarOCBtn({
         .eq('id', ordenId)
       if (errOC) throw errOC
 
-      // Reducir saldo_deudor del proveedor
-      const nuevoSaldo = Math.max(0, saldoDeudorProveedor - montoNum)
-      await supabase.from('suppliers')
-        .update({ saldo_deudor: nuevoSaldo })
-        .eq('id', supplierId)
+      // Solo si la OC original es a crédito existe deuda con el proveedor que reducir
+      if (metodoPagoOC === 'credito') {
+        const nuevoSaldo = Math.max(0, saldoDeudorProveedor - montoNum)
+        await supabase.from('suppliers')
+          .update({ saldo_deudor: nuevoSaldo })
+          .eq('id', supplierId)
+      }
 
       toast.success(`Pago de ${formatCLP(montoNum)} registrado para ${numero}`)
       setOpen(false)

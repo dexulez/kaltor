@@ -13,10 +13,11 @@ interface Props {
   monto: number
   montoPagadoActual: number
   saldoDeudorProveedor: number
+  metodoPagoOC?: string
 }
 
 export default function EliminarAbonoBtn({
-  pagoId, ordenId, supplierId, monto, montoPagadoActual, saldoDeudorProveedor,
+  pagoId, ordenId, supplierId, monto, montoPagadoActual, saldoDeudorProveedor, metodoPagoOC,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -41,10 +42,12 @@ export default function EliminarAbonoBtn({
         .update({ monto_pagado: nuevoMonto })
         .eq('id', ordenId)
 
-      // Revertir saldo_deudor del proveedor
-      await supabase.from('suppliers')
-        .update({ saldo_deudor: saldoDeudorProveedor + monto })
-        .eq('id', supplierId)
+      // Solo si la OC original es a crédito existe deuda con el proveedor que revertir
+      if (metodoPagoOC === 'credito') {
+        await supabase.from('suppliers')
+          .update({ saldo_deudor: saldoDeudorProveedor + monto })
+          .eq('id', supplierId)
+      }
 
       toast.success(`Abono de ${formatCLP(monto)} eliminado. Razón: ${razon}`)
       setOpen(false)
