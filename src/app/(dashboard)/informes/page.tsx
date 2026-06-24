@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { formatCLP } from '@/lib/calculations'
+import { formatCLP, calcularPrecioSinIva, calcularIva } from '@/lib/calculations'
 import { Suspense, type ReactNode } from 'react'
 import FiltroFechas from '@/components/informes/FiltroFechas'
 import {
@@ -2582,6 +2582,146 @@ async function TabClientes({ desde, hasta, puedeExportar }: { desde: string; has
   )
 }
 
+// ── Tab: Movimientos ──────────────────────────────────────────────────────────
+
+async function TabMovimientos({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
+  const supabase = await createClient()
+  const desdeIso = `${desde}T00:00:00.000Z`
+  const hastaIso = `${hasta}T23:59:59.999Z`
+
+  const [
+    { data: ventas },
+    { data: ocsContado },
+    { data: pagosOC },
+    { data: liquidaciones },
+    { data: gastosData },
+    { data: previsionales },
+    { data: f29s },
+    { data: obligaciones },
+  ] = await Promise.all([
+    supabase.from('sales').select('id, numero_venta, total, created_at').eq('anulada', false)
+      .gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('purchase_orders').select('id, numero_oc, total, fecha_recepcion, suppliers(nombre)')
+      .neq('metodo_pago', 'credito').not('fecha_recepcion', 'is', null)
+      .gte('fecha_recepcion', desdeIso).lte('fecha_recepcion', hastaIso),
+    supabase.from('purchase_order_payments').select('id, monto, fecha, purchase_orders(numero_oc, suppliers(nombre))')
+      .gte('fecha', desde).lte('fecha', hasta).then(r => r.error ? { data: [] } : r),
+    supabase.from('supplier_settlements').select('id, monto, fecha, suppliers(nombre)')
+      .gte('fecha', desde).lte('fecha', hasta).then(r => r.error ? { data: [] } : r),
+    supabase.from('gastos').select('id, concepto, monto, fecha')
+      .gte('fecha', desde).lte('fecha', hasta).then(r => r.error ? { data: [] } : r),
+    supabase.from('pagos_previsionales').select('id, sueldo_pagado, afp_pagado, salud_pagado, fecha_pago, empleados_taller(nombre)')
+      .eq('estado', 'pagado').gte('fecha_pago', desde).lte('fecha_pago', hasta).then(r => r.error ? { data: [] } : r),
+    supabase.from('declaraciones_f29').select('id, mes, iva_credito, tasa_ppm, fecha_pago')
+      .not('fecha_pago', 'is', null).gte('fecha_pago', desde).lte('fecha_pago', hasta).then(r => r.error ? { data: [] } : r),
+    supabase.from('obligaciones_tributarias').select('id, nombre, monto, fecha_pago')
+      .not('fecha_pago', 'is', null).gte('fecha_pago', desde).lte('fecha_pago', hasta).then(r => r.error ? { data: [] } : r),
+  ])
+
+  type Mov = { fecha: string; tipo: string; descripcion: string; ingreso: number; egreso: number }
+  const movimientos: Mov[] = []
+
+  type SupRel = { nombre: string } | { nombre: string }[] | null
+  const nombreSup = (s: SupRel) => (Array.isArray(s) ? s[0]?.nombre : s?.nombre) ?? '—'
+
+  ;(ventas ?? []).forEach((v: { id: string; numero_venta: string; total: number; created_at: string }) => {
+    movimientos.push({ fecha: v.created_at.split('T')[0], tipo: 'Venta', descripcion: v.numero_venta, ingreso: v.total, egreso: 0 })
+  })
+  ;(ocsContado ?? []).forEach((o: { id: string; numero_oc: string; total: number; fecha_recepcion: string; suppliers: SupRel }) => {
+    movimientos.push({ fecha: o.fecha_recepcion.split('T')[0], tipo: 'Compra', descripcion: `${o.numero_oc} — ${nombreSup(o.suppliers)}`, ingreso: 0, egreso: o.total ?? 0 })
+  })
+  ;(pagosOC ?? []).forEach((p: { id: string; monto: number; fecha: string; purchase_orders: { numero_oc: string; suppliers: SupRel } | { numero_oc: string; suppliers: SupRel }[] | null }) => {
+    const oc = Array.isArray(p.purchase_orders) ? p.purchase_orders[0] : p.purchase_orders
+    movimientos.push({ fecha: p.fecha, tipo: 'Abono OC', descripcion: `${oc?.numero_oc ?? '—'} — ${nombreSup(oc?.suppliers ?? null)}`, ingreso: 0, egreso: p.monto })
+  })
+  ;(liquidaciones ?? []).forEach((l: { id: string; monto: number; fecha: string; suppliers: SupRel }) => {
+    movimientos.push({ fecha: l.fecha, tipo: 'Liquidación proveedor', descripcion: nombreSup(l.suppliers), ingreso: 0, egreso: l.monto })
+  })
+  ;(gastosData ?? []).forEach((g: { id: string; concepto: string; monto: number; fecha: string }) => {
+    movimientos.push({ fecha: g.fecha, tipo: 'Gasto', descripcion: g.concepto, ingreso: 0, egreso: g.monto })
+  })
+  ;(previsionales ?? []).forEach((p: { id: string; sueldo_pagado: number; afp_pagado: number; salud_pagado: number; fecha_pago: string; empleados_taller: { nombre: string } | { nombre: string }[] | null }) => {
+    const emp = Array.isArray(p.empleados_taller) ? p.empleados_taller[0] : p.empleados_taller
+    const total = (p.sueldo_pagado ?? 0) + (p.afp_pagado ?? 0) + (p.salud_pagado ?? 0)
+    movimientos.push({ fecha: p.fecha_pago, tipo: 'Previsión', descripcion: emp?.nombre ?? '—', ingreso: 0, egreso: total })
+  })
+
+  // F29: el monto no se guarda, se recalcula desde las ventas del mes declarado
+  type F29Row = { id: string; mes: string; iva_credito: number; tasa_ppm: number; fecha_pago: string }
+  await Promise.all(((f29s ?? []) as F29Row[]).map(async f29 => {
+    const inicioDate = new Date(`${f29.mes}T00:00:00`)
+    const finDate = new Date(inicioDate.getFullYear(), inicioDate.getMonth() + 1, 0)
+    const { data: ventasMes } = await supabase.from('sales').select('total').eq('anulada', false)
+      .gte('created_at', `${f29.mes}T00:00:00.000Z`).lte('created_at', `${finDate.toISOString().split('T')[0]}T23:59:59.999Z`)
+    const totalBruto = (ventasMes ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
+    const neto = calcularPrecioSinIva(totalBruto)
+    const ivaDebito = calcularIva(neto)
+    const ppm = Math.round(neto * (f29.tasa_ppm ?? 3) / 100)
+    const totalF29 = Math.max(0, ivaDebito - (f29.iva_credito ?? 0)) + ppm
+    movimientos.push({ fecha: f29.fecha_pago, tipo: 'F29 (IVA+PPM)', descripcion: `Período ${f29.mes.slice(0, 7)}`, ingreso: 0, egreso: totalF29 })
+  }))
+
+  ;(obligaciones ?? []).forEach((o: { id: string; nombre: string; monto: number; fecha_pago: string }) => {
+    movimientos.push({ fecha: o.fecha_pago, tipo: 'Obligación tributaria', descripcion: o.nombre, ingreso: 0, egreso: o.monto })
+  })
+
+  movimientos.sort((a, b) => b.fecha.localeCompare(a.fecha))
+
+  const totalIngresos = movimientos.reduce((s, m) => s + m.ingreso, 0)
+  const totalEgresos = movimientos.reduce((s, m) => s + m.egreso, 0)
+  const balanceNeto = totalIngresos - totalEgresos
+
+  const porCategoria: Record<string, { ingreso: number; egreso: number }> = {}
+  movimientos.forEach(m => {
+    if (!porCategoria[m.tipo]) porCategoria[m.tipo] = { ingreso: 0, egreso: 0 }
+    porCategoria[m.tipo].ingreso += m.ingreso
+    porCategoria[m.tipo].egreso += m.egreso
+  })
+  const categoriaRows = Object.entries(porCategoria).map(([tipo, v]) => [tipo, formatCLP(v.ingreso), formatCLP(v.egreso)])
+  const movimientosRows = movimientos.map(m => [m.fecha, m.tipo, m.descripcion, m.ingreso ? formatCLP(m.ingreso) : '—', m.egreso ? formatCLP(m.egreso) : '—'])
+
+  return (
+    <div className="space-y-5">
+      <div className="flex justify-end">
+        <ExportButtons
+          visible={puedeExportar}
+          titulo="Movimientos contables"
+          subtitulo={`Período: ${desde} a ${hasta}`}
+          secciones={[
+            { titulo: 'Resumen', headers: ['Métrica', 'Valor'], rows: [['Total ingresos', formatCLP(totalIngresos)], ['Total egresos', formatCLP(totalEgresos)], ['Balance neto', formatCLP(balanceNeto)]] },
+            { titulo: 'Por categoría', headers: ['Categoría', 'Ingresos', 'Egresos'], rows: categoriaRows },
+            { titulo: 'Libro de movimientos', headers: ['Fecha', 'Tipo', 'Descripción', 'Ingreso', 'Egreso'], rows: movimientosRows },
+          ]}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <KpiCard label="Total ingresos" value={formatCLP(totalIngresos)} colorIdx={2} />
+        <KpiCard label="Total egresos" value={formatCLP(totalEgresos)} colorIdx={4} />
+        <KpiCard label="Balance neto" value={formatCLP(balanceNeto)} colorIdx={balanceNeto >= 0 ? 1 : 4} />
+      </div>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
+        ⚠️ No incluye abonos de clientes en OTs (depósitos) — revisa con tu contador si esos movimientos ya quedan reflejados en el cobro final.
+      </div>
+
+      <Section title="Por categoría">
+        <Tabla headers={['Categoría', 'Ingresos', 'Egresos']} rows={categoriaRows} />
+      </Section>
+
+      <Section title="Libro de movimientos">
+        <Tabla headers={['Fecha', 'Tipo', 'Descripción', 'Ingreso', 'Egreso']} rows={movimientosRows} />
+      </Section>
+
+      {movimientos.length === 0 && (
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-10 text-center">
+          <p className="text-gray-400 text-sm">No hay movimientos registrados para el período seleccionado.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function InformesPage({
@@ -2651,6 +2791,8 @@ export default async function InformesPage({
         {tab === 'auditoria'    && rolAuth === 'administrador' && <TabAuditoria desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'equilibrio'   && <TabEquilibrio desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'clientes'     && <TabClientes   desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'movimientos'  && rolAuth === 'administrador' && <TabMovimientos desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'movimientos'  && rolAuth !== 'administrador' && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Movimientos.</div>}
         {/* Mensajes de acceso restringido */}
         {tab === 'ventas'       && !verVentas  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Ventas.</div>}
         {tab === 'rentabilidad' && !verRentab  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Rentabilidad.</div>}

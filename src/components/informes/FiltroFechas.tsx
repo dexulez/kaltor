@@ -15,6 +15,7 @@ const TABS = [
   { key: 'gastos',       label: '💸 Gastos',       title: 'Gastos Operacionales' },
   { key: 'auditoria',    label: '🔍 Auditoría',    title: 'Log de Usuarios' },
   { key: 'equilibrio',   label: '⚖️ Equilibrio',   title: 'Punto de Equilibrio y Rentabilidad' },
+  { key: 'movimientos',  label: '📒 Movimientos',  title: 'Libro de Movimientos Contables' },
 ]
 
 interface Props {
