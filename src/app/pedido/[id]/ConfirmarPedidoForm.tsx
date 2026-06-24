@@ -45,7 +45,17 @@ async function comprimirFoto(file: File): Promise<File> {
 
 type Etapa = 'disponibilidad' | 'esperando' | 'preparando' | 'envio' | 'finalizado'
 
-type ProductoAdicional = { id: string; nombre: string; cantidad: string; precio: string; nota: string }
+type ProductoAdicional = {
+  id: string
+  nombre: string
+  cantidad: string
+  precio: string
+  nota: string
+  descuentoActivo: boolean
+  descuentoTipo: string
+  descuentoValor: string
+  descuentoDesdeCantidad: string
+}
 
 function getEtapaInicial(estado: string, yaConfirmado: boolean): Etapa {
   if (estado === 'preparando') return 'envio'
@@ -201,13 +211,32 @@ export default function ConfirmarPedidoForm({
   const [productosAdicionales, setProductosAdicionales] = useState<ProductoAdicional[]>([])
 
   function agregarProducto() {
-    setProductosAdicionales(prev => [...prev, { id: crypto.randomUUID(), nombre: '', cantidad: '1', precio: '', nota: '' }])
+    setProductosAdicionales(prev => [...prev, {
+      id: crypto.randomUUID(), nombre: '', cantidad: '1', precio: '', nota: '',
+      descuentoActivo: false, descuentoTipo: 'porcentaje', descuentoValor: '', descuentoDesdeCantidad: '',
+    }])
   }
   function actualizarProducto(pid: string, field: keyof ProductoAdicional, value: string) {
     setProductosAdicionales(prev => prev.map(p => p.id === pid ? { ...p, [field]: value } : p))
   }
+  function toggleDescuentoAdicional(pid: string, val: boolean) {
+    setProductosAdicionales(prev => prev.map(p => p.id === pid ? { ...p, descuentoActivo: val } : p))
+  }
   function eliminarProducto(pid: string) {
     setProductosAdicionales(prev => prev.filter(p => p.id !== pid))
+  }
+
+  // Precio final del producto adicional considerando su descuento (si aplica)
+  function precioFinalAdicional(p: ProductoAdicional): number {
+    const precioBase = parseInt(p.precio) || 0
+    if (!p.descuentoActivo) return precioBase
+    const valor = parseFloat(p.descuentoValor) || 0
+    if (valor <= 0) return precioBase
+    const minimo = parseInt(p.descuentoDesdeCantidad) || 0
+    const cantidad = parseInt(p.cantidad) || 0
+    if (minimo > 0 && cantidad < minimo) return precioBase
+    if (p.descuentoTipo === 'monto') return Math.max(0, precioBase - valor)
+    return Math.max(0, Math.round(precioBase * (1 - valor / 100)))
   }
 
   const conStock = items.filter(i => disponibles[i.id])
@@ -239,7 +268,17 @@ export default function ConfirmarPedidoForm({
     try {
       const productosAdicionalesPayload = productosAdicionales
         .filter(p => p.nombre.trim())
-        .map(p => ({ nombre: p.nombre.trim(), cantidad: parseInt(p.cantidad) || 1, precio: parseInt(p.precio) || 0, nota: p.nota.trim() || undefined }))
+        .map(p => ({
+          nombre: p.nombre.trim(),
+          cantidad: parseInt(p.cantidad) || 1,
+          precio: precioFinalAdicional(p),
+          nota: p.nota.trim() || undefined,
+          ...(p.descuentoActivo && (parseFloat(p.descuentoValor) || 0) > 0 ? {
+            descuentoTipo: p.descuentoTipo,
+            descuentoValor: parseFloat(p.descuentoValor) || 0,
+            descuentoDesdeCantidad: parseInt(p.descuentoDesdeCantidad) || null,
+          } : {}),
+        }))
 
       // El precio enviado ya incluye el descuento aplicado (si corresponde según la cantidad)
       const preciosConDescuento = Object.fromEntries(
@@ -804,6 +843,51 @@ export default function ConfirmarPedidoForm({
                 onChange={e => actualizarProducto(prod.id, 'nota', e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
               />
+
+              {/* Descuento del producto adicional */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={prod.descuentoActivo}
+                    onChange={e => toggleDescuentoAdicional(prod.id, e.target.checked)}
+                    className="w-4 h-4 rounded accent-amber-600"
+                  />
+                  <span className="text-xs font-medium text-amber-800">🏷️ Este producto tiene descuento</span>
+                </label>
+                {prod.descuentoActivo && (
+                  <div className="space-y-2 pl-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex border border-amber-300 rounded-lg overflow-hidden text-xs shrink-0">
+                        <button type="button" onClick={() => actualizarProducto(prod.id, 'descuentoTipo', 'porcentaje')}
+                          className={`px-2.5 py-1.5 font-semibold ${prod.descuentoTipo !== 'monto' ? 'bg-amber-500 text-white' : 'bg-white text-amber-700'}`}>%</button>
+                        <button type="button" onClick={() => actualizarProducto(prod.id, 'descuentoTipo', 'monto')}
+                          className={`px-2.5 py-1.5 font-semibold ${prod.descuentoTipo === 'monto' ? 'bg-amber-500 text-white' : 'bg-white text-amber-700'}`}>$</button>
+                      </div>
+                      <input
+                        type="number" min={0}
+                        placeholder={prod.descuentoTipo === 'monto' ? 'Ej: 1000' : 'Ej: 10'}
+                        value={prod.descuentoValor}
+                        onChange={e => actualizarProducto(prod.id, 'descuentoValor', e.target.value)}
+                        className="flex-1 border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-amber-700">¿Solo si compran cierta cantidad? (opcional)</label>
+                      <input
+                        type="number" min={0}
+                        placeholder="Ej: 5 (vacío = aplica siempre)"
+                        value={prod.descuentoDesdeCantidad}
+                        onChange={e => actualizarProducto(prod.id, 'descuentoDesdeCantidad', e.target.value)}
+                        className="mt-1 w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                    <p className="text-xs text-amber-700 font-medium">
+                      Precio final: {formatCLP(precioFinalAdicional(prod))} c/u
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

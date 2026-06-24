@@ -17,7 +17,7 @@ export async function POST(
       alternativas?: Record<string, string>
       preciosAlternativa?: Record<string, string>
       cantidadesAlternativa?: Record<string, string>
-      productosAdicionales?: { nombre: string; cantidad: number; precio: number; nota?: string }[]
+      productosAdicionales?: { nombre: string; cantidad: number; precio: number; nota?: string; descuentoTipo?: string; descuentoValor?: number; descuentoDesdeCantidad?: number | null }[]
       descuentos?: Record<string, { tipo: string; valor: number; desdeCantidad: number | null }>
     }
     const { disponibles, cantidades = {}, precios = {}, notas = {}, alternativas = {}, preciosAlternativa = {}, cantidadesAlternativa = {}, productosAdicionales = [], descuentos = {} } = body
@@ -77,6 +77,11 @@ export async function POST(
           precio_cotizado: p.precio || null,
           nota_proveedor: p.nota?.trim() || null,
           disponible_proveedor: true,
+          ...(p.descuentoValor ? {
+            descuento_tipo: p.descuentoTipo,
+            descuento_valor: p.descuentoValor,
+            descuento_desde_cantidad: p.descuentoDesdeCantidad ?? null,
+          } : {}),
         }))
         // Intentar con sugerido_proveedor; si la columna no existe aún, reintentar sin ella
         const { error: insErr } = await supabase.from('purchase_order_items')
