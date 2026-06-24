@@ -320,8 +320,8 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
                   </div>
                   <div className="sm:col-span-2 space-y-1">
                     <Label className="text-xs">Cantidad</Label>
-                    <Input type="number" min={1} value={item.cantidad_solicitada}
-                      onChange={e => setItem(item.id, 'cantidad_solicitada', parseInt(e.target.value) || 1)}
+                    <Input type="number" min={0} value={item.cantidad_solicitada}
+                      onChange={e => setItem(item.id, 'cantidad_solicitada', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                       className="text-sm" />
                   </div>
                   <div className="sm:col-span-3 space-y-1">

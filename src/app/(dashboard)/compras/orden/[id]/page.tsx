@@ -29,6 +29,9 @@ const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
   cancelada:           { label: 'Cancelada',              color: 'bg-red-100 text-red-700' },
 }
 
+// El pago solo tiene sentido una vez que el proveedor marcó el envío
+const ESTADOS_ENVIADO = ['en_transito', 'recibida_parcial', 'recibida_completa']
+
 type OrdenDetalle = PurchaseOrder & {
   suppliers: Supplier | null
   purchase_order_items: PurchaseOrderItem[]
@@ -145,7 +148,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
             <p className="text-xs text-gray-400 uppercase tracking-wide">Total OC</p>
             <p className="font-bold text-gray-900">{formatCLP(orden.total)}</p>
           </div>
-          {orden.estado !== 'cancelada' && (
+          {ESTADOS_ENVIADO.includes(orden.estado) && (
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide">Pagado / Pendiente</p>
               <p className="font-medium">
@@ -362,8 +365,8 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
       {/* Cerrar compra / registrar pago */}
       {puedePagar && <CerrarCompraForm oc={orden} />}
 
-      {/* Pago parcial/total — varios abonos, cada uno con su propio método de pago */}
-      {puedePagar && !['cancelada', 'pendiente', 'enviada', 'proveedor_respondio', 'confirmada'].includes(orden.estado) && (
+      {/* El pago solo aplica una vez que el proveedor marcó el envío (productos en camino o ya recibidos) */}
+      {puedePagar && ESTADOS_ENVIADO.includes(orden.estado) && (
         <PagarOCBtn
           ordenId={id}
           supplierId={orden.supplier_id}
@@ -377,7 +380,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
 
       {/* Comprobantes */}
       {(() => {
-        if (orden.estado === 'cancelada') return null
+        if (!ESTADOS_ENVIADO.includes(orden.estado)) return null
         const comprobantes = (orden.comprobante_pago_urls ?? []).filter(Boolean)
         const saldoPendiente = Math.max(0, orden.total - montoPagado)
         return (
@@ -393,7 +396,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
               </div>
               {saldoPendiente <= 0 ? (
                 <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">
-                  ✓ Pagado completo
+                  ✓ Pagado completo{orden.fecha_pago ? ` el ${new Date(orden.fecha_pago).toLocaleDateString('es-CL')}` : ''}
                 </span>
               ) : montoPagado > 0 ? (
                 <span className="text-xs bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full font-medium">

@@ -48,10 +48,10 @@ export default function PagarOCBtn({
       })
       if (errPago) throw errPago
 
-      // Actualizar monto_pagado en la OC
+      // Actualizar monto_pagado y fecha del último pago en la OC
       const nuevoMontoPagado = montoPagado + montoNum
       const { error: errOC } = await supabase.from('purchase_orders')
-        .update({ monto_pagado: nuevoMontoPagado })
+        .update({ monto_pagado: nuevoMontoPagado, fecha_pago: new Date().toISOString() })
         .eq('id', ordenId)
       if (errOC) throw errOC
 

@@ -35,7 +35,7 @@ export default async function ComprasPage() {
 
   const hoyStr = new Intl.DateTimeFormat('sv', { timeZone: 'America/Santiago' }).format(new Date())
 
-  type ORow = { id: string; numero_oc: string; estado: string; metodo_pago?: string | null; total?: number | null; created_at?: string | null; notas?: string | null; fecha_estimada_llegada?: string | null; suppliers?: { nombre?: string | null; whatsapp?: string | null; telefono?: string | null } | null }
+  type ORow = { id: string; numero_oc: string; estado: string; metodo_pago?: string | null; total?: number | null; monto_pagado?: number | null; fecha_pago?: string | null; created_at?: string | null; notas?: string | null; fecha_estimada_llegada?: string | null; suppliers?: { nombre?: string | null; whatsapp?: string | null; telefono?: string | null } | null }
   const todas = (ordenes ?? []) as ORow[]
   const borradores = todas.filter(o => (o.notas ?? '').startsWith('[SOLICITUD]'))
   const otrasOrdenes = todas.filter(o => !(o.notas ?? '').startsWith('[SOLICITUD]'))

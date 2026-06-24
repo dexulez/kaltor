@@ -311,9 +311,9 @@ export default function EditarOrdenForm({ oc, proveedores }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     <input
-                      type="number" min={1}
+                      type="number" min={0}
                       value={item.cantidad_solicitada}
-                      onChange={e => setItem(item.id, 'cantidad_solicitada', parseInt(e.target.value) || 1)}
+                      onChange={e => setItem(item.id, 'cantidad_solicitada', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                       disabled={item._eliminar}
                       className="w-20 border rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-50"
                     />

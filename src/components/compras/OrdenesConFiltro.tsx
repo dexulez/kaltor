@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import ConfirmarBorradorBtn from '@/components/compras/ConfirmarBorradorBtn'
+
+const ESTADOS_ENVIADO = ['en_transito', 'recibida_parcial', 'recibida_completa']
 
 const OC_ESTADO: Record<string, { label: string; color: string }> = {
   pendiente:           { label: 'Pendiente',              color: 'bg-yellow-100 text-yellow-700' },
@@ -24,6 +27,8 @@ interface Orden {
   estado: string
   metodo_pago?: string | null
   total?: number | null
+  monto_pagado?: number | null
+  fecha_pago?: string | null
   created_at?: string | null
   notas?: string | null
   suppliers?: { nombre?: string | null; whatsapp?: string | null; telefono?: string | null } | null
@@ -89,6 +94,7 @@ const FILTROS_CONFIG = [
 ]
 
 export default function OrdenesConFiltro({ borradores, ordenes, hoyStr, puedeCrear = true }: Props) {
+  const router = useRouter()
   const [filtrosActivos, setFiltrosActivos] = useState<string[]>([])
 
   function toggleFiltro(key: string) {
@@ -240,7 +246,7 @@ export default function OrdenesConFiltro({ borradores, ordenes, hoyStr, puedeCre
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {['N° OC', 'Proveedor', 'Estado', 'Método pago', 'Fecha OC', 'Llegada est.', 'Total', ''].map((h, i) => (
+                {['N° OC', 'Proveedor', 'Estado', 'Método pago', 'Fecha OC', 'Llegada est.', 'Total', 'Pago'].map((h, i) => (
                   <th key={i} className={`px-4 py-3 font-medium text-gray-600 ${i === 6 ? 'text-right' : 'text-left'}`}>{h}</th>
                 ))}
               </tr>
@@ -257,12 +263,18 @@ export default function OrdenesConFiltro({ borradores, ordenes, hoyStr, puedeCre
                   : null
                 const vencida = o.estado === 'en_transito' && o.fecha_estimada_llegada && o.fecha_estimada_llegada < hoyStr
                 const esCredito = o.metodo_pago === 'credito'
+                const montoPagadoOC = o.monto_pagado ?? 0
+                const saldoPendienteOC = (o.total ?? 0) - montoPagadoOC
                 return (
-                  <tr key={o.id} className={`hover:bg-gray-50 ${vencida ? 'bg-red-50' : ''}`}>
+                  <tr
+                    key={o.id}
+                    onClick={() => router.push(`/compras/orden/${o.id}`)}
+                    className={`hover:bg-gray-50 cursor-pointer ${vencida ? 'bg-red-50' : ''}`}
+                  >
                     <td className="px-4 py-3">
-                      <Link href={`/compras/orden/${o.id}`} className="font-mono font-bold text-blue-700 hover:underline">
+                      <span className="font-mono font-bold text-blue-700">
                         {o.numero_oc}
-                      </Link>
+                      </span>
                       {vencida && <span className="ml-1.5 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">Vencida</span>}
                     </td>
                     <td className="px-4 py-3">
@@ -290,9 +302,21 @@ export default function OrdenesConFiltro({ borradores, ordenes, hoyStr, puedeCre
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-800">{formatCLP(o.total ?? 0)}</td>
                     <td className="px-4 py-3">
-                      <Link href={`/compras/orden/${o.id}`}>
-                        <Button variant="ghost" size="sm" className="text-xs">Ver →</Button>
-                      </Link>
+                      {o.estado === 'cancelada' || !ESTADOS_ENVIADO.includes(o.estado) ? (
+                        <span className="text-gray-300 text-xs">—</span>
+                      ) : saldoPendienteOC <= 0 ? (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                          ✓ Pagado{o.fecha_pago ? ` · ${new Date(o.fecha_pago).toLocaleDateString('es-CL')}` : ''}
+                        </span>
+                      ) : montoPagadoOC > 0 ? (
+                        <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                          🟡 Parcial
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                          ⏳ Por pagar
+                        </span>
+                      )}
                     </td>
                   </tr>
                 )
