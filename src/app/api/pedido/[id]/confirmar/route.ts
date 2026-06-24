@@ -18,8 +18,9 @@ export async function POST(
       preciosAlternativa?: Record<string, string>
       cantidadesAlternativa?: Record<string, string>
       productosAdicionales?: { nombre: string; cantidad: number; precio: number; nota?: string }[]
+      descuentos?: Record<string, { tipo: string; valor: number; desdeCantidad: number | null }>
     }
-    const { disponibles, cantidades = {}, precios = {}, notas = {}, alternativas = {}, preciosAlternativa = {}, cantidadesAlternativa = {}, productosAdicionales = [] } = body
+    const { disponibles, cantidades = {}, precios = {}, notas = {}, alternativas = {}, preciosAlternativa = {}, cantidadesAlternativa = {}, productosAdicionales = [], descuentos = {} } = body
 
     // Paso 1: update solo disponible_proveedor (columna que siempre existe)
     await Promise.all(
@@ -49,6 +50,14 @@ export async function POST(
           await tryUpdate({ precio_alternativa: parseInt(preciosAlternativa[itemId]) })
         if (cantidadesAlternativa[itemId])
           await tryUpdate({ cantidad_alternativa: parseInt(cantidadesAlternativa[itemId]) })
+        const desc = descuentos[itemId]
+        if (desc) {
+          await tryUpdate({
+            descuento_tipo: desc.tipo,
+            descuento_valor: desc.valor,
+            descuento_desde_cantidad: desc.desdeCantidad,
+          })
+        }
       })
     )
 

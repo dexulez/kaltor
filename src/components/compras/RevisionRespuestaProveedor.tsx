@@ -15,6 +15,9 @@ interface ItemConRespuesta extends PurchaseOrderItem {
   alternativa?: string | null
   precio_alternativa?: number | null
   cantidad_alternativa?: number | null
+  descuento_tipo?: string | null
+  descuento_valor?: number | null
+  descuento_desde_cantidad?: number | null
 }
 
 interface Seleccion {
@@ -204,6 +207,12 @@ export default function RevisionRespuestaProveedor({
                         : s.aceptado
                           ? <span className="text-amber-500 text-xs font-medium">⚠️ no recibido</span>
                           : <span className="text-gray-300">—</span>}
+                      {!!item.descuento_valor && (
+                        <p className="text-[10px] text-amber-600 mt-0.5">
+                          🏷️ {item.descuento_tipo === 'monto' ? formatCLP(item.descuento_valor) : `${item.descuento_valor}%`} dto.
+                          {item.descuento_desde_cantidad ? ` desde ${item.descuento_desde_cantidad} un.` : ''}
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <input

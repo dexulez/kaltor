@@ -14,6 +14,9 @@ interface Item {
   precio_cotizado?: number | null
   nota_proveedor?: string | null
   alternativa?: string | null
+  descuento_tipo?: string | null
+  descuento_valor?: number | null
+  descuento_desde_cantidad?: number | null
 }
 
 async function comprimirFoto(file: File): Promise<File> {
@@ -165,6 +168,18 @@ export default function ConfirmarPedidoForm({
   const [precios, setPrecios] = useState<Record<string, string>>(
     Object.fromEntries(items.map(i => [i.id, i.precio_cotizado ? String(i.precio_cotizado) : (i.precio_unitario > 0 ? String(i.precio_unitario) : '')]))
   )
+  const [descuentoActivo, setDescuentoActivo] = useState<Record<string, boolean>>(
+    Object.fromEntries(items.map(i => [i.id, !!i.descuento_valor]))
+  )
+  const [descuentoTipo, setDescuentoTipo] = useState<Record<string, 'monto' | 'porcentaje'>>(
+    Object.fromEntries(items.map(i => [i.id, (i.descuento_tipo as 'monto' | 'porcentaje') ?? 'porcentaje']))
+  )
+  const [descuentoValor, setDescuentoValor] = useState<Record<string, string>>(
+    Object.fromEntries(items.map(i => [i.id, i.descuento_valor ? String(i.descuento_valor) : '']))
+  )
+  const [descuentoDesdeCantidad, setDescuentoDesdeCantidad] = useState<Record<string, string>>(
+    Object.fromEntries(items.map(i => [i.id, i.descuento_desde_cantidad ? String(i.descuento_desde_cantidad) : '']))
+  )
   const [notas, setNotas] = useState<Record<string, string>>(
     Object.fromEntries(items.map(i => [i.id, i.nota_proveedor ?? '']))
   )
@@ -198,6 +213,19 @@ export default function ConfirmarPedidoForm({
   const conStock = items.filter(i => disponibles[i.id])
   const sinStock = items.filter(i => !disponibles[i.id])
 
+  // Precio final por unidad considerando el descuento (si aplica según la cantidad disponible)
+  function precioFinalItem(itemId: string): number {
+    const precioBase = parseInt(precios[itemId]) || 0
+    if (!descuentoActivo[itemId]) return precioBase
+    const valor = parseFloat(descuentoValor[itemId]) || 0
+    if (valor <= 0) return precioBase
+    const minimo = parseInt(descuentoDesdeCantidad[itemId]) || 0
+    const cantidadDisp = parseInt(cantidades[itemId]) || 0
+    if (minimo > 0 && cantidadDisp < minimo) return precioBase
+    if (descuentoTipo[itemId] === 'monto') return Math.max(0, precioBase - valor)
+    return Math.max(0, Math.round(precioBase * (1 - valor / 100)))
+  }
+
   async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
@@ -213,10 +241,22 @@ export default function ConfirmarPedidoForm({
         .filter(p => p.nombre.trim())
         .map(p => ({ nombre: p.nombre.trim(), cantidad: parseInt(p.cantidad) || 1, precio: parseInt(p.precio) || 0, nota: p.nota.trim() || undefined }))
 
+      // El precio enviado ya incluye el descuento aplicado (si corresponde según la cantidad)
+      const preciosConDescuento = Object.fromEntries(
+        items.map(i => [i.id, String(precioFinalItem(i.id))])
+      )
+      const descuentos = Object.fromEntries(
+        items.filter(i => descuentoActivo[i.id] && (parseFloat(descuentoValor[i.id]) || 0) > 0).map(i => [i.id, {
+          tipo: descuentoTipo[i.id],
+          valor: parseFloat(descuentoValor[i.id]) || 0,
+          desdeCantidad: parseInt(descuentoDesdeCantidad[i.id]) || null,
+        }])
+      )
+
       const res = await fetch(`/api/pedido/${ordenId}/confirmar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disponibles, cantidades, precios, notas, alternativas, preciosAlternativa, cantidadesAlternativa, productosAdicionales: productosAdicionalesPayload }),
+        body: JSON.stringify({ disponibles, cantidades, precios: preciosConDescuento, notas, alternativas, preciosAlternativa, cantidadesAlternativa, productosAdicionales: productosAdicionalesPayload, descuentos }),
       })
       if (!res.ok) throw new Error(await res.text())
       toast.success('¡Respuesta enviada! El taller revisará tu cotización.')
@@ -603,6 +643,52 @@ export default function ConfirmarPedidoForm({
                         className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                     </div>
+
+                    {/* Descuento por ítem */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!descuentoActivo[item.id]}
+                          onChange={e => setDescuentoActivo(prev => ({ ...prev, [item.id]: e.target.checked }))}
+                          className="w-4 h-4 rounded accent-amber-600"
+                        />
+                        <span className="text-xs font-medium text-amber-800">🏷️ Este producto tiene descuento</span>
+                      </label>
+                      {descuentoActivo[item.id] && (
+                        <div className="space-y-2 pl-1">
+                          <div className="flex items-center gap-2">
+                            <div className="flex border border-amber-300 rounded-lg overflow-hidden text-xs shrink-0">
+                              <button type="button" onClick={() => setDescuentoTipo(prev => ({ ...prev, [item.id]: 'porcentaje' }))}
+                                className={`px-2.5 py-1.5 font-semibold ${descuentoTipo[item.id] !== 'monto' ? 'bg-amber-500 text-white' : 'bg-white text-amber-700'}`}>%</button>
+                              <button type="button" onClick={() => setDescuentoTipo(prev => ({ ...prev, [item.id]: 'monto' }))}
+                                className={`px-2.5 py-1.5 font-semibold ${descuentoTipo[item.id] === 'monto' ? 'bg-amber-500 text-white' : 'bg-white text-amber-700'}`}>$</button>
+                            </div>
+                            <input
+                              type="number" min={0}
+                              placeholder={descuentoTipo[item.id] === 'monto' ? 'Ej: 1000' : 'Ej: 10'}
+                              value={descuentoValor[item.id] ?? ''}
+                              onChange={e => setDescuentoValor(prev => ({ ...prev, [item.id]: e.target.value }))}
+                              className="flex-1 border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-amber-700">¿Solo si compran cierta cantidad? (opcional)</label>
+                            <input
+                              type="number" min={0}
+                              placeholder="Ej: 5 (vacío = aplica siempre)"
+                              value={descuentoDesdeCantidad[item.id] ?? ''}
+                              onChange={e => setDescuentoDesdeCantidad(prev => ({ ...prev, [item.id]: e.target.value }))}
+                              className="mt-1 w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                          </div>
+                          <p className="text-xs text-amber-700 font-medium">
+                            Precio final: {formatCLP(precioFinalItem(item.id))} c/u
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <label className="text-xs text-gray-500 font-medium">Nota — opcional</label>
                       <input
