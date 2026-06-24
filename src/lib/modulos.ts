@@ -13,9 +13,24 @@ export const MODULOS = [
   { key: 'configuracion', label: 'Configuración',   icon: '⚙️', href: '/configuracion' },
   { key: 'catalogo_b2b',  label: 'Catálogo B2B',    icon: '🛍️', href: '/catalogo-b2b' },
   { key: 'pedidos_b2b',   label: 'Pedidos B2B',     icon: '📥', href: '/pedidos-b2b' },
+  { key: 'notificaciones',label: 'Notificaciones',  icon: '🔔', href: '/notificaciones' },
 ] as const
 
 export type ModuloKey = typeof MODULOS[number]['key']
+
+// ── Agrupación visual del sidebar en 6 categorías ────────────────────────────
+// Solo afecta cómo se agrupan los enlaces ya visibles (según tieneAccesoModulo);
+// no reemplaza MODULOS ni la lógica de permisos. Cualquier módulo nuevo debe
+// agregarse a MODULOS y luego sumarse a la categoría que corresponda aquí —
+// no se crean categorías nuevas salvo que sea un macro-proceso distinto.
+export const NAV_GROUPS: { key: string; label: string; icon: string; modulos: ModuloKey[] }[] = [
+  { key: 'operaciones',     label: 'Operaciones',                 icon: '🔧', modulos: ['reparaciones', 'servicios'] },
+  { key: 'inventario',      label: 'Inventario y Abastecimiento',  icon: '📦', modulos: ['inventario', 'compras'] },
+  { key: 'ventas_finanzas', label: 'Ventas y Finanzas',            icon: '💰', modulos: ['caja', 'contabilidad', 'informes'] },
+  { key: 'canal_b2b',       label: 'Canal B2B',                   icon: '🛍️', modulos: ['catalogo_b2b', 'pedidos_b2b'] },
+  { key: 'personal',        label: 'Personal y Contactos',         icon: '👥', modulos: ['clientes', 'usuarios'] },
+  { key: 'config_soporte',  label: 'Configuración y Soporte',     icon: '⚙️', modulos: ['configuracion', 'manuales', 'notificaciones'] },
+]
 
 // ── Sub-permisos por módulo ────────────────────────────────────────────────────
 export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: string; desc: string }[]>> = {
@@ -75,10 +90,10 @@ export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: strin
 
 // ── Acceso a módulo por defecto según rol ────────────────────────────────────
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
-  administrador:     ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'usuarios', 'informes', 'contabilidad', 'servicios', 'manuales', 'configuracion', 'pedidos_b2b'],
-  tecnico:           ['dashboard', 'reparaciones', 'inventario', 'servicios', 'manuales', 'informes'],
-  vendedor:          ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'servicios', 'informes', 'pedidos_b2b'],
-  supervisor_ventas: ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'servicios', 'manuales', 'informes', 'pedidos_b2b'],
+  administrador:     ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'usuarios', 'informes', 'contabilidad', 'servicios', 'manuales', 'configuracion', 'pedidos_b2b', 'notificaciones'],
+  tecnico:           ['dashboard', 'reparaciones', 'inventario', 'servicios', 'manuales', 'informes', 'notificaciones'],
+  vendedor:          ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'servicios', 'informes', 'pedidos_b2b', 'notificaciones'],
+  supervisor_ventas: ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'servicios', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones'],
   comprador_externo: ['catalogo_b2b', 'pedidos_b2b'],
 }
 

@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils'
 import { UserProfile } from '@/types'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
-import { MODULOS, tieneAccesoModulo } from '@/lib/modulos'
+import { useEffect, useRef, useState } from 'react'
+import { MODULOS, NAV_GROUPS, ModuloKey, tieneAccesoModulo } from '@/lib/modulos'
 import NotificacionesBell from '@/components/layout/NotificacionesBell'
 
 const ROL_LABEL: Record<string, string> = {
@@ -27,6 +27,23 @@ const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
   '/pedidos-b2b': 'pedidosB2B',
 }
 
+type Modulo = typeof MODULOS[number]
+
+function esActivo(pathname: string, href: string) {
+  return pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+}
+
+function grupoQueContiene(pathname: string): string | null {
+  for (const grupo of NAV_GROUPS) {
+    const contiene = grupo.modulos.some(key => {
+      const item = MODULOS.find(m => m.key === key)
+      return item ? esActivo(pathname, item.href) : false
+    })
+    if (contiene) return grupo.key
+  }
+  return null
+}
+
 export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
   user: UserProfile | null
   logoUrl?: string | null
@@ -36,12 +53,41 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const navRef = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState(false)
+  const [gruposAbiertos, setGruposAbiertos] = useState<Record<string, boolean>>(() => {
+    const inicial = grupoQueContiene(pathname)
+    return inicial ? { [inicial]: true } : {}
+  })
+  const [flyout, setFlyout] = useState<string | null>(null)
   const roleName = user?.roles?.nombre ?? ''
 
   const visibleItems = MODULOS.filter(m =>
     tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)
   )
+  const visibleKeys = new Set(visibleItems.map(m => m.key))
+  const dashboardItem = visibleItems.find(m => m.key === 'dashboard')
+
+  // Al cambiar de ruta, asegurar que el grupo correspondiente quede abierto
+  useEffect(() => {
+    const activo = grupoQueContiene(pathname)
+    if (activo) setGruposAbiertos(prev => prev[activo] ? prev : { ...prev, [activo]: true })
+    setFlyout(null)
+  }, [pathname])
+
+  // Cerrar el flyout (modo colapsado) al hacer click fuera del sidebar
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setFlyout(null)
+    }
+    if (flyout) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [flyout])
+
+  function alertaDe(item: Modulo) {
+    const key = ALERTA_POR_HREF[item.href]
+    return key ? (alertas?.[key] ?? 0) : 0
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -56,6 +102,30 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
     .slice(0, 2)
     .join('')
     .toUpperCase() ?? 'U'
+
+  function renderLink(item: Modulo) {
+    const isActive = esActivo(pathname, item.href)
+    const cantidadAlerta = alertaDe(item)
+    const mostrarBadge = !isActive && cantidadAlerta > 0
+    return (
+      <Link
+        href={item.href}
+        onClick={() => setFlyout(null)}
+        className={cn(
+          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative',
+          isActive ? 'bg-blue-700 text-white' : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+        )}
+      >
+        <span className="text-base shrink-0">{item.icon}</span>
+        <span className="truncate flex-1">{item.label}</span>
+        {mostrarBadge && (
+          <span className="bg-orange-400 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center animate-pulse">
+            {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
+          </span>
+        )}
+      </Link>
+    )
+  }
 
   return (
     <aside className={cn(
@@ -90,44 +160,71 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 overflow-y-auto">
+      <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden" ref={navRef}>
         <ul className="space-y-1 px-2">
-          {visibleItems.map((item) => {
-            const isActive = pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href))
-            const alertaKey = ALERTA_POR_HREF[item.href]
-            const cantidadAlerta = alertaKey ? (alertas?.[alertaKey] ?? 0) : 0
-            const badgeCompras = !isActive && cantidadAlerta > 0
+          {dashboardItem && <li>{renderLink(dashboardItem)}</li>}
+
+          {NAV_GROUPS.map(grupo => {
+            const itemsDelGrupo = grupo.modulos
+              .filter((k): k is ModuloKey => visibleKeys.has(k))
+              .map(k => visibleItems.find(m => m.key === k)!)
+            if (itemsDelGrupo.length === 0) return null
+
+            const grupoActivo = itemsDelGrupo.some(item => esActivo(pathname, item.href))
+            const abierto = !!gruposAbiertos[grupo.key]
+            const badgeGrupo = itemsDelGrupo.reduce((s, item) => s + alertaDe(item), 0)
+            const mostrarBadgeGrupo = !grupoActivo && badgeGrupo > 0
+
             return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
+              <li key={grupo.key} className="relative">
+                <button
+                  type="button"
+                  title={collapsed ? grupo.label : undefined}
+                  onClick={() => {
+                    if (collapsed) { setFlyout(f => f === grupo.key ? null : grupo.key); return }
+                    setGruposAbiertos(prev => ({ ...prev, [grupo.key]: !prev[grupo.key] }))
+                  }}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative',
-                    isActive
-                      ? 'bg-blue-700 text-white'
-                      : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                    grupoActivo ? 'text-white bg-blue-800/60' : 'text-blue-200 hover:bg-blue-800 hover:text-white'
                   )}
-                  title={collapsed ? item.label : undefined}
                 >
                   <span className="text-lg shrink-0 relative">
-                    {item.icon}
-                    {badgeCompras && (
+                    {grupo.icon}
+                    {collapsed && mostrarBadgeGrupo && (
                       <span className="absolute -top-1 -left-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center text-white font-bold animate-pulse"
                         style={{ fontSize: '9px', lineHeight: '1' }}>
-                        {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
+                        {badgeGrupo > 9 ? '9+' : badgeGrupo}
                       </span>
                     )}
                   </span>
-                  {!collapsed && (
-                    <span className="truncate flex-1">{item.label}</span>
-                  )}
-                  {!collapsed && badgeCompras && (
-                    <span className="ml-auto bg-orange-400 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center animate-pulse">
-                      {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
+                  {!collapsed && <span className="truncate flex-1 text-left">{grupo.label}</span>}
+                  {!collapsed && mostrarBadgeGrupo && (
+                    <span className="bg-orange-400 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center animate-pulse">
+                      {badgeGrupo > 9 ? '9+' : badgeGrupo}
                     </span>
                   )}
-                </Link>
+                  {!collapsed && (
+                    <span className={cn('text-xs text-blue-400 transition-transform shrink-0', abierto && 'rotate-90')}>▸</span>
+                  )}
+                </button>
+
+                {/* Expandido en línea (sidebar ancho) */}
+                {!collapsed && abierto && (
+                  <ul className="mt-1 ml-4 pl-3 border-l border-blue-800 space-y-0.5">
+                    {itemsDelGrupo.map(item => <li key={item.href}>{renderLink(item)}</li>)}
+                  </ul>
+                )}
+
+                {/* Flyout (sidebar colapsado) */}
+                {collapsed && flyout === grupo.key && (
+                  <div className="absolute left-full top-0 ml-1 z-[100] bg-blue-900 border border-blue-700 rounded-xl shadow-2xl py-2 w-56">
+                    <p className="px-3 pb-1.5 text-xs font-semibold text-blue-400 uppercase tracking-wide">{grupo.label}</p>
+                    <ul className="space-y-0.5 px-1">
+                      {itemsDelGrupo.map(item => <li key={item.href}>{renderLink(item)}</li>)}
+                    </ul>
+                  </div>
+                )}
               </li>
             )
           })}

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { MODULOS, tieneAccesoModulo } from '@/lib/modulos'
+import { MODULOS, NAV_GROUPS, ModuloKey, tieneAccesoModulo } from '@/lib/modulos'
 import { UserProfile } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -29,6 +29,8 @@ const SHORT_LABEL: Record<string, string> = {
   configuracion:'Config',
   catalogo_b2b: 'Catálogo',
   pedidos_b2b:  'Pedidos',
+  contabilidad: 'Contab.',
+  notificaciones: 'Avisos',
 }
 
 // Módulos que siempre van en la barra inferior (los más usados)
@@ -99,38 +101,71 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
               >✕</button>
             </div>
 
-            {/* Grid de módulos */}
-            <div className="p-4 grid grid-cols-3 gap-3">
-              {drawerItems.map(item => {
-                const isActive = pathname === item.href ||
-                  (item.href !== '/dashboard' && pathname.startsWith(item.href))
-                const alertaKey = ALERTA_POR_HREF[item.href]
-                const cantidadAlerta = alertaKey ? (alertas?.[alertaKey] ?? 0) : 0
-                const mostrarBadge = !isActive && cantidadAlerta > 0
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setDrawerOpen(false)}
-                    className={cn(
-                      'relative flex flex-col items-center gap-2 py-4 px-2 rounded-xl border transition-colors',
-                      isActive
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
-                    )}
-                  >
-                    {mostrarBadge && (
-                      <span className="absolute top-2 left-2 bg-orange-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
-                        {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
+            {/* Grid de módulos, agrupado por categoría */}
+            <div className="p-4 space-y-4 max-h-[50vh] overflow-y-auto">
+              {(() => {
+                const drawerKeys = new Set(drawerItems.map(m => m.key))
+                const gruposConItems = NAV_GROUPS
+                  .map(grupo => ({
+                    grupo,
+                    items: grupo.modulos.filter((k): k is ModuloKey => drawerKeys.has(k)).map(k => drawerItems.find(m => m.key === k)!),
+                  }))
+                  .filter(g => g.items.length > 0)
+                const keysAgrupadas = new Set(gruposConItems.flatMap(g => g.items.map(i => i.key)))
+                const sueltos = drawerItems.filter(m => !keysAgrupadas.has(m.key))
+
+                function renderItem(item: typeof drawerItems[number]) {
+                  const isActive = pathname === item.href ||
+                    (item.href !== '/dashboard' && pathname.startsWith(item.href))
+                  const alertaKey = ALERTA_POR_HREF[item.href]
+                  const cantidadAlerta = alertaKey ? (alertas?.[alertaKey] ?? 0) : 0
+                  const mostrarBadge = !isActive && cantidadAlerta > 0
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setDrawerOpen(false)}
+                      className={cn(
+                        'relative flex flex-col items-center gap-2 py-4 px-2 rounded-xl border transition-colors',
+                        isActive
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
+                      )}
+                    >
+                      {mostrarBadge && (
+                        <span className="absolute top-2 left-2 bg-orange-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                          {cantidadAlerta > 9 ? '9+' : cantidadAlerta}
+                        </span>
+                      )}
+                      <span className="text-2xl leading-none">{item.icon}</span>
+                      <span className="text-xs font-medium text-center leading-tight">
+                        {SHORT_LABEL[item.key] ?? item.label}
                       </span>
+                    </Link>
+                  )
+                }
+
+                return (
+                  <>
+                    {gruposConItems.map(({ grupo, items }) => (
+                      <div key={grupo.key}>
+                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1">{grupo.icon} {grupo.label}</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          {items.map(renderItem)}
+                        </div>
+                      </div>
+                    ))}
+                    {sueltos.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1">Otros</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          {sueltos.map(renderItem)}
+                        </div>
+                      </div>
                     )}
-                    <span className="text-2xl leading-none">{item.icon}</span>
-                    <span className="text-xs font-medium text-center leading-tight">
-                      {SHORT_LABEL[item.key] ?? item.label}
-                    </span>
-                  </Link>
+                  </>
                 )
-              })}
+              })()}
             </div>
 
             {/* Accesos rápidos */}
