@@ -28,6 +28,12 @@ function formatFecha(fecha: string) {
   })
 }
 
+// Fecha corta (DD-MM-YY) para la etiqueta 50x30mm, donde el ancho es muy acotado
+function formatFechaCorta(fecha: string) {
+  const d = new Date(fecha.includes('T') ? fecha : fecha + 'T00:00:00')
+  return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
 function formatMonto(n?: number | null) {
   if (!n) return null
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(n)
@@ -59,10 +65,20 @@ function LabelPreview50x30({ ot, cliente, equipo, qrDataUrl }: { ot: EtiquetaPro
           ? <img src={qrDataUrl} style={{ width: '100%', height: '100%' }} />
           : <QRCode value={`${ot.numero_ot}`} size={90} level="M" style={{ width: '100%', height: '100%' }} />}
       </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.8mm' }}>
-        <div style={{ fontWeight: 'bold', fontSize: '11pt', lineHeight: 1.1 }}>{ot.numero_ot}</div>
-        <div style={{ fontSize: '7pt', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cliente.nombre}</div>
-        <div style={{ fontSize: '6.5pt', lineHeight: 1.2, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{equipoStr}</div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.6mm' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '10pt', lineHeight: 1.1 }}>{ot.numero_ot}</div>
+        <div style={{ fontSize: '6.5pt', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cliente.nombre}</div>
+        <div style={{ fontSize: '6pt', lineHeight: 1.2, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{equipoStr}</div>
+        {equipo.falla_reportada && (
+          <div style={{ fontSize: '6pt', lineHeight: 1.2, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {equipo.falla_reportada}
+          </div>
+        )}
+        {ot.fecha_estimada_entrega && (
+          <div style={{ fontSize: '6pt', fontWeight: 'bold', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+            Ent: {formatFechaCorta(ot.fecha_estimada_entrega)}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -165,10 +181,12 @@ export default function EtiquetaTermica({ ot, cliente, equipo, config, baseUrl }
   <div style="flex-shrink:0;width:24mm;height:24mm;display:flex;align-items:center;justify-content:center;">
     <img src="${qrDataUrl}" style="width:100%;height:100%;" />
   </div>
-  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:0.8mm;">
-    <div style="font-weight:bold;font-size:11pt;line-height:1.1;">${ot.numero_ot}</div>
-    <div style="font-size:7pt;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cliente.nombre}</div>
-    <div style="font-size:6.5pt;line-height:1.2;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${equipo_str}</div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:0.6mm;">
+    <div style="font-weight:bold;font-size:10pt;line-height:1.1;">${ot.numero_ot}</div>
+    <div style="font-size:6.5pt;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cliente.nombre}</div>
+    <div style="font-size:6pt;line-height:1.2;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${equipo_str}</div>
+    ${equipo.falla_reportada ? `<div style="font-size:6pt;line-height:1.2;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${equipo.falla_reportada}</div>` : ''}
+    ${ot.fecha_estimada_entrega ? `<div style="font-size:6pt;font-weight:bold;line-height:1.2;white-space:nowrap;">Ent: ${formatFechaCorta(ot.fecha_estimada_entrega)}</div>` : ''}
   </div>
 </div>
 </body>
