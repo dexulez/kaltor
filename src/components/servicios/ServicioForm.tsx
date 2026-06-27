@@ -162,9 +162,10 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
       )
     }
 
-    // Si venimos de una OT y es creación nueva, aplicar el servicio automáticamente
-    const otId = !servicio ? returnTo?.match(/\/reparaciones\/([^/?]+)/)?.[1] : null
-    if (otId && serviceId) {
+    // Si venimos de una OT, en creación se aplica el servicio automáticamente;
+    // en edición solo hace falta recalcular el precio (la OT ya lo tenía aplicado)
+    const otId = returnTo?.match(/\/reparaciones\/([^/?]+)/)?.[1] ?? null
+    if (!servicio && otId && serviceId) {
       await supabase.from('repair_order_services').insert({
         repair_order_id: otId,
         service_id: serviceId,
@@ -182,7 +183,11 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
           }))
         )
       }
-      // Recalcular precio_servicio de la OT
+    }
+
+    if (otId) {
+      // Recalcular precio_servicio de la OT — necesario tanto al crear y aplicar
+      // como al editar el precio de un servicio ya aplicado (queda desactualizado si no)
       const [{ data: itsData }, { data: srvRows }] = await Promise.all([
         supabase.from('repair_items').select('precio_venta, precio_costo, cantidad').eq('repair_order_id', otId),
         supabase.from('repair_order_services').select('service_id').eq('repair_order_id', otId),
@@ -196,7 +201,7 @@ export default function ServicioForm({ servicio, returnTo }: Props) {
         totalServicios = (srvData ?? []).reduce((s: number, srv: { precio_base: number }) => s + (srv.precio_base ?? 0), 0)
       }
       await supabase.from('repair_orders').update({ precio_servicio: totalItems + totalServicios }).eq('id', otId)
-      toast.success('Servicio creado y aplicado a la OT')
+      toast.success(!servicio ? 'Servicio creado y aplicado a la OT' : 'Servicio actualizado — precio de la OT recalculado')
     } else {
       toast.success(servicio ? 'Servicio actualizado' : 'Servicio creado')
     }
