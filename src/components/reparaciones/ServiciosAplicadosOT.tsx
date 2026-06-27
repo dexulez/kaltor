@@ -43,7 +43,7 @@ export default function ServiciosAplicadosOT({ otId }: { otId: string }) {
       .from('repair_order_services')
       .select('id, service_id')
       .eq('repair_order_id', otId)
-      .order('created_at')
+      .order('applied_at')
 
     if (!rows?.length) { setAplicados([]); setLoading(false); return }
 
@@ -91,9 +91,11 @@ export default function ServiciosAplicadosOT({ otId }: { otId: string }) {
       tipo_reparacion: s.tipo_reparacion,
     }).eq('id', otId)
 
+    const { data: { user } } = await supabase.auth.getUser()
     const { data: nuevo, error } = await supabase.from('repair_order_services').insert({
       repair_order_id: otId,
       service_id: s.id,
+      applied_by: user?.id ?? null,
     }).select('id, service_id, repair_services(nombre, precio_base)').single()
 
     let nuevosAplicados = aplicados

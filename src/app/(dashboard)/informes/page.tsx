@@ -1828,6 +1828,7 @@ async function TabAuditoria({ desde, hasta, puedeExportar }: { desde: string; ha
     { data: sesionesData },
     { data: stockData },
     { data: otsData },
+    { data: serviciosAplicadosData },
   ] = await Promise.all([
     supabase.from('sales')
       .select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, usuario_id, customers(nombre)')
@@ -1849,6 +1850,10 @@ async function TabAuditoria({ desde, hasta, puedeExportar }: { desde: string; ha
       .select('id, numero_ot, created_at, tecnico_id, equipment(tipo_equipo, marca, modelo), customers(nombre)')
       .gte('created_at', desdeIso).lte('created_at', hastaIso)
       .order('created_at', { ascending: false }).limit(100),
+    supabase.from('repair_order_services')
+      .select('id, applied_at, applied_by, repair_services(nombre), repair_orders(numero_ot, customers(nombre))')
+      .gte('applied_at', desdeIso).lte('applied_at', hastaIso)
+      .order('applied_at', { ascending: false }).limit(200),
   ])
 
   // Recolectar todos los user IDs únicos y hacer un solo lookup
@@ -1859,6 +1864,7 @@ async function TabAuditoria({ desde, hasta, puedeExportar }: { desde: string; ha
     ...(otsData ?? []).map((o: Record<string, unknown>) => o.tecnico_id as string).filter(Boolean),
     ...(sesionesData ?? []).map((s: Record<string, unknown>) => s.usuario_id as string).filter(Boolean),
     ...(sesionesData ?? []).map((s: Record<string, unknown>) => s.usuario_cierre_id as string).filter(Boolean),
+    ...(serviciosAplicadosData ?? []).map((s: Record<string, unknown>) => s.applied_by as string).filter(Boolean),
   ])]
 
   const { data: perfilesData } = allUserIds.length > 0
@@ -1956,6 +1962,22 @@ async function TabAuditoria({ desde, hasta, puedeExportar }: { desde: string; ha
       accion: 'OT creada',
       detalle: `${or2.numero_ot} · ${(cliente?.nombre as string) ?? '—'} · ${equipoDesc}`,
       color: 'bg-cyan-100 text-cyan-700',
+    })
+  })
+
+  // Servicios aplicados a OTs
+  ;(serviciosAplicadosData ?? []).forEach(s => {
+    const sr = s as Record<string, unknown>
+    const ot = normRel(sr.repair_orders)
+    const cliente = ot ? normRel(ot.customers as unknown) : null
+    const servicio = normRel(sr.repair_services)
+    entries.push({
+      fecha: sr.applied_at as string,
+      usuario: nombreUsuario(sr.applied_by as string),
+      modulo: '🔩 Servicios',
+      accion: 'Servicio aplicado',
+      detalle: `${(ot?.numero_ot as string) ?? ''} · ${(cliente?.nombre as string) ?? '—'} · ${(servicio?.nombre as string) ?? '—'}`,
+      color: 'bg-indigo-100 text-indigo-700',
     })
   })
 
