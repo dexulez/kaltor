@@ -179,6 +179,13 @@ export default function ConfirmarPedidoForm({
   const [precios, setPrecios] = useState<Record<string, string>>(
     Object.fromEntries(items.map(i => [i.id, i.precio_cotizado ? String(i.precio_cotizado) : (i.precio_unitario > 0 ? String(i.precio_unitario) : '')]))
   )
+  // Precio final por ítem, corregible justo antes de despachar (etapa "envío")
+  const [preciosFinales, setPreciosFinales] = useState<Record<string, string>>(
+    Object.fromEntries(items.map(i => {
+      const precio = i.precio_aceptado ?? i.precio_cotizado ?? i.precio_unitario
+      return [i.id, precio > 0 ? String(precio) : '']
+    }))
+  )
   const [descuentoActivo, setDescuentoActivo] = useState<Record<string, boolean>>(
     Object.fromEntries(items.map(i => [i.id, !!i.descuento_valor]))
   )
@@ -329,6 +336,13 @@ export default function ConfirmarPedidoForm({
     try {
       const fd = new FormData()
       if (foto) fd.append('foto', foto, 'comprobante.jpg')
+
+      const preciosCorregidos = Object.fromEntries(
+        items
+          .filter(i => i.disponible_proveedor !== false && (parseInt(preciosFinales[i.id]) || 0) > 0)
+          .map(i => [i.id, parseInt(preciosFinales[i.id])])
+      )
+      fd.append('precios', JSON.stringify(preciosCorregidos))
 
       const res = await fetch(`/api/pedido/${ordenId}/envio`, { method: 'POST', body: fd })
       if (!res.ok) throw new Error(await res.text())
@@ -554,30 +568,31 @@ export default function ConfirmarPedidoForm({
         <BarraEstado estado={estadoLocal} />
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
-          <p className="text-xs font-semibold text-blue-800 uppercase">📦 Preparando tu pedido</p>
-          <p className="text-sm text-blue-700">Cuando esté listo y despachado, confirma el envío:</p>
-          <ul className="space-y-1 mt-1">
-            {items.filter(i => i.disponible_proveedor !== false).map(i => {
-              const precioFinal = i.precio_aceptado ?? i.precio_cotizado ?? i.precio_unitario
-              return (
-                <li key={i.id} className="text-sm text-gray-800 flex items-baseline justify-between gap-2">
-                  <span>• {i.nombre} × {i.cantidad_solicitada}</span>
-                  {precioFinal > 0 && (
-                    <span className="text-right shrink-0">
-                      <span className="text-gray-700 font-semibold">{formatCLP(precioFinal * i.cantidad_solicitada)}</span>
-                      <span className="text-gray-400 text-xs ml-1">({formatCLP(precioFinal)} c/u)</span>
-                    </span>
-                  )}
-                </li>
-              )
-            })}
+          <p className="text-xs font-semibold text-blue-800 uppercase">📦 Lista preliminar — revisa antes de despachar</p>
+          <p className="text-sm text-blue-700">Confirma que el precio final coincide con lo que estás cobrando. Si varió por unos pesos, corrígelo aquí:</p>
+          <ul className="space-y-2 mt-1">
+            {items.filter(i => i.disponible_proveedor !== false).map(i => (
+              <li key={i.id} className="text-sm text-gray-800 flex items-center justify-between gap-2">
+                <span className="flex-1 min-w-0 truncate">• {i.nombre} × {i.cantidad_solicitada}</span>
+                <div className="text-right shrink-0">
+                  <input
+                    type="number" min={0}
+                    value={preciosFinales[i.id] ?? ''}
+                    onChange={e => setPreciosFinales(prev => ({ ...prev, [i.id]: e.target.value }))}
+                    placeholder="c/u"
+                    className="w-24 border border-blue-300 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  <span className="text-gray-400 text-xs ml-1">c/u</span>
+                </div>
+              </li>
+            ))}
           </ul>
           <div className="border-t border-blue-200 pt-2 flex items-baseline justify-between">
-            <span className="text-sm font-semibold text-blue-800">Total</span>
+            <span className="text-sm font-semibold text-blue-800">Total final</span>
             <span className="text-base font-bold text-blue-900">
               {formatCLP(items
                 .filter(i => i.disponible_proveedor !== false)
-                .reduce((s, i) => s + (i.precio_aceptado ?? i.precio_cotizado ?? i.precio_unitario) * i.cantidad_solicitada, 0))}
+                .reduce((s, i) => s + (parseInt(preciosFinales[i.id]) || 0) * i.cantidad_solicitada, 0))}
             </span>
           </div>
         </div>

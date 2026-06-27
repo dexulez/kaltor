@@ -11,6 +11,7 @@ export async function POST(
   try {
     const formData = await req.formData()
     const foto = formData.get('foto') as File | null
+    const preciosRaw = formData.get('precios') as string | null
 
     let fotoUrl: string | null = null
 
@@ -26,6 +27,44 @@ export async function POST(
       }
       const { data } = supabase.storage.from('ot-fotos').getPublicUrl(path)
       fotoUrl = data.publicUrl
+    }
+
+    // Corrección de precio final del proveedor justo antes de despachar: se guarda como
+    // precio_aceptado (el campo que ya prioriza el resto del sistema) y se recalculan
+    // subtotal y total de la OC para que coincidan con lo que el proveedor está cobrando.
+    if (preciosRaw) {
+      try {
+        const preciosCorregidos = JSON.parse(preciosRaw) as Record<string, number>
+        const { data: itemsOC } = await supabase
+          .from('purchase_order_items')
+          .select('id, cantidad_solicitada, disponible_proveedor, precio_aceptado, precio_cotizado, precio_unitario')
+          .eq('purchase_order_id', id)
+
+        if (itemsOC && itemsOC.length > 0) {
+          await Promise.all(itemsOC.map(item => {
+            const nuevoPrecio = preciosCorregidos[item.id]
+            if (!(nuevoPrecio > 0)) return null
+            return supabase.from('purchase_order_items')
+              .update({ precio_aceptado: nuevoPrecio, subtotal: nuevoPrecio * item.cantidad_solicitada })
+              .eq('id', item.id)
+          }))
+
+          const { data: ordenActual } = await supabase
+            .from('purchase_orders').select('costo_envio_total').eq('id', id).single()
+          const costoEnvio = (ordenActual as { costo_envio_total?: number } | null)?.costo_envio_total ?? 0
+          const nuevoTotal = itemsOC
+            .filter(i => i.cantidad_solicitada > 0 && i.disponible_proveedor !== false)
+            .reduce((s, item) => {
+              const precio = preciosCorregidos[item.id] > 0
+                ? preciosCorregidos[item.id]
+                : (item.precio_aceptado ?? item.precio_cotizado ?? item.precio_unitario)
+              return s + precio * item.cantidad_solicitada
+            }, 0) + costoEnvio
+          await supabase.from('purchase_orders').update({ total: nuevoTotal }).eq('id', id)
+        }
+      } catch (e) {
+        console.error('[confirmar envio] error al recalcular precios finales', e)
+      }
     }
 
     // Guardar URL del comprobante y avanzar estado
