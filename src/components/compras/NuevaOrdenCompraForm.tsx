@@ -115,7 +115,11 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
     if (!producto) return
     const stockAnterior = producto.stock_actual
     const stockNuevo = stockAnterior + item.cantidad_solicitada
-    await supabase.from('products').update({ stock_actual: stockNuevo, activo: true }).eq('id', productId)
+    await supabase.from('products').update({
+      stock_actual: stockNuevo,
+      activo: true,
+      ...(item.precio_unitario > 0 ? { precio_costo: item.precio_unitario } : {}),
+    }).eq('id', productId)
     await supabase.from('stock_movements').insert({
       product_id: productId,
       tipo: 'entrada',

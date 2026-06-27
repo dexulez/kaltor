@@ -22,6 +22,13 @@ export async function POST(
     }
     const { disponibles, cantidades = {}, precios = {}, notas = {}, alternativas = {}, preciosAlternativa = {}, cantidadesAlternativa = {}, productosAdicionales = [], descuentos = {} } = body
 
+    // Cantidad solicitada original de cada item, para recalcular subtotal cuando cambie el precio cotizado
+    const { data: itemsActuales } = await supabase
+      .from('purchase_order_items')
+      .select('id, cantidad_solicitada')
+      .in('id', Object.keys(disponibles))
+    const cantidadSolicitadaPorId = new Map((itemsActuales ?? []).map(i => [i.id, i.cantidad_solicitada as number]))
+
     // Paso 1: update solo disponible_proveedor (columna que siempre existe)
     await Promise.all(
       Object.entries(disponibles).map(([itemId, disp]) =>
@@ -38,8 +45,11 @@ export async function POST(
         const tryUpdate = (payload: Record<string, unknown>) =>
           supabase.from('purchase_order_items').update(payload).eq('id', itemId)
 
-        if (precios[itemId])
-          await tryUpdate({ precio_cotizado: parseInt(precios[itemId]) })
+        if (precios[itemId]) {
+          const precioCotizado = parseInt(precios[itemId])
+          const cantidadSolicitada = cantidadSolicitadaPorId.get(itemId) ?? 0
+          await tryUpdate({ precio_cotizado: precioCotizado, subtotal: precioCotizado * cantidadSolicitada })
+        }
         if (cantidades[itemId])
           await tryUpdate({ cantidad_disponible_proveedor: parseInt(cantidades[itemId]) })
         if (notas[itemId]?.trim())

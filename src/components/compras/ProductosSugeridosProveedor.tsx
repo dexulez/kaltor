@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { formatCLP } from '@/lib/calculations'
@@ -24,6 +25,7 @@ interface Props {
 
 export default function ProductosSugeridosProveedor({ ordenId, items, supplierId }: Props) {
   const supabase = createClient()
+  const router = useRouter()
   const [aceptandoId, setAceptandoId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [categorias, setCategorias] = useState<Category[]>([])
@@ -68,7 +70,7 @@ export default function ProductosSugeridosProveedor({ ordenId, items, supplierId
       }
       toast.success(`"${item.nombre}" agregado al inventario`)
       setAceptandoId(null)
-      window.location.reload()
+      router.refresh()
     } catch {
       toast.error('Error de conexión')
     } finally {
@@ -81,7 +83,7 @@ export default function ProductosSugeridosProveedor({ ordenId, items, supplierId
     setLoading(true)
     const { error } = await supabase.from('purchase_order_items').delete().eq('id', itemId)
     if (error) toast.error(error.message)
-    else { toast.success('Sugerencia eliminada'); window.location.reload() }
+    else { toast.success('Sugerencia eliminada'); router.refresh() }
     setLoading(false)
   }
 

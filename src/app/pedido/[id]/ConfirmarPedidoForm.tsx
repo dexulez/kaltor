@@ -807,18 +807,9 @@ export default function ConfirmarPedidoForm({
 
         {/* Productos adicionales */}
         <div className="px-5 py-4 border-t bg-violet-50 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-violet-800">¿Tienes productos adicionales?</p>
-              <p className="text-xs text-violet-600">Ofrécenos productos que no están en esta solicitud</p>
-            </div>
-            <button
-              type="button"
-              onClick={agregarProducto}
-              className="text-xs bg-violet-100 hover:bg-violet-200 text-violet-700 px-3 py-1.5 rounded-lg font-medium transition-colors"
-            >
-              + Agregar
-            </button>
+          <div>
+            <p className="text-sm font-semibold text-violet-800">¿Tienes productos adicionales?</p>
+            <p className="text-xs text-violet-600">Ofrécenos productos que no están en esta solicitud</p>
           </div>
           {productosAdicionales.map(prod => (
             <div key={prod.id} className="bg-white border border-violet-200 rounded-xl p-3 space-y-2">
@@ -913,6 +904,13 @@ export default function ConfirmarPedidoForm({
               </div>
             </div>
           ))}
+          <button
+            type="button"
+            onClick={agregarProducto}
+            className="w-full text-xs bg-violet-100 hover:bg-violet-200 text-violet-700 px-3 py-2 rounded-lg font-medium transition-colors"
+          >
+            + Agregar
+          </button>
         </div>
 
         <div className="px-5 py-4 bg-gray-50 border-t space-y-3">
