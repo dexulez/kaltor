@@ -268,9 +268,8 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
 
       {/* Items */}
       <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="bg-gray-50 px-4 py-3 border-b flex items-center justify-between">
+        <div className="bg-gray-50 px-4 py-3 border-b">
           <p className="font-semibold text-gray-800">{compraDirecta ? 'Productos comprados' : 'Productos a ordenar'}</p>
-          <Button type="button" variant="outline" size="sm" onClick={agregarItem}>+ Agregar item</Button>
         </div>
         <div className="divide-y">
           {items.map((item) => {
@@ -347,6 +346,10 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
               </div>
             )
           })}
+        </div>
+
+        <div className="px-4 py-3 border-t">
+          <Button type="button" variant="outline" size="sm" className="w-full" onClick={agregarItem}>+ Agregar item</Button>
         </div>
 
         {/* Totales */}

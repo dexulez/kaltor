@@ -278,9 +278,8 @@ export default function EditarOrdenForm({ oc, proveedores }: Props) {
 
       {/* Ítems */}
       <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="bg-gray-50 px-4 py-3 border-b flex items-center justify-between">
+        <div className="bg-gray-50 px-4 py-3 border-b">
           <p className="font-semibold text-gray-800">Productos de la orden</p>
-          <Button type="button" size="sm" variant="outline" onClick={agregarItem}>+ Agregar ítem</Button>
         </div>
 
         <div className="overflow-x-auto">
@@ -357,6 +356,11 @@ export default function EditarOrdenForm({ oc, proveedores }: Props) {
                   </td>
                 </tr>
               ))}
+              <tr>
+                <td colSpan={6} className="px-3 py-3">
+                  <Button type="button" size="sm" variant="outline" className="w-full" onClick={agregarItem}>+ Agregar ítem</Button>
+                </td>
+              </tr>
             </tbody>
             <tfoot className="border-t bg-gray-50">
               <tr>
