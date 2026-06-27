@@ -1,35 +1,46 @@
 export const MODULOS = [
-  { key: 'dashboard',     label: 'Dashboard',      icon: '📊', href: '/dashboard' },
-  { key: 'clientes',      label: 'Clientes',        icon: '👤', href: '/clientes' },
-  { key: 'reparaciones',  label: 'Reparaciones',    icon: '🔧', href: '/reparaciones' },
-  { key: 'inventario',    label: 'Inventario',      icon: '📦', href: '/inventario' },
-  { key: 'caja',          label: 'Caja / Ventas',   icon: '💰', href: '/caja' },
-  { key: 'compras',       label: 'Compras',         icon: '🏭', href: '/compras' },
-  { key: 'usuarios',      label: 'Usuarios',        icon: '👥', href: '/usuarios' },
-  { key: 'informes',      label: 'Informes',        icon: '📈', href: '/informes' },
-  { key: 'contabilidad',  label: 'Contabilidad',    icon: '🧾', href: '/contabilidad' },
-  { key: 'servicios',     label: 'Servicios',       icon: '🔩', href: '/servicios' },
-  { key: 'manuales',      label: 'Manuales',        icon: '🧠', href: '/manuales' },
-  { key: 'configuracion', label: 'Configuración',   icon: '⚙️', href: '/configuracion' },
-  { key: 'catalogo_b2b',  label: 'Catálogo B2B',    icon: '🛍️', href: '/catalogo-b2b' },
-  { key: 'pedidos_b2b',   label: 'Pedidos B2B',     icon: '📥', href: '/pedidos-b2b' },
-  { key: 'notificaciones',label: 'Notificaciones',  icon: '🔔', href: '/notificaciones' },
+  { key: 'dashboard',     label: 'Dashboard',           icon: '📊', href: '/dashboard' },
+  { key: 'clientes',      label: 'Clientes',             icon: '👤', href: '/clientes' },
+  { key: 'reparaciones',  label: 'Reparaciones',         icon: '🔧', href: '/reparaciones' },
+  { key: 'inventario',    label: 'Inventario',           icon: '📦', href: '/inventario' },
+  { key: 'caja',          label: 'Caja',                 icon: '💰', href: '/caja' },
+  { key: 'compras',       label: 'Compras',              icon: '🏭', href: '/compras' },
+  { key: 'usuarios',      label: 'Usuarios',             icon: '👥', href: '/usuarios' },
+  { key: 'informes',      label: 'Informes',             icon: '📈', href: '/informes' },
+  { key: 'contabilidad',  label: 'Contabilidad',         icon: '🧾', href: '/contabilidad' },
+  { key: 'servicios',     label: 'Catálogo de Servicios',icon: '🔩', href: '/servicios' },
+  { key: 'manuales',      label: 'Manuales',             icon: '🧠', href: '/manuales' },
+  { key: 'configuracion', label: 'General',              icon: '⚙️', href: '/configuracion' },
+  { key: 'catalogo_b2b',  label: 'Catálogo B2B',         icon: '🛍️', href: '/catalogo-b2b' },
+  { key: 'pedidos_b2b',   label: 'Pedidos B2B',          icon: '📥', href: '/pedidos-b2b' },
+  { key: 'notificaciones',label: 'Notificaciones',       icon: '🔔', href: '/notificaciones' },
 ] as const
 
 export type ModuloKey = typeof MODULOS[number]['key']
 
-// ── Agrupación visual del sidebar en 6 categorías ────────────────────────────
+// ── Agrupación visual del sidebar ────────────────────────────────────────────
 // Solo afecta cómo se agrupan los enlaces ya visibles (según tieneAccesoModulo);
 // no reemplaza MODULOS ni la lógica de permisos. Cualquier módulo nuevo debe
-// agregarse a MODULOS y luego sumarse a la categoría que corresponda aquí —
-// no se crean categorías nuevas salvo que sea un macro-proceso distinto.
-export const NAV_GROUPS: { key: string; label: string; icon: string; modulos: ModuloKey[] }[] = [
-  { key: 'operaciones',     label: 'Operaciones',                 icon: '🔧', modulos: ['reparaciones', 'servicios'] },
-  { key: 'inventario',      label: 'Inventario y Abastecimiento',  icon: '📦', modulos: ['inventario', 'compras'] },
-  { key: 'ventas_finanzas', label: 'Ventas y Finanzas',            icon: '💰', modulos: ['caja', 'contabilidad', 'informes'] },
-  { key: 'canal_b2b',       label: 'Canal B2B',                   icon: '🛍️', modulos: ['catalogo_b2b', 'pedidos_b2b'] },
-  { key: 'personal',        label: 'Personal y Contactos',         icon: '👥', modulos: ['clientes', 'usuarios'] },
-  { key: 'config_soporte',  label: 'Configuración y Soporte',     icon: '⚙️', modulos: ['configuracion', 'manuales', 'notificaciones'] },
+// agregarse a MODULOS y luego sumarse al grupo que corresponda aquí.
+// Los grupos con `standalone: true` se muestran como un enlace directo (sin
+// encabezado colapsable) cuando solo tienen un módulo visible.
+export interface MenuGroup {
+  key: string
+  label: string
+  icon: string
+  modulos: ModuloKey[]
+  standalone?: boolean
+}
+
+export const MENU_GROUPS: MenuGroup[] = [
+  { key: 'ventas',        label: 'Ventas',        icon: '💰', modulos: ['caja', 'pedidos_b2b'] },
+  { key: 'compras',       label: 'Compras',       icon: '🏭', modulos: ['compras'], standalone: true },
+  { key: 'clientes',      label: 'Clientes',      icon: '👤', modulos: ['clientes'], standalone: true },
+  { key: 'productos',     label: 'Productos',     icon: '📦', modulos: ['inventario', 'catalogo_b2b'] },
+  { key: 'servicios',     label: 'Servicios',     icon: '🔩', modulos: ['servicios', 'reparaciones'] },
+  { key: 'informes',      label: 'Informes',      icon: '📈', modulos: ['informes'], standalone: true },
+  { key: 'contabilidad',  label: 'Contabilidad',  icon: '🧾', modulos: ['contabilidad'], standalone: true },
+  { key: 'configuracion', label: 'Configuración', icon: '⚙️', modulos: ['configuracion', 'usuarios', 'manuales', 'notificaciones'] },
 ]
 
 // ── Sub-permisos por módulo ────────────────────────────────────────────────────

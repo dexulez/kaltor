@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { MODULOS, NAV_GROUPS, ModuloKey, tieneAccesoModulo } from '@/lib/modulos'
+import { MODULOS, MENU_GROUPS, ModuloKey, tieneAccesoModulo } from '@/lib/modulos'
 import { UserProfile } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -25,8 +25,9 @@ const SHORT_LABEL: Record<string, string> = {
   compras:      'Compras',
   usuarios:     'Usuarios',
   informes:     'Informes',
+  servicios:    'Servicios',
   manuales:     'Manuales',
-  configuracion:'Config',
+  configuracion:'General',
   catalogo_b2b: 'Catálogo',
   pedidos_b2b:  'Pedidos',
   contabilidad: 'Contab.',
@@ -105,7 +106,8 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
             <div className="p-4 space-y-4 max-h-[50vh] overflow-y-auto">
               {(() => {
                 const drawerKeys = new Set(drawerItems.map(m => m.key))
-                const gruposConItems = NAV_GROUPS
+                const gruposConItems = MENU_GROUPS
+                  .filter(grupo => !grupo.standalone)
                   .map(grupo => ({
                     grupo,
                     items: grupo.modulos.filter((k): k is ModuloKey => drawerKeys.has(k)).map(k => drawerItems.find(m => m.key === k)!),

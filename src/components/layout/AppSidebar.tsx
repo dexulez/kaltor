@@ -9,7 +9,7 @@ import { UserProfile } from '@/types'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { useEffect, useRef, useState } from 'react'
-import { MODULOS, NAV_GROUPS, ModuloKey, tieneAccesoModulo } from '@/lib/modulos'
+import { MODULOS, MENU_GROUPS, ModuloKey, tieneAccesoModulo } from '@/lib/modulos'
 import NotificacionesBell from '@/components/layout/NotificacionesBell'
 
 const ROL_LABEL: Record<string, string> = {
@@ -34,7 +34,7 @@ function esActivo(pathname: string, href: string) {
 }
 
 function grupoQueContiene(pathname: string): string | null {
-  for (const grupo of NAV_GROUPS) {
+  for (const grupo of MENU_GROUPS) {
     const contiene = grupo.modulos.some(key => {
       const item = MODULOS.find(m => m.key === key)
       return item ? esActivo(pathname, item.href) : false
@@ -164,11 +164,16 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         <ul className="space-y-1 px-2">
           {dashboardItem && <li>{renderLink(dashboardItem)}</li>}
 
-          {NAV_GROUPS.map(grupo => {
+          {MENU_GROUPS.map(grupo => {
             const itemsDelGrupo = grupo.modulos
               .filter((k): k is ModuloKey => visibleKeys.has(k))
               .map(k => visibleItems.find(m => m.key === k)!)
             if (itemsDelGrupo.length === 0) return null
+
+            // Grupos "standalone" con un solo módulo visible: enlace directo, sin header colapsable
+            if (grupo.standalone && itemsDelGrupo.length === 1) {
+              return <li key={grupo.key}>{renderLink(itemsDelGrupo[0])}</li>
+            }
 
             const grupoActivo = itemsDelGrupo.some(item => esActivo(pathname, item.href))
             const abierto = !!gruposAbiertos[grupo.key]
