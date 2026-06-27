@@ -224,6 +224,13 @@ export default function ServiciosAplicadosOT({ otId }: { otId: string }) {
                   {rs?.precio_base != null && (
                     <span className="text-sm font-bold text-blue-700">{formatCLP(rs.precio_base)}</span>
                   )}
+                  <Link
+                    href={`/servicios/${a.service_id}/editar?returnTo=/reparaciones/${otId}`}
+                    className="text-gray-400 hover:text-blue-600 text-sm"
+                    title="Editar este servicio"
+                  >
+                    ✏️
+                  </Link>
                   <button onClick={() => quitar(a.id)} className="text-red-400 hover:text-red-600 text-sm">✕</button>
                 </div>
               </div>
