@@ -33,6 +33,7 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
   const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
   const [carrito, setCarrito] = useState<Record<string, number>>({})
+  const [borrador, setBorrador] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
 
   const q = busqueda.trim().toLowerCase()
@@ -51,6 +52,16 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
       }
       return { ...prev, [id]: cantidad }
     })
+  }
+
+  function quitarDelCarrito(id: string) {
+    setCantidad(id, 0)
+    setBorrador(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== id)))
+  }
+
+  function confirmarAgregar(id: string) {
+    const cantidad = parseInt(borrador[id] ?? '1') || 1
+    setCantidad(id, cantidad)
   }
 
   const itemsCarrito = useMemo(() =>
@@ -102,14 +113,23 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {filtrados.map(p => {
               const cantidad = carrito[p.id] ?? 0
+              const enPedido = cantidad > 0
               const precioActual = precioUnitarioPara(p, cantidad)
               const tieneOferta = !!p.descuentoValor && p.descuentoValor > 0
               const ofertaActiva = tieneOferta && precioActual < p.precio
+              const valorInput = borrador[p.id] ?? String(cantidad || 1)
               return (
-                <div key={p.id} className="bg-white rounded-xl border p-4 flex flex-col gap-2">
-                  <div>
-                    <p className="font-medium text-gray-900 text-sm">{p.nombre}</p>
-                    <p className="text-xs text-gray-400">{[p.categoria, p.sku].filter(Boolean).join(' · ') || '—'}</p>
+                <div key={p.id} className={`bg-white rounded-xl border-2 p-4 flex flex-col gap-2 ${enPedido ? 'border-green-400 bg-green-50/40' : 'border-gray-200'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{p.nombre}</p>
+                      <p className="text-xs text-gray-400">{[p.categoria, p.sku].filter(Boolean).join(' · ') || '—'}</p>
+                    </div>
+                    {enPedido && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500 text-white shrink-0 whitespace-nowrap">
+                        ✓ EN TU PEDIDO
+                      </span>
+                    )}
                   </div>
                   {p.descripcion && <p className="text-xs text-gray-500 line-clamp-2">{p.descripcion}</p>}
                   {tieneOferta && (
@@ -125,22 +145,25 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
                         {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
                       </p>
                     </div>
-                    {cantidad === 0 ? (
-                      <Button type="button" size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setCantidad(p.id, 1)}>
-                        + Agregar
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number" min={1}
+                        value={valorInput}
+                        onChange={e => setBorrador(prev => ({ ...prev, [p.id]: e.target.value }))}
+                        className="w-14 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      <Button
+                        type="button" size="sm"
+                        className={enPedido ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}
+                        onClick={() => confirmarAgregar(p.id)}
+                      >
+                        {enPedido ? 'Actualizar' : '+ Agregar'}
                       </Button>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number" min={1}
-                          value={cantidad}
-                          onChange={e => setCantidad(p.id, parseInt(e.target.value) || 0)}
-                          className="w-16 border border-blue-300 rounded-lg px-2 py-1.5 text-sm text-center font-semibold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        />
-                        <button type="button" onClick={() => setCantidad(p.id, 0)}
+                      {enPedido && (
+                        <button type="button" onClick={() => quitarDelCarrito(p.id)}
                           className="w-7 h-7 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-xs text-red-500 hover:bg-red-100 shrink-0">✕</button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               )
