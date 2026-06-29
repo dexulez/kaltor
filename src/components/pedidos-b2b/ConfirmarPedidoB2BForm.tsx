@@ -30,8 +30,8 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
   const router = useRouter()
   const [filas, setFilas] = useState<Record<string, FilaEstado>>(() =>
     Object.fromEntries(items.map(it => [it.id, {
-      incluido: it.stockActual > 0,
-      cantidad: String(Math.min(it.cantidadSolicitada, Math.max(it.stockActual, 0)) || it.cantidadSolicitada),
+      incluido: true,
+      cantidad: String(it.cantidadSolicitada),
       precio: String(it.precioSugerido),
     }]))
   )
@@ -43,6 +43,12 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
 
   function set(id: string, campo: keyof FilaEstado, valor: string | boolean) {
     setFilas(prev => ({ ...prev, [id]: { ...prev[id], [campo]: valor } }))
+  }
+
+  const todosIncluidos = items.length > 0 && items.every(it => filas[it.id]?.incluido)
+
+  function toggleTodos(valor: boolean) {
+    setFilas(prev => Object.fromEntries(items.map(it => [it.id, { ...prev[it.id], incluido: valor }])))
   }
 
   const total = useMemo(() =>
@@ -69,6 +75,9 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
       }
     })
     if (Object.keys(itemsBody).length === 0) { toast.error('Marca al menos un producto para confirmar'); return }
+
+    const nProductos = Object.keys(itemsBody).length
+    if (!window.confirm(`¿Confirmar este pedido por ${formatCLP(total)} (${nProductos} producto${nProductos === 1 ? '' : 's'})?\n\nSe generará una venta en Caja y se descontará el stock.`)) return
 
     setLoading(true)
     try {
@@ -117,7 +126,12 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Incluir</th>
+                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" checked={todosIncluidos} onChange={e => toggleTodos(e.target.checked)} />
+                    Incluir
+                  </label>
+                </th>
                 <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Producto</th>
                 <th className="px-3 py-2 text-right text-xs text-gray-500 font-medium">Solicitado</th>
                 <th className="px-3 py-2 text-right text-xs text-gray-500 font-medium">Stock</th>
