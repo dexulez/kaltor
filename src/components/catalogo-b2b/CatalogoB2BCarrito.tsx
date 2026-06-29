@@ -130,12 +130,15 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
                         + Agregar
                       </Button>
                     ) : (
-                      <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-2 py-1">
-                        <button type="button" onClick={() => setCantidad(p.id, cantidad - 1)}
-                          className="w-6 h-6 rounded-full bg-white border border-blue-300 flex items-center justify-center text-sm font-bold text-blue-700">−</button>
-                        <span className="text-sm font-semibold text-blue-700 w-6 text-center">{cantidad}</span>
-                        <button type="button" onClick={() => setCantidad(p.id, cantidad + 1)}
-                          className="w-6 h-6 rounded-full bg-white border border-blue-300 flex items-center justify-center text-sm font-bold text-blue-700">+</button>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number" min={1}
+                          value={cantidad}
+                          onChange={e => setCantidad(p.id, parseInt(e.target.value) || 0)}
+                          className="w-16 border border-blue-300 rounded-lg px-2 py-1.5 text-sm text-center font-semibold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                        <button type="button" onClick={() => setCantidad(p.id, 0)}
+                          className="w-7 h-7 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-xs text-red-500 hover:bg-red-100 shrink-0">✕</button>
                       </div>
                     )}
                   </div>
