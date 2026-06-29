@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { formatCLP } from '@/lib/calculations'
 import RecibirMercanciaForm from '@/components/compras/RecibirMercanciaForm'
 import CerrarCompraForm from '@/components/compras/CerrarCompraForm'
@@ -99,7 +100,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
     <div className="p-6 space-y-5 max-w-4xl">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <Link href="/compras" className="text-sm text-blue-600 hover:underline">← Volver a Compras</Link>
+          <BotonVolver label="← Volver a Compras" />
           <div className="flex items-center gap-3 mt-1">
             <h1 className="text-2xl font-bold text-gray-900 font-mono">{orden.numero_oc}</h1>
             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${estado.color}`}>{estado.label}</span>

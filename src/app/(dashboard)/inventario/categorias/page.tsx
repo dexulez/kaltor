@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import CategoriasManager from '@/components/inventario/CategoriasManager'
 
 export default async function CategoriasPage() {
@@ -18,9 +18,7 @@ export default async function CategoriasPage() {
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href="/inventario" className="text-sm text-blue-600 hover:underline">
-          ← Volver al inventario
-        </Link>
+        <BotonVolver label="← Volver al inventario" />
         <div className="flex items-center gap-3 mt-1">
           <h1 className="text-2xl font-bold text-gray-900">Categorías de productos</h1>
           <span className="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">

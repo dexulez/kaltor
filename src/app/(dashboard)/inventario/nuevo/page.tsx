@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import ProductoForm from '@/components/inventario/ProductoForm'
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { tieneSubPermiso } from '@/lib/modulos'
 
 export default async function NuevoProductoPage({
@@ -29,7 +29,7 @@ export default async function NuevoProductoPage({
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href={returnTo ?? '/inventario'} className="text-sm text-blue-600 hover:underline">← Volver</Link>
+        <BotonVolver label="← Volver" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Nuevo producto</h1>
         {returnTo && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mt-2 inline-block">

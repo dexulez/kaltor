@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import CargaMasivaOrdenForm from '@/components/compras/CargaMasivaOrdenForm'
 
 export default async function NuevaOrdenMasivaPage() {
@@ -13,9 +13,7 @@ export default async function NuevaOrdenMasivaPage() {
   return (
     <div className="p-6 space-y-5 max-w-6xl">
       <div>
-        <Link href="/compras" className="text-sm text-blue-600 hover:underline">
-          ← Volver a Compras
-        </Link>
+        <BotonVolver label="← Volver a Compras" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Carga masiva de compra</h1>
         <p className="text-gray-500 text-sm">
           Crea una orden de compra completa desde Excel. Los productos nuevos se dan de alta automáticamente en inventario.

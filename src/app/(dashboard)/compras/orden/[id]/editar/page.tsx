@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import EditarOrdenForm from '@/components/compras/EditarOrdenForm'
+import BotonVolver from '@/components/shared/BotonVolver'
 
 export default async function EditarOrdenCompraPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,7 +20,7 @@ export default async function EditarOrdenCompraPage({ params }: { params: Promis
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href={`/compras/orden/${id}`} className="text-sm text-blue-600 hover:underline">← Volver a la OC</Link>
+        <BotonVolver label="← Volver a la OC" />
         <div className="flex items-center gap-3 mt-1">
           <h1 className="text-2xl font-bold text-gray-900 font-mono">{oc.numero_oc}</h1>
           <span className="text-sm text-gray-500">— Editar orden de compra</span>

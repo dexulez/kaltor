@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import ServicioAcciones from '@/components/servicios/ServicioAcciones'
@@ -45,7 +46,7 @@ export default async function ServicioDetallePage({ params }: { params: Promise<
     <div className="p-6 space-y-5 max-w-3xl">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <Link href="/servicios" className="text-sm text-blue-600 hover:underline">← Volver a servicios</Link>
+          <BotonVolver label="← Volver a servicios" />
           <div className="flex items-center gap-2 mt-1">
             <h1 className="text-2xl font-bold text-gray-900">{servicio.nombre}</h1>
             {!servicio.activo && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactivo</span>}

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import { Equipment, RepairOrder } from '@/types'
@@ -90,7 +91,7 @@ export default async function ClienteDetallePage({
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <Link href="/clientes" className="text-sm text-blue-600 hover:underline">← Volver a clientes</Link>
+          <BotonVolver label="← Volver a clientes" />
           <h1 className="text-2xl font-bold text-gray-900 mt-1">{cliente.nombre}</h1>
           {ultimaActividad && (
             <p className="text-xs text-gray-400 mt-0.5">

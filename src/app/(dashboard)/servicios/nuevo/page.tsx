@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import ServicioForm from '@/components/servicios/ServicioForm'
 
 export default async function NuevoServicioPage({
@@ -10,7 +10,7 @@ export default async function NuevoServicioPage({
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href={returnTo ?? '/servicios'} className="text-sm text-blue-600 hover:underline">← Volver</Link>
+        <BotonVolver label="← Volver" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Nuevo servicio</h1>
         <p className="text-gray-500 text-sm">Define un servicio con sus repuestos asociados y precio</p>
         {returnTo && (

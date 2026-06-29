@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
 import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { Button } from '@/components/ui/button'
 import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
 import AgregarFotosOT from '@/components/reparaciones/AgregarFotosOT'
@@ -124,7 +125,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
       {/* Header con acciones */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <Link href="/reparaciones" className="text-sm text-blue-600 hover:underline">← Volver</Link>
+          <BotonVolver label="← Volver" />
           <div className="flex items-center gap-3 mt-1">
             <h1 className="text-2xl font-bold text-gray-900 font-mono">{otDetalle.numero_ot}</h1>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${estado.color}`}>{estado.label}</span>

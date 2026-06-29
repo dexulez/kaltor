@@ -1,5 +1,5 @@
 ﻿import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import PosVentaDirecta from '@/components/caja/PosVentaDirecta'
 import AbrirCajaInline from '@/components/caja/AbrirCajaInline'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
@@ -65,7 +65,7 @@ export default async function VentaDirectaPage({
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href="/caja" className="text-sm text-blue-600 hover:underline">← Volver a Caja</Link>
+        <BotonVolver label="← Volver a Caja" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Venta directa</h1>
       </div>
 

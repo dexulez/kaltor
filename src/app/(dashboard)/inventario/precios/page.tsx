@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import PreciosTable from '@/components/inventario/PreciosTable'
 
 export default async function PreciosPage() {
@@ -13,7 +13,7 @@ export default async function PreciosPage() {
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href="/inventario" className="text-sm text-blue-600 hover:underline">← Volver al inventario</Link>
+        <BotonVolver label="← Volver al inventario" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Gestión de precios</h1>
         <p className="text-gray-500 text-sm">Edita precios y márgenes directamente. Visualiza utilidades unitarias y totales.</p>
       </div>

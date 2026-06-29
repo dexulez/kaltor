@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { formatCLP } from '@/lib/calculations'
 import ReimprimirCierreBtn from '@/components/caja/ReimprimirCierreBtn'
 import VentasSesionModal from '@/components/caja/VentasSesionModal'
@@ -50,7 +50,7 @@ export default async function CierresCajaPage() {
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href="/caja" className="text-sm text-blue-600 hover:underline">← Volver a Caja</Link>
+        <BotonVolver label="← Volver a Caja" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Historial de cierres de caja</h1>
         <p className="text-gray-500 text-sm mt-0.5">{cerradas.length} cierre{cerradas.length !== 1 ? 's' : ''} registrado{cerradas.length !== 1 ? 's' : ''}</p>
       </div>

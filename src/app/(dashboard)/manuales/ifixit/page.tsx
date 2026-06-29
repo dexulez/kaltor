@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { buscarIFixit } from '@/lib/ifixit'
 
 export default async function BuscarIFixitPage({
@@ -36,7 +37,7 @@ export default async function BuscarIFixitPage({
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href="/manuales" className="text-sm text-blue-600 hover:underline">← Volver a manuales</Link>
+        <BotonVolver label="← Volver a manuales" />
         <div className="flex items-center gap-3 mt-1">
           <span className="text-3xl">🌐</span>
           <div>

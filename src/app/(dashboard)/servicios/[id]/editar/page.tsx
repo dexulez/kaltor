@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import ServicioForm from '@/components/servicios/ServicioForm'
+import BotonVolver from '@/components/shared/BotonVolver'
 
 export default async function EditarServicioPage({
   params, searchParams,
@@ -23,7 +23,7 @@ export default async function EditarServicioPage({
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href={returnTo ?? '/servicios'} className="text-sm text-blue-600 hover:underline">← Volver</Link>
+        <BotonVolver label="← Volver" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Editar servicio</h1>
         <p className="text-gray-500 text-sm">{data.nombre}</p>
         {returnTo && (

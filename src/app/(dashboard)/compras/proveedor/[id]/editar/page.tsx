@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import ProveedorForm from '@/components/compras/ProveedorForm'
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 
 export default async function EditarProveedorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -12,7 +12,7 @@ export default async function EditarProveedorPage({ params }: { params: Promise<
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href="/compras" className="text-sm text-blue-600 hover:underline">← Volver</Link>
+        <BotonVolver label="← Volver" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Editar proveedor</h1>
       </div>
       <ProveedorForm proveedor={proveedor} />

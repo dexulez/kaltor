@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import NuevaOTForm from '@/components/reparaciones/NuevaOTForm'
-import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 
 type TecnicoConRol = {
   id: string
@@ -40,7 +40,7 @@ export default async function NuevaOTPage({
   return (
     <div className="p-6 space-y-5">
       <div>
-        <Link href="/reparaciones" className="text-sm text-blue-600 hover:underline">← Volver a reparaciones</Link>
+        <BotonVolver label="← Volver a reparaciones" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Nueva orden de trabajo</h1>
       </div>
       <NuevaOTForm

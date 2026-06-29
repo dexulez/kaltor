@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import EditarOTCompleto from '@/components/reparaciones/EditarOTCompleto'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { tieneSubPermiso } from '@/lib/modulos'
 
 export default async function EditarOTPage({ params }: { params: Promise<{ id: string }> }) {
@@ -55,7 +55,7 @@ export default async function EditarOTPage({ params }: { params: Promise<{ id: s
     <div className="p-6 space-y-5 max-w-3xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <Link href={`/reparaciones/${id}`} className="text-sm text-blue-600 hover:underline">← Volver a la OT</Link>
+          <BotonVolver label="← Volver a la OT" />
           <h1 className="text-2xl font-bold text-gray-900 mt-1">
             Editar OT — <span className="font-mono text-blue-700">{(ot as { numero_ot: string }).numero_ot}</span>
           </h1>

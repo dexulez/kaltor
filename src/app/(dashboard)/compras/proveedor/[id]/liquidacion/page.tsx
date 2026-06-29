@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { formatCLP } from '@/lib/calculations'
 import LiquidacionActions from '@/components/compras/LiquidacionActions'
 
@@ -95,7 +96,7 @@ export default async function LiquidacionPage({
     <div className="p-6 space-y-5 max-w-5xl">
       {/* Header */}
       <div>
-        <Link href="/compras" className="text-sm text-blue-600 hover:underline">← Volver a Compras</Link>
+        <BotonVolver label="← Volver a Compras" />
         <div className="flex items-start justify-between flex-wrap gap-3 mt-1">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{proveedor.nombre}</h1>

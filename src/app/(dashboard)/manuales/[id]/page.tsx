@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import BotonVolver from '@/components/shared/BotonVolver'
 import { Button } from '@/components/ui/button'
 import { TIPO_INFO } from '../page'
 import ManualContenido from '@/components/manuales/ManualContenido'
@@ -35,7 +36,7 @@ export default async function ManualDetallePage({ params }: { params: Promise<{ 
     <div className="p-6 space-y-5 max-w-4xl">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <Link href="/manuales" className="text-sm text-blue-600 hover:underline">← Volver a manuales</Link>
+          <BotonVolver label="← Volver a manuales" />
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${tipo.color}`}>
               {tipo.icon} {tipo.label}
