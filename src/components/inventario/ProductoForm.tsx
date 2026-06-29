@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatCLP } from '@/lib/calculations'
 import { Product, ProductCategory, ProductCategoryType, Supplier } from '@/types'
 import QRScanner from '@/components/shared/QRScanner'
+import { comprimirArchivos } from '@/lib/imageCompress'
 
 interface Props {
   producto?: Product
@@ -32,6 +33,10 @@ export default function ProductoForm({ producto, categorias, proveedores, return
   const [showScanner, setShowScanner] = useState(false)
   const [loadingBarcode, setLoadingBarcode] = useState(false)
   const [barcodeInfo, setBarcodeInfo] = useState<{ texto: string; esIA: boolean } | null>(null)
+  const [fotoUrl, setFotoUrl] = useState<string | null>(producto?.foto_url ?? null)
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const camRef = useRef<HTMLInputElement>(null)
+  const fotoFileRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState({
     nombre: producto?.nombre ?? '',
@@ -120,6 +125,26 @@ export default function ProductoForm({ producto, categorias, proveedores, return
     setLoadingBarcode(false)
   }
 
+  async function subirFoto(files: FileList | null) {
+    const file = files?.[0]
+    if (!file) return
+    setSubiendoFoto(true)
+    try {
+      const [comprimida] = await comprimirArchivos([file], 500)
+      const ext = comprimida.name.split('.').pop() ?? 'jpg'
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`
+      const { error: upErr } = await supabase.storage.from('productos-fotos').upload(path, comprimida, { upsert: true })
+      if (upErr) { toast.error('Error al subir la foto: ' + upErr.message); return }
+      const { data: pub } = supabase.storage.from('productos-fotos').getPublicUrl(path)
+      setFotoUrl(pub.publicUrl)
+      toast.success('Foto subida')
+    } catch {
+      toast.error('Error al subir la foto')
+    } finally {
+      setSubiendoFoto(false)
+    }
+  }
+
   async function crearCategoria() {
     if (!nuevaCatNombre.trim()) return
     setLoadingCat(true)
@@ -164,6 +189,7 @@ export default function ProductoForm({ producto, categorias, proveedores, return
       ubicacion_bodega: form.ubicacion_bodega.trim() || null,
       numero_serie: form.numero_serie.trim() || null,
       imei: form.imei.trim() || null,
+      foto_url: fotoUrl,
     }
 
     // Obtener usuario actual para el log
@@ -274,6 +300,39 @@ export default function ProductoForm({ producto, categorias, proveedores, return
               <Label>Nombre <span className="text-red-500">*</span></Label>
               <Input value={form.nombre} onChange={e => set('nombre', e.target.value)}
                 placeholder="Pantalla iPhone 14 Pro OLED" required />
+            </div>
+
+            {/* ── Foto del producto ────────────────────────────────────────── */}
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label>Foto del producto</Label>
+              <div className="flex items-center gap-3">
+                {fotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={fotoUrl} alt={form.nombre || 'Foto del producto'} className="w-20 h-20 rounded-lg border object-cover shrink-0" />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg border bg-gray-50 flex items-center justify-center text-2xl text-gray-300 shrink-0">📦</div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={e => { subirFoto(e.target.files); e.target.value = '' }} />
+                  <input ref={fotoFileRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => { subirFoto(e.target.files); e.target.value = '' }} />
+                  <Button type="button" variant="outline" size="sm" disabled={subiendoFoto}
+                    onClick={() => camRef.current?.click()}>
+                    {subiendoFoto ? 'Subiendo...' : '📷 Tomar foto'}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" disabled={subiendoFoto}
+                    onClick={() => fotoFileRef.current?.click()}>
+                    🖼️ Galería
+                  </Button>
+                  {fotoUrl && (
+                    <Button type="button" variant="outline" size="sm" className="text-red-600 border-red-300 hover:bg-red-50"
+                      disabled={subiendoFoto} onClick={() => setFotoUrl(null)}>
+                      ✕ Quitar
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* ── EAN-13 / Código de barras ────────────────────────────────── */}

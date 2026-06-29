@@ -212,6 +212,7 @@ export interface Product {
   ubicacion_bodega?: string
   numero_serie?: string
   imei?: string
+  foto_url?: string | null
   activo: boolean
   created_at: string
   updated_at: string
