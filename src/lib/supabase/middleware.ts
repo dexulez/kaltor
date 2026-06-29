@@ -32,7 +32,8 @@ export async function updateSession(request: NextRequest) {
   const isOpenRoute = request.nextUrl.pathname.startsWith('/crear-password')
   const isPublicRoute = request.nextUrl.pathname.startsWith('/seguimiento') ||
     request.nextUrl.pathname.startsWith('/pedido') ||
-    request.nextUrl.pathname.startsWith('/pagar')
+    request.nextUrl.pathname.startsWith('/pagar') ||
+    request.nextUrl.pathname.startsWith('/acceso-b2b')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
   if (!user && !isAuthRoute && !isPublicRoute && !isApiRoute && !isOpenRoute) {
