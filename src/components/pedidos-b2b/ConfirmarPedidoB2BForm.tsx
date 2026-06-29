@@ -53,6 +53,13 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
     }, 0)
   , [filas, items])
 
+  const itemsConExceso = useMemo(() =>
+    items.filter(it => {
+      const f = filas[it.id]
+      return f?.incluido && (Number(f.cantidad) || 0) > it.stockActual
+    })
+  , [filas, items])
+
   async function confirmar() {
     const itemsBody: Record<string, { cantidadConfirmada: number; precioUnitario: number }> = {}
     items.forEach(it => {
@@ -123,6 +130,7 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
               {items.map(it => {
                 const f = filas[it.id]
                 const subtotal = f?.incluido ? (Number(f.cantidad) || 0) * (Number(f.precio) || 0) : 0
+                const excedeStock = f?.incluido && (Number(f.cantidad) || 0) > it.stockActual
                 return (
                   <tr key={it.id} className={!f?.incluido ? 'opacity-50' : ''}>
                     <td className="px-3 py-2">
@@ -134,7 +142,14 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
                       <span className={it.stockActual < it.cantidadSolicitada ? 'text-red-600 font-medium' : 'text-gray-500'}>{it.stockActual}</span>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <Input type="number" min={0} className="w-20 text-right inline-block" value={f?.cantidad ?? ''} onChange={e => set(it.id, 'cantidad', e.target.value)} disabled={!f?.incluido} />
+                      <Input
+                        type="number" min={0}
+                        className={`w-20 text-right inline-block ${excedeStock ? 'border-amber-400 bg-amber-50 text-amber-800 focus-visible:ring-amber-400' : ''}`}
+                        value={f?.cantidad ?? ''}
+                        onChange={e => set(it.id, 'cantidad', e.target.value)}
+                        disabled={!f?.incluido}
+                      />
+                      {excedeStock && <p className="text-[10px] text-amber-600 mt-0.5 whitespace-nowrap">⚠ Supera el stock</p>}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <Input type="number" min={0} className="w-28 text-right inline-block" value={f?.precio ?? ''} onChange={e => set(it.id, 'precio', e.target.value)} disabled={!f?.incluido} />
@@ -178,6 +193,13 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
           </Select>
         </div>
       </div>
+
+      {itemsConExceso.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          ⚠ {itemsConExceso.length === 1 ? 'Un producto supera' : `${itemsConExceso.length} productos superan`} el stock disponible
+          ({itemsConExceso.map(it => it.nombre).join(', ')}). Puedes confirmar igual si vas a reabastecer, pero el stock quedará en 0, no en negativo.
+        </div>
+      )}
 
       {mostrarRechazo && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">

@@ -108,7 +108,7 @@ export async function POST(
     return NextResponse.json({ error: 'Error al generar la venta: ' + ventaErr?.message }, { status: 500 })
   }
 
-  await admin.from('sale_items').insert(itemsConfirmados.map(it => {
+  const { error: itemsErr } = await admin.from('sale_items').insert(itemsConfirmados.map(it => {
     const p = productosMap.get(it.product_id)
     return {
       sale_id: venta.id,
@@ -120,14 +120,21 @@ export async function POST(
       subtotal: it.cantidadConfirmada * it.precioFinal,
     }
   }))
+  if (itemsErr) {
+    // La venta ya quedó creada (sin items) — se revierte para no dejar una venta fantasma
+    await admin.from('sales').delete().eq('id', venta.id)
+    return NextResponse.json({ error: 'Error al guardar los productos de la venta: ' + itemsErr.message }, { status: 500 })
+  }
 
   for (const it of itemsConfirmados) {
     const p = productosMap.get(it.product_id)
     if (!p) continue
     const stockAnterior = p.stock_actual ?? 0
     const stockNuevo = Math.max(0, stockAnterior - it.cantidadConfirmada)
-    await admin.from('products').update({ stock_actual: stockNuevo }).eq('id', it.product_id)
-    await admin.from('stock_movements').insert({
+    const { error: stockErr } = await admin.from('products').update({ stock_actual: stockNuevo }).eq('id', it.product_id)
+    if (stockErr) console.error('[confirmar pedido b2b] error al descontar stock', it.product_id, stockErr)
+
+    const { error: movErr } = await admin.from('stock_movements').insert({
       product_id: it.product_id,
       tipo: 'salida',
       cantidad: it.cantidadConfirmada,
@@ -137,7 +144,10 @@ export async function POST(
       referencia_id: venta.id,
       referencia_tipo: 'sale',
     })
-    await admin.from('sales_order_items').update({ cantidad_confirmada: it.cantidadConfirmada }).eq('id', it.id)
+    if (movErr) console.error('[confirmar pedido b2b] error al registrar movimiento de stock', it.product_id, movErr)
+
+    const { error: itemErr } = await admin.from('sales_order_items').update({ cantidad_confirmada: it.cantidadConfirmada }).eq('id', it.id)
+    if (itemErr) console.error('[confirmar pedido b2b] error al marcar cantidad confirmada', it.id, itemErr)
   }
 
   await admin.from('sales_orders').update({
