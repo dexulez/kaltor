@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { tieneAccesoModulo } from '@/lib/modulos'
 import Link from 'next/link'
+import { Suspense } from 'react'
+import BuscadorPedidosB2B from '@/components/pedidos-b2b/BuscadorPedidosB2B'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
@@ -23,7 +25,10 @@ interface PedidoRow {
   comprador_id: string; created_at: string
 }
 
-export default async function PedidosB2BPage() {
+export default async function PedidosB2BPage({
+  searchParams,
+}: { searchParams: Promise<{ q?: string; estado?: string }> }) {
+  const { q, estado: estadoFiltro } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase
@@ -52,15 +57,26 @@ export default async function PedidosB2BPage() {
   if (esComprador) query = query.eq('comprador_id', user!.id)
 
   const { data: pedidos } = await query
-  const lista = (pedidos ?? []) as PedidoRow[]
+  const todaLaLista = (pedidos ?? []) as PedidoRow[]
 
   // Lookup de compradores por separado (evita ambigüedad de FK con confirmado_por)
-  let nombrePorComprador: Record<string, string> = {}
-  if (!esComprador && lista.length > 0) {
-    const ids = [...new Set(lista.map(p => p.comprador_id))]
-    const { data: compradores } = await supabase.from('user_profiles').select('id, nombre_completo').in('id', ids)
-    nombrePorComprador = Object.fromEntries((compradores ?? []).map(c => [c.id, c.nombre_completo as string]))
+  let datosComprador: Record<string, { nombre: string; customerId: string | null }> = {}
+  if (!esComprador && todaLaLista.length > 0) {
+    const ids = [...new Set(todaLaLista.map(p => p.comprador_id))]
+    const { data: compradores } = await supabase.from('user_profiles').select('id, nombre_completo, customer_id').in('id', ids)
+    datosComprador = Object.fromEntries((compradores ?? []).map(c => [c.id, { nombre: c.nombre_completo as string, customerId: c.customer_id as string | null }]))
   }
+
+  const qNorm = (q ?? '').trim().toLowerCase()
+  const lista = todaLaLista.filter(p => {
+    if (estadoFiltro && p.estado !== estadoFiltro) return false
+    if (qNorm) {
+      const enNumero = p.numero_pedido.toLowerCase().includes(qNorm)
+      const enComprador = (datosComprador[p.comprador_id]?.nombre ?? '').toLowerCase().includes(qNorm)
+      if (!enNumero && !enComprador) return false
+    }
+    return true
+  })
 
   const grupos: { estado: string; titulo: string }[] = [
     { estado: 'pendiente', titulo: esComprador ? 'Pendientes de revisión' : 'Pendientes de confirmar' },
@@ -69,6 +85,14 @@ export default async function PedidosB2BPage() {
     { estado: 'cancelado', titulo: 'Cancelados' },
   ]
 
+  const filtroHref = (valor?: string) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (valor) params.set('estado', valor)
+    const qs = params.toString()
+    return qs ? `/pedidos-b2b?${qs}` : '/pedidos-b2b'
+  }
+
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -76,7 +100,7 @@ export default async function PedidosB2BPage() {
           <span className="text-3xl">📥</span>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{esComprador ? 'Mis pedidos' : 'Pedidos de clientes (B2B)'}</h1>
-            <p className="text-sm text-gray-500">{lista.length} pedido(s)</p>
+            <p className="text-sm text-gray-500">{todaLaLista.length} pedido(s)</p>
           </div>
         </div>
         {esComprador && (
@@ -86,10 +110,33 @@ export default async function PedidosB2BPage() {
         )}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Suspense fallback={<input placeholder="Buscar..." className="border rounded-lg px-3 py-2 text-sm w-64" />}>
+          <BuscadorPedidosB2B defaultValue={q} />
+        </Suspense>
+        <Link href={filtroHref()}>
+          <span className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border ${!estadoFiltro ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+            Todos
+          </span>
+        </Link>
+        {grupos.map(g => (
+          <Link key={g.estado} href={filtroHref(g.estado)}>
+            <span className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition-colors
+              ${estadoFiltro === g.estado ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+              {ESTADO_LABEL[g.estado]}
+            </span>
+          </Link>
+        ))}
+      </div>
+
       {lista.length === 0 ? (
         <div className="bg-white rounded-xl border p-10 text-center text-gray-400">
           <span className="text-4xl block mb-2">📭</span>
-          <p className="text-sm">{esComprador ? 'Todavía no has hecho ningún pedido' : 'Sin pedidos de compradores externos todavía'}</p>
+          <p className="text-sm">
+            {todaLaLista.length === 0
+              ? (esComprador ? 'Todavía no has hecho ningún pedido' : 'Sin pedidos de compradores externos todavía')
+              : 'Sin resultados para tu búsqueda/filtro'}
+          </p>
         </div>
       ) : (
         grupos.map(g => {
@@ -109,26 +156,39 @@ export default async function PedidosB2BPage() {
                       <th className="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Fecha</th>
                       <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Total estimado</th>
                       <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Estado</th>
-                      <th className="px-4 py-2.5"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {items.map(p => (
-                      <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2.5 font-mono font-medium text-blue-700">{p.numero_pedido}</td>
-                        {!esComprador && <td className="px-4 py-2.5">{nombrePorComprador[p.comprador_id] ?? '—'}</td>}
-                        <td className="px-4 py-2.5 text-gray-500">{p.created_at.split('T')[0]}</td>
-                        <td className="px-4 py-2.5 text-right font-medium">{formatCLP(p.total_estimado)}</td>
-                        <td className="px-4 py-2.5 text-right">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-600'}`}>
-                            {ESTADO_LABEL[p.estado] ?? p.estado}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <Link href={`/pedidos-b2b/${p.id}`} className="text-blue-600 hover:underline text-xs">Ver →</Link>
-                        </td>
-                      </tr>
-                    ))}
+                    {items.map(p => {
+                      const comprador = datosComprador[p.comprador_id]
+                      return (
+                        <tr key={p.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2.5">
+                            <Link href={`/pedidos-b2b/${p.id}`} className="font-mono font-medium text-blue-700 hover:underline">
+                              {p.numero_pedido}
+                            </Link>
+                          </td>
+                          {!esComprador && (
+                            <td className="px-4 py-2.5">
+                              {comprador?.customerId ? (
+                                <Link href={`/clientes/${comprador.customerId}`} className="text-blue-600 hover:underline">
+                                  {comprador.nombre}
+                                </Link>
+                              ) : (
+                                comprador?.nombre ?? '—'
+                              )}
+                            </td>
+                          )}
+                          <td className="px-4 py-2.5 text-gray-500">{p.created_at.split('T')[0]}</td>
+                          <td className="px-4 py-2.5 text-right font-medium">{formatCLP(p.total_estimado)}</td>
+                          <td className="px-4 py-2.5 text-right">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-600'}`}>
+                              {ESTADO_LABEL[p.estado] ?? p.estado}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

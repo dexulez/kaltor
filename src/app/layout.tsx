@@ -34,7 +34,7 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-full`} suppressHydrationWarning>
         <NoScrollNumbers />
         {children}
-        <Toaster richColors position="top-right" closeButton />
+        <Toaster richColors position="top-right" closeButton expand visibleToasts={5} />
       </body>
     </html>
   )
