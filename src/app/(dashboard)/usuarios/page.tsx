@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import InvitarUsuarioDialog from '@/components/usuarios/InvitarUsuarioDialog'
 import InvitarCompradorDialog from '@/components/usuarios/InvitarCompradorDialog'
+import SolicitudesB2BPanel from '@/components/usuarios/SolicitudesB2BPanel'
 import UsuarioAcciones from '@/components/usuarios/UsuarioAcciones'
 import { Role, UserProfile } from '@/types'
 import { tieneSubPermiso } from '@/lib/modulos'
@@ -50,9 +51,10 @@ export default async function UsuariosPage() {
   const puedeEditar = tieneSubPermiso('usuarios.editar', rolNombrePropio, permisosPropio)
   const puedeEliminar = tieneSubPermiso('usuarios.eliminar', rolNombrePropio, permisosPropio)
 
-  const [{ data: usuarios }, { data: roles }] = await Promise.all([
+  const [{ data: usuarios }, { data: roles }, { data: solicitudesB2B }] = await Promise.all([
     supabase.from('user_profiles').select('*, roles(id, nombre)').order('created_at'),
     supabase.from('roles').select('id, nombre').order('nombre'),
+    supabase.from('b2b_access_requests').select('*').eq('estado', 'pendiente').order('created_at', { ascending: false }),
   ])
 
   const todosLosUsuarios = ((usuarios ?? []) as UsuarioListItem[]).filter(u => !(u as unknown as { eliminado_at?: string | null }).eliminado_at)
@@ -75,6 +77,8 @@ export default async function UsuariosPage() {
         </div>
         {puedeCrear && <InvitarUsuarioDialog roles={rolesStaff} />}
       </div>
+
+      {puedeCrear && <SolicitudesB2BPanel solicitudes={solicitudesB2B ?? []} rolCompradorId={rolCompradorId} />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[

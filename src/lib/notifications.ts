@@ -10,6 +10,7 @@ export type TipoNotificacion =
   | 'stock_bajo'
   | 'nuevo_abono'
   | 'pedido_b2b'
+  | 'solicitud_b2b'
   | 'sistema'
 
 export const NOTIF_ICONS: Record<TipoNotificacion, string> = {
@@ -22,6 +23,7 @@ export const NOTIF_ICONS: Record<TipoNotificacion, string> = {
   stock_bajo:        '⚠️',
   nuevo_abono:       '💰',
   pedido_b2b:        '🛍️',
+  solicitud_b2b:     '🏪',
   sistema:           '🔔',
 }
 
@@ -35,6 +37,7 @@ export const NOTIF_COLORS: Record<TipoNotificacion, string> = {
   stock_bajo:        'bg-red-100 text-red-700',
   nuevo_abono:       'bg-yellow-100 text-yellow-700',
   pedido_b2b:        'bg-cyan-100 text-cyan-700',
+  solicitud_b2b:     'bg-teal-100 text-teal-700',
   sistema:           'bg-gray-100 text-gray-700',
 }
 
@@ -48,6 +51,7 @@ export const NOTIF_LABELS: Record<TipoNotificacion, string> = {
   stock_bajo:        'Stock bajo',
   nuevo_abono:       'Nuevo abono',
   pedido_b2b:        'Pedido B2B',
+  solicitud_b2b:     'Solicitud de acceso B2B',
   sistema:           'Sistema',
 }
 

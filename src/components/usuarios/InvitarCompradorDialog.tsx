@@ -7,12 +7,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
-export default function InvitarCompradorDialog({ rolId }: { rolId: string | null }) {
+interface Props {
+  rolId: string | null
+  trigger?: React.ReactNode
+  defaultNombre?: string
+  defaultEmail?: string
+  defaultTelefono?: string
+  onInvitado?: () => void
+}
+
+export default function InvitarCompradorDialog({ rolId, trigger, defaultNombre, defaultEmail, defaultTelefono, onInvitado }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [email, setEmail] = useState('')
-  const [nombre, setNombre] = useState('')
-  const [telefono, setTelefono] = useState('')
+  const [email, setEmail] = useState(defaultEmail ?? '')
+  const [nombre, setNombre] = useState(defaultNombre ?? '')
+  const [telefono, setTelefono] = useState(defaultTelefono ?? '')
 
   async function handleInvitar(e: React.FormEvent) {
     e.preventDefault()
@@ -30,14 +39,15 @@ export default function InvitarCompradorDialog({ rolId }: { rolId: string | null
       toast.success(`Invitación enviada a ${email}`)
       setOpen(false)
       setEmail(''); setNombre(''); setTelefono('')
+      onInvitado?.()
     }
     setLoading(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="inline-flex items-center justify-center rounded-md bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium px-4 py-2 transition-colors">
-        + Invitar comprador externo
+      <DialogTrigger className={trigger ? undefined : 'inline-flex items-center justify-center rounded-md bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium px-4 py-2 transition-colors'}>
+        {trigger ?? '+ Invitar comprador externo'}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

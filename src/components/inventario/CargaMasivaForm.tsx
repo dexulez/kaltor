@@ -32,6 +32,11 @@ interface FilaParsed {
   precio_venta: number
   precio_incluye_iva: boolean
   ubicacion_bodega: string
+  precio_mayorista: number | null
+  visible_compradores: boolean
+  mayorista_descuento_tipo: 'porcentaje' | 'monto' | null
+  mayorista_descuento_valor: number | null
+  mayorista_descuento_desde_cantidad: number | null
   errores: string[]
 }
 
@@ -86,6 +91,26 @@ function parseRow(
 
   const precio_incluye_iva = parseBool(raw['precio_incluye_iva'] ?? raw['Precio incluye IVA'])
 
+  // Campos B2B (todos opcionales)
+  const mayoristaRaw = raw['precio_mayorista'] ?? raw['Precio mayorista']
+  const precio_mayorista = mayoristaRaw === undefined || mayoristaRaw === '' ? null : toNum(mayoristaRaw)
+  const visible_compradores = parseBool(raw['visible_compradores'] ?? raw['Visible B2B'])
+
+  const descTipoRaw = String(raw['oferta_tipo'] ?? raw['Oferta tipo'] ?? '').trim().toLowerCase()
+  let mayorista_descuento_tipo: 'porcentaje' | 'monto' | null = null
+  if (descTipoRaw === 'monto' || descTipoRaw === '$') mayorista_descuento_tipo = 'monto'
+  else if (descTipoRaw === 'porcentaje' || descTipoRaw === '%') mayorista_descuento_tipo = 'porcentaje'
+
+  const descValorRaw = raw['oferta_valor'] ?? raw['Oferta valor']
+  const mayorista_descuento_valor = descValorRaw === undefined || descValorRaw === '' ? null : toNum(descValorRaw)
+
+  const descCantRaw = raw['oferta_desde_cantidad'] ?? raw['Oferta desde cantidad']
+  const mayorista_descuento_desde_cantidad = descCantRaw === undefined || descCantRaw === '' ? null : Math.round(toNum(descCantRaw))
+
+  if (mayorista_descuento_tipo && !(mayorista_descuento_valor && mayorista_descuento_valor > 0)) {
+    errores.push('oferta_tipo definido sin oferta_valor válido')
+  }
+
   return {
     fila: idx + 2,
     nombre,
@@ -102,6 +127,11 @@ function parseRow(
     precio_venta,
     precio_incluye_iva,
     ubicacion_bodega,
+    precio_mayorista,
+    visible_compradores,
+    mayorista_descuento_tipo,
+    mayorista_descuento_valor,
+    mayorista_descuento_desde_cantidad,
     errores,
   }
 }
@@ -124,18 +154,22 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
       'nombre', 'sku', 'descripcion', 'categoria', 'proveedor',
       'stock_actual', 'stock_minimo', 'precio_costo', 'costo_envio',
       'precio_venta', 'precio_incluye_iva', 'ubicacion_bodega',
+      'precio_mayorista', 'visible_compradores', 'oferta_tipo', 'oferta_valor', 'oferta_desde_cantidad',
     ]
     const ejemplo1 = [
       'Pantalla iPhone 13 OLED', 'PAN-IP13', 'Original pull-out', 'Repuesto', proveedores[0]?.nombre ?? 'Proveedor Ejemplo',
       5, 2, 45000, 2000, 95000, 'SI', 'Estante A-3',
+      75000, 'SI', 'porcentaje', 10, 5,
     ]
     const ejemplo2 = [
       'Batería Samsung A54', 'BAT-SA54', '', 'Repuesto', proveedores[0]?.nombre ?? '',
       10, 3, 8000, 500, 22000, 'NO', 'Estante B-1',
+      '', 'NO', '', '', '',
     ]
     const ejemplo3 = [
       'Funda silicona iPhone 15', 'FUN-IP15-SIL', 'Color negro', 'Accesorio', '',
       20, 5, 1500, 200, 5990, 'SI', '',
+      4500, 'SI', '', '', '',
     ]
 
     const wsProductos = XLSX.utils.aoa_to_sheet([headers, ejemplo1, ejemplo2, ejemplo3])
@@ -143,6 +177,7 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
       { wch: 35 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 20 },
       { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 14 },
       { wch: 18 }, { wch: 18 },
+      { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 20 },
     ]
     XLSX.utils.book_append_sheet(wb, wsProductos, 'Productos')
 
@@ -161,12 +196,18 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
       ['precio_venta', 'SÍ', 'Precio de venta al cliente en pesos chilenos', '95000'],
       ['precio_incluye_iva', 'NO', 'SI si el precio ya incluye IVA, NO si es precio neto (por defecto NO)', 'SI'],
       ['ubicacion_bodega', 'NO', 'Ubicación física en bodega', 'Estante A-3'],
+      ['precio_mayorista', 'NO', 'Precio para clientes B2B en pesos chilenos. Vacío = sin precio mayorista', '75000'],
+      ['visible_compradores', 'NO', 'SI para que el producto aparezca en el catálogo B2B (por defecto NO)', 'SI'],
+      ['oferta_tipo', 'NO', 'Tipo de oferta por volumen sobre el precio mayorista: "porcentaje" o "monto"', 'porcentaje'],
+      ['oferta_valor', 'NO', 'Valor del descuento (% si oferta_tipo=porcentaje, CLP si =monto)', '10'],
+      ['oferta_desde_cantidad', 'NO', 'Cantidad mínima de unidades para que aplique la oferta', '5'],
       [],
       ['NOTAS:'],
       ['• No modificar la fila de encabezados (fila 1)'],
       ['• Los precios van en pesos chilenos sin puntos ni comas'],
       ['• La columna "categoria" debe coincidir exactamente con los nombres en la hoja Categorías'],
       ['• Si un SKU ya existe en el sistema, el producto se actualizará (no se duplicará)'],
+      ['• Las columnas de oferta son opcionales: déjalas vacías si el producto no tiene oferta por volumen'],
     ]
     const wsInstr = XLSX.utils.aoa_to_sheet(instrData)
     wsInstr['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 55 }, { wch: 30 }]
@@ -269,6 +310,11 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
         precio_venta: fila.precio_venta,
         precio_incluye_iva: fila.precio_incluye_iva,
         ubicacion_bodega: fila.ubicacion_bodega || null,
+        precio_mayorista: fila.precio_mayorista,
+        visible_compradores: fila.visible_compradores,
+        mayorista_descuento_tipo: fila.mayorista_descuento_tipo,
+        mayorista_descuento_valor: fila.mayorista_descuento_valor,
+        mayorista_descuento_desde_cantidad: fila.mayorista_descuento_desde_cantidad,
         compatibilidad: [],
         activo: true,
       }
@@ -378,6 +424,11 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
                   ['precio_venta', 'SÍ', 'Precio de venta al cliente en CLP'],
                   ['precio_incluye_iva', 'NO', 'SI = precio ya tiene IVA | NO = precio neto (por defecto NO)'],
                   ['ubicacion_bodega', 'NO', 'Ubicación física, ej: Estante A-3'],
+                  ['precio_mayorista', 'NO', 'Precio para clientes B2B en CLP'],
+                  ['visible_compradores', 'NO', 'SI = aparece en el catálogo B2B (por defecto NO)'],
+                  ['oferta_tipo', 'NO', '"porcentaje" o "monto" — oferta por volumen sobre el precio mayorista'],
+                  ['oferta_valor', 'NO', 'Valor del descuento (% o CLP según oferta_tipo)'],
+                  ['oferta_desde_cantidad', 'NO', 'Unidades mínimas para que aplique la oferta'],
                 ].map(([col, obl, desc]) => (
                   <tr key={col} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-mono text-blue-700">{col}</td>
