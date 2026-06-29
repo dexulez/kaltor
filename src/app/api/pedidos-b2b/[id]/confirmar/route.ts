@@ -150,12 +150,18 @@ export async function POST(
     if (itemErr) console.error('[confirmar pedido b2b] error al marcar cantidad confirmada', it.id, itemErr)
   }
 
+  // Pagado de inmediato salvo que sea a credito (igual criterio que las OC a proveedores)
+  const pagadoAlConfirmar = metodoPago !== 'credito'
+
   await admin.from('sales_orders').update({
     estado: 'confirmado',
     sale_id: venta.id,
     confirmado_por: user.id,
     confirmado_at: new Date().toISOString(),
     total_estimado: totalBruto,
+    metodo_pago: metodoPago,
+    pagado: pagadoAlConfirmar,
+    fecha_pago: pagadoAlConfirmar ? new Date().toISOString() : null,
   }).eq('id', id)
 
   if (compradorProfile?.telefono) {

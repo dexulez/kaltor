@@ -15,6 +15,9 @@ const ESTADO_COLOR: Record<string, string> = {
   rechazado: 'bg-red-100 text-red-700',
   cancelado: 'bg-gray-100 text-gray-500',
 }
+const METODO_PAGO_LABEL: Record<string, string> = {
+  efectivo: 'Efectivo', transferencia: 'Transferencia', debito: 'Débito', credito: 'Crédito',
+}
 
 function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value)
@@ -23,6 +26,7 @@ function formatCLP(value: number) {
 interface PedidoRow {
   id: string; numero_pedido: string; estado: string; total_estimado: number
   comprador_id: string; created_at: string
+  metodo_pago: string | null; pagado: boolean; fecha_entregado: string | null
 }
 
 export default async function PedidosB2BPage({
@@ -53,7 +57,7 @@ export default async function PedidosB2BPage({
 
   const esComprador = rol === 'comprador_externo'
 
-  let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at').order('created_at', { ascending: false })
+  let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado').order('created_at', { ascending: false })
   if (esComprador) query = query.eq('comprador_id', user!.id)
 
   const { data: pedidos } = await query
@@ -154,7 +158,10 @@ export default async function PedidosB2BPage({
                       <th className="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Pedido</th>
                       {!esComprador && <th className="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Comprador</th>}
                       <th className="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Fecha</th>
-                      <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Total estimado</th>
+                      <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Monto</th>
+                      <th className="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Fecha entregado</th>
+                      <th className="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Medio de pago</th>
+                      <th className="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Pagado</th>
                       <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Estado</th>
                     </tr>
                   </thead>
@@ -181,6 +188,15 @@ export default async function PedidosB2BPage({
                           )}
                           <td className="px-4 py-2.5 text-gray-500">{p.created_at.split('T')[0]}</td>
                           <td className="px-4 py-2.5 text-right font-medium">{formatCLP(p.total_estimado)}</td>
+                          <td className="px-4 py-2.5 text-gray-500">{p.fecha_entregado ? p.fecha_entregado.split('T')[0] : '—'}</td>
+                          <td className="px-4 py-2.5 text-gray-500">{p.metodo_pago ? (METODO_PAGO_LABEL[p.metodo_pago] ?? p.metodo_pago) : '—'}</td>
+                          <td className="px-4 py-2.5">
+                            {p.estado === 'confirmado' ? (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.pagado ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {p.pagado ? '✓ Pagado' : 'Pendiente'}
+                              </span>
+                            ) : '—'}
+                          </td>
                           <td className="px-4 py-2.5 text-right">
                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-600'}`}>
                               {ESTADO_LABEL[p.estado] ?? p.estado}

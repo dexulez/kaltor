@@ -3,6 +3,7 @@ import { tieneAccesoModulo } from '@/lib/modulos'
 import Link from 'next/link'
 import BotonVolver from '@/components/shared/BotonVolver'
 import ConfirmarPedidoB2BForm from '@/components/pedidos-b2b/ConfirmarPedidoB2BForm'
+import AccionesPedidoB2B from '@/components/pedidos-b2b/AccionesPedidoB2B'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
@@ -14,6 +15,9 @@ const ESTADO_COLOR: Record<string, string> = {
   confirmado: 'bg-green-100 text-green-700',
   rechazado: 'bg-red-100 text-red-700',
   cancelado: 'bg-gray-100 text-gray-500',
+}
+const METODO_PAGO_LABEL: Record<string, string> = {
+  efectivo: 'Efectivo', transferencia: 'Transferencia', debito: 'Débito', credito: 'Crédito',
 }
 
 function formatCLP(value: number) {
@@ -150,9 +154,35 @@ export default async function PedidoB2BDetallePage({
               <strong>Motivo:</strong> {pedido.motivo_rechazo}
             </div>
           )}
-          {pedido.estado === 'confirmado' && esStaff && pedido.sale_id && (
-            <div className="px-4 py-3 bg-green-50 border-t text-sm">
-              <Link href={`/caja`} className="text-green-700 hover:underline font-medium">Ver en Caja / Ventas →</Link>
+          {pedido.estado === 'confirmado' && (
+            <div className="px-4 py-3 border-t space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-400 text-xs">Medio de pago</p>
+                  <p className="font-medium">{METODO_PAGO_LABEL[pedido.metodo_pago] ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Pagado</p>
+                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-xs font-medium ${pedido.pagado ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {pedido.pagado ? '✓ Pagado' : 'Pendiente'}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Fecha entregado</p>
+                  <p className="font-medium">{pedido.fecha_entregado ? pedido.fecha_entregado.split('T')[0] : '—'}</p>
+                </div>
+              </div>
+              {esStaff && (
+                <AccionesPedidoB2B
+                  pedidoId={pedido.id}
+                  pagado={pedido.pagado}
+                  metodoPago={pedido.metodo_pago}
+                  fechaEntregado={pedido.fecha_entregado}
+                />
+              )}
+              {esStaff && pedido.sale_id && (
+                <Link href="/caja" className="text-green-700 hover:underline font-medium text-sm inline-block">Ver en Caja / Ventas →</Link>
+              )}
             </div>
           )}
         </div>
