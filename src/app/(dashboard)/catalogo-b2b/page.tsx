@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { tieneAccesoModulo } from '@/lib/modulos'
+import { tieneAccesoModulo, tieneSubPermiso } from '@/lib/modulos'
 import CatalogoB2BCarrito from '@/components/catalogo-b2b/CatalogoB2BCarrito'
+import CatalogoB2BAdmin from '@/components/catalogo-b2b/CatalogoB2BAdmin'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
@@ -27,10 +28,51 @@ export default async function CatalogoB2BPage() {
     )
   }
 
-  // Solo columnas seguras: nunca exponer precio_costo al comprador externo.
+  const esStaff = rol !== 'comprador_externo'
+
+  if (esStaff) {
+    // Vista interna: todo el inventario activo, para elegir qué se publica en el catálogo B2B.
+    const puedeEditar = tieneSubPermiso('inventario.editar', rol, permisos)
+    const { data: productos } = await supabase
+      .from('products')
+      .select('id, nombre, sku, precio_mayorista, stock_actual, visible_compradores, categoria_id, product_categories(nombre)')
+      .eq('activo', true)
+      .order('nombre')
+
+    type ProductoInventario = {
+      id: string; nombre: string; sku: string | null
+      precio_mayorista: number | null; stock_actual: number; visible_compradores: boolean | null; categoria_id: string
+      product_categories: { nombre: string } | { nombre: string }[] | null
+    }
+
+    const lista = ((productos ?? []) as ProductoInventario[]).map(p => ({
+      id: p.id,
+      nombre: p.nombre,
+      sku: p.sku,
+      precioMayorista: p.precio_mayorista,
+      stock: p.stock_actual,
+      visible: p.visible_compradores ?? false,
+      categoria: Array.isArray(p.product_categories) ? p.product_categories[0]?.nombre : p.product_categories?.nombre ?? null,
+    }))
+
+    return (
+      <div className="p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🛍️</span>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Catálogo B2B</h1>
+            <p className="text-sm text-gray-500">Activa o desactiva qué productos del inventario ven los compradores externos.</p>
+          </div>
+        </div>
+        <CatalogoB2BAdmin productos={lista} puedeEditar={puedeEditar} />
+      </div>
+    )
+  }
+
+  // Vista comprador: solo columnas seguras (nunca exponer precio_costo) y solo lo publicado.
   const { data: productos } = await supabase
     .from('products')
-    .select('id, nombre, descripcion, sku, precio_mayorista, stock_actual, categoria_id, product_categories(nombre)')
+    .select('id, nombre, descripcion, sku, precio_mayorista, stock_actual, categoria_id, product_categories(nombre), mayorista_descuento_tipo, mayorista_descuento_valor, mayorista_descuento_desde_cantidad')
     .eq('visible_compradores', true)
     .eq('activo', true)
     .order('nombre')
@@ -39,6 +81,9 @@ export default async function CatalogoB2BPage() {
     id: string; nombre: string; descripcion: string | null; sku: string | null
     precio_mayorista: number | null; stock_actual: number; categoria_id: string
     product_categories: { nombre: string } | { nombre: string }[] | null
+    mayorista_descuento_tipo: 'porcentaje' | 'monto' | null
+    mayorista_descuento_valor: number | null
+    mayorista_descuento_desde_cantidad: number | null
   }
 
   const lista = ((productos ?? []) as ProductoCatalogo[]).map(p => ({
@@ -49,6 +94,9 @@ export default async function CatalogoB2BPage() {
     precio: p.precio_mayorista ?? 0,
     stock: p.stock_actual,
     categoria: Array.isArray(p.product_categories) ? p.product_categories[0]?.nombre : p.product_categories?.nombre ?? null,
+    descuentoTipo: p.mayorista_descuento_tipo,
+    descuentoValor: p.mayorista_descuento_valor,
+    descuentoDesdeCantidad: p.mayorista_descuento_desde_cantidad,
   }))
 
   return (

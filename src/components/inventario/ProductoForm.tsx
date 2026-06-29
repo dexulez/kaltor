@@ -48,6 +48,10 @@ export default function ProductoForm({ producto, categorias, proveedores, return
     precio_incluye_iva: producto?.precio_incluye_iva ?? true,
     precio_mayorista: String(producto?.precio_mayorista ?? ''),
     visible_compradores: producto?.visible_compradores ?? false,
+    mayorista_descuento_activo: !!producto?.mayorista_descuento_valor,
+    mayorista_descuento_tipo: producto?.mayorista_descuento_tipo ?? 'porcentaje',
+    mayorista_descuento_valor: String(producto?.mayorista_descuento_valor ?? ''),
+    mayorista_descuento_desde_cantidad: String(producto?.mayorista_descuento_desde_cantidad ?? ''),
     ubicacion_bodega: producto?.ubicacion_bodega ?? '',
     numero_serie: producto?.numero_serie ?? '',
     imei: producto?.imei ?? '',
@@ -154,6 +158,9 @@ export default function ProductoForm({ producto, categorias, proveedores, return
       precio_incluye_iva: form.precio_incluye_iva,
       precio_mayorista: form.precio_mayorista.trim() ? parseFloat(form.precio_mayorista) : null,
       visible_compradores: form.visible_compradores,
+      mayorista_descuento_tipo: form.mayorista_descuento_activo ? form.mayorista_descuento_tipo : null,
+      mayorista_descuento_valor: form.mayorista_descuento_activo && form.mayorista_descuento_valor.trim() ? parseFloat(form.mayorista_descuento_valor) : null,
+      mayorista_descuento_desde_cantidad: form.mayorista_descuento_activo && form.mayorista_descuento_desde_cantidad.trim() ? parseInt(form.mayorista_descuento_desde_cantidad) : null,
       ubicacion_bodega: form.ubicacion_bodega.trim() || null,
       numero_serie: form.numero_serie.trim() || null,
       imei: form.imei.trim() || null,
@@ -526,6 +533,44 @@ export default function ProductoForm({ producto, categorias, proveedores, return
               <input type="checkbox" checked={form.visible_compradores} onChange={e => set('visible_compradores', e.target.checked)} />
               Mostrar en el catálogo B2B
             </label>
+          </div>
+
+          {/* Oferta por volumen sobre el precio mayorista */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.mayorista_descuento_activo}
+                onChange={e => set('mayorista_descuento_activo', e.target.checked)}
+                className="w-4 h-4 rounded accent-amber-600"
+              />
+              <span className="text-sm font-medium text-amber-800">🏷️ Oferta por cantidad (precio mayorista)</span>
+            </label>
+            {form.mayorista_descuento_activo && (
+              <div className="grid grid-cols-3 gap-2 pl-1">
+                <div className="space-y-1">
+                  <Label className="text-xs text-amber-700">Tipo</Label>
+                  <div className="flex border border-amber-300 rounded-lg overflow-hidden text-xs">
+                    <button type="button" onClick={() => set('mayorista_descuento_tipo', 'porcentaje')}
+                      className={`flex-1 px-2 py-1.5 font-semibold ${form.mayorista_descuento_tipo !== 'monto' ? 'bg-amber-500 text-white' : 'bg-white text-amber-700'}`}>%</button>
+                    <button type="button" onClick={() => set('mayorista_descuento_tipo', 'monto')}
+                      className={`flex-1 px-2 py-1.5 font-semibold ${form.mayorista_descuento_tipo === 'monto' ? 'bg-amber-500 text-white' : 'bg-white text-amber-700'}`}>$</button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-amber-700">{form.mayorista_descuento_tipo === 'monto' ? 'Descuento (CLP)' : 'Descuento (%)'}</Label>
+                  <Input type="number" min={0} value={form.mayorista_descuento_valor}
+                    onChange={e => set('mayorista_descuento_valor', e.target.value)}
+                    placeholder={form.mayorista_descuento_tipo === 'monto' ? 'Ej: 1000' : 'Ej: 10'} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-amber-700">Desde cuántas unidades</Label>
+                  <Input type="number" min={1} value={form.mayorista_descuento_desde_cantidad}
+                    onChange={e => set('mayorista_descuento_desde_cantidad', e.target.value)}
+                    placeholder="Ej: 10" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

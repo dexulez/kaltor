@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { calcularPrecioMayoristaConDescuento } from '@/lib/calculations'
 
 interface ProductoCatalogo {
   id: string
@@ -13,6 +14,15 @@ interface ProductoCatalogo {
   precio: number
   stock: number
   categoria: string | null
+  descuentoTipo?: 'porcentaje' | 'monto' | null
+  descuentoValor?: number | null
+  descuentoDesdeCantidad?: number | null
+}
+
+function precioUnitarioPara(p: ProductoCatalogo, cantidad: number) {
+  return calcularPrecioMayoristaConDescuento(p.precio, cantidad, {
+    tipo: p.descuentoTipo, valor: p.descuentoValor, desdeCantidad: p.descuentoDesdeCantidad,
+  })
 }
 
 function formatCLP(value: number) {
@@ -49,7 +59,7 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
       .filter((i): i is { producto: ProductoCatalogo; cantidad: number } => !!i.producto)
   , [carrito, productos])
 
-  const totalCarrito = itemsCarrito.reduce((s, i) => s + i.producto.precio * i.cantidad, 0)
+  const totalCarrito = itemsCarrito.reduce((s, i) => s + precioUnitarioPara(i.producto, i.cantidad) * i.cantidad, 0)
 
   async function enviarPedido() {
     if (itemsCarrito.length === 0) { toast.error('Agrega al menos un producto'); return }
@@ -92,6 +102,9 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {filtrados.map(p => {
               const cantidad = carrito[p.id] ?? 0
+              const precioActual = precioUnitarioPara(p, cantidad)
+              const tieneOferta = !!p.descuentoValor && p.descuentoValor > 0
+              const ofertaActiva = tieneOferta && precioActual < p.precio
               return (
                 <div key={p.id} className="bg-white rounded-xl border p-4 flex flex-col gap-2">
                   <div>
@@ -99,9 +112,15 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
                     <p className="text-xs text-gray-400">{[p.categoria, p.sku].filter(Boolean).join(' · ') || '—'}</p>
                   </div>
                   {p.descripcion && <p className="text-xs text-gray-500 line-clamp-2">{p.descripcion}</p>}
+                  {tieneOferta && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                      🏷️ Desde {p.descuentoDesdeCantidad ?? 1} unid.: {formatCLP(calcularPrecioMayoristaConDescuento(p.precio, p.descuentoDesdeCantidad ?? 1, { tipo: p.descuentoTipo, valor: p.descuentoValor, desdeCantidad: p.descuentoDesdeCantidad }))} c/u
+                    </p>
+                  )}
                   <div className="flex items-center justify-between mt-auto pt-2">
                     <div>
-                      <p className="font-bold text-blue-700">{formatCLP(p.precio)}</p>
+                      <p className={`font-bold ${ofertaActiva ? 'text-green-700' : 'text-blue-700'}`}>{formatCLP(precioActual)}</p>
+                      {ofertaActiva && <p className="text-xs text-gray-400 line-through">{formatCLP(p.precio)}</p>}
                       <p className={`text-xs ${p.stock > 0 ? 'text-gray-400' : 'text-red-500'}`}>
                         {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
                       </p>
@@ -135,15 +154,18 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
             <p className="text-sm text-gray-400">Aún no agregaste productos.</p>
           ) : (
             <div className="space-y-2">
-              {itemsCarrito.map(i => (
-                <div key={i.producto.id} className="flex items-center justify-between gap-2 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-gray-800">{i.producto.nombre}</p>
-                    <p className="text-xs text-gray-400">{i.cantidad} × {formatCLP(i.producto.precio)}</p>
+              {itemsCarrito.map(i => {
+                const precioUnit = precioUnitarioPara(i.producto, i.cantidad)
+                return (
+                  <div key={i.producto.id} className="flex items-center justify-between gap-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-gray-800">{i.producto.nombre}</p>
+                      <p className="text-xs text-gray-400">{i.cantidad} × {formatCLP(precioUnit)}</p>
+                    </div>
+                    <p className="font-semibold text-gray-900 shrink-0">{formatCLP(precioUnit * i.cantidad)}</p>
                   </div>
-                  <p className="font-semibold text-gray-900 shrink-0">{formatCLP(i.producto.precio * i.cantidad)}</p>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
           <div className="border-t pt-3 flex items-center justify-between">

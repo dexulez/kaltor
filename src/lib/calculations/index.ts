@@ -23,6 +23,22 @@ export function calcularComisionBancaria(total: number, porcentaje: number): num
   return Math.round(total * (porcentaje / 100))
 }
 
+interface DescuentoVolumen {
+  tipo?: 'porcentaje' | 'monto' | null
+  valor?: number | null
+  desdeCantidad?: number | null
+}
+
+// Precio mayorista con oferta por volumen (catálogo B2B): si la cantidad alcanza el
+// mínimo configurado, aplica el descuento (% o monto fijo) sobre el precio base.
+export function calcularPrecioMayoristaConDescuento(precioBase: number, cantidad: number, descuento?: DescuentoVolumen | null): number {
+  if (!descuento?.tipo || !descuento.valor || descuento.valor <= 0) return precioBase
+  const minimo = descuento.desdeCantidad ?? 0
+  if (minimo > 0 && cantidad < minimo) return precioBase
+  if (descuento.tipo === 'monto') return Math.max(0, precioBase - descuento.valor)
+  return Math.max(0, Math.round(precioBase * (1 - descuento.valor / 100)))
+}
+
 export function calcularComisionTecnico(
   precioServicio: number,
   costoRepuestos: number,

@@ -206,6 +206,9 @@ export interface Product {
   precio_incluye_iva: boolean
   precio_mayorista?: number | null
   visible_compradores?: boolean
+  mayorista_descuento_tipo?: 'porcentaje' | 'monto' | null
+  mayorista_descuento_valor?: number | null
+  mayorista_descuento_desde_cantidad?: number | null
   ubicacion_bodega?: string
   numero_serie?: string
   imei?: string

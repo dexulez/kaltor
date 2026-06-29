@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient, createServiceClient } from '@/lib/supabase/server'
 import { enviarWAServer } from '@/lib/whatsapp-server'
 import { msgNuevoPedidoB2B } from '@/lib/whatsapp'
+import { calcularPrecioMayoristaConDescuento } from '@/lib/calculations'
 
 type ProfileRoleResult = {
   nombre_completo?: string | null
@@ -45,10 +46,11 @@ export async function POST(req: NextRequest) {
 
   const admin = createServiceClient()
 
-  // Nunca confiar en precios del cliente: se recalculan desde la base de datos.
+  // Nunca confiar en precios del cliente: se recalculan desde la base de datos
+  // (incluyendo la oferta por volumen, si la cantidad pedida la alcanza).
   const { data: productos } = await admin
     .from('products')
-    .select('id, nombre, precio_mayorista, visible_compradores')
+    .select('id, nombre, precio_mayorista, visible_compradores, mayorista_descuento_tipo, mayorista_descuento_valor, mayorista_descuento_desde_cantidad')
     .in('id', itemsCarrito.map(i => i.productId))
 
   const productosMap = new Map((productos ?? []).map(p => [p.id as string, p]))
@@ -60,7 +62,9 @@ export async function POST(req: NextRequest) {
     })
     .map(i => {
       const p = productosMap.get(i.productId)!
-      const precioUnitario = p.precio_mayorista ?? 0
+      const precioUnitario = calcularPrecioMayoristaConDescuento(p.precio_mayorista ?? 0, i.cantidad, {
+        tipo: p.mayorista_descuento_tipo, valor: p.mayorista_descuento_valor, desdeCantidad: p.mayorista_descuento_desde_cantidad,
+      })
       return {
         product_id: p.id as string,
         nombre: p.nombre as string,
