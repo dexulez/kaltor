@@ -6,6 +6,7 @@ import { Product, ProductCategory, Supplier } from '@/types'
 import ProductoQRButton from '@/components/inventario/ProductoQRButton'
 import EliminarProductoBtn from '@/components/inventario/EliminarProductoBtn'
 import BuscadorInventario from '@/components/inventario/BuscadorInventario'
+import ProductoB2BControl from '@/components/inventario/ProductoB2BControl'
 import { Suspense } from 'react'
 import { tieneSubPermiso } from '@/lib/modulos'
 
@@ -177,6 +178,16 @@ export default async function InventarioPage({
                       {puedeEliminar && <EliminarProductoBtn productId={p.id} nombre={p.nombre} />}
                     </div>
                   </div>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                    <span className="text-xs text-gray-400">Catálogo B2B</span>
+                    <ProductoB2BControl
+                      productId={p.id}
+                      nombre={p.nombre}
+                      precioMayorista={p.precio_mayorista ?? null}
+                      visibleCompradores={p.visible_compradores ?? false}
+                      disabled={!puedeEditar}
+                    />
+                  </div>
                 </div>
               )
             })}
@@ -193,6 +204,7 @@ export default async function InventarioPage({
                   <th className="text-right px-4 py-3 font-medium text-gray-600">Stock</th>
                   {puedeVerCostos && <th className="text-right px-4 py-3 font-medium text-gray-600">Costo real</th>}
                   <th className="text-right px-4 py-3 font-medium text-gray-600">Precio venta</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-600">Mayorista / B2B</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -219,6 +231,15 @@ export default async function InventarioPage({
                       </td>
                       {puedeVerCostos && <td className="px-4 py-3 text-right text-gray-600">{formatCLP(costoReal)}</td>}
                       <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCLP(p.precio_venta)}</td>
+                      <td className="px-4 py-3">
+                        <ProductoB2BControl
+                          productId={p.id}
+                          nombre={p.nombre}
+                          precioMayorista={p.precio_mayorista ?? null}
+                          visibleCompradores={p.visible_compradores ?? false}
+                          disabled={!puedeEditar}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1 justify-end">
                           <ProductoQRButton productId={p.id} nombre={p.nombre} sku={p.sku} />
