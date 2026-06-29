@@ -41,7 +41,7 @@ export async function POST(
     return NextResponse.json({ error: 'No tienes permiso para confirmar pedidos' }, { status: 403 })
   }
 
-  let body: { items?: Record<string, ItemSeleccion>; itemsNuevos?: ItemNuevo[]; metodoPago?: string; tipoDocumento?: string }
+  let body: { items?: Record<string, ItemSeleccion>; itemsNuevos?: ItemNuevo[]; tipoDocumento?: string }
   try {
     body = await req.json()
   } catch {
@@ -109,9 +109,10 @@ export async function POST(
   const neto = Math.round(totalBruto / (1 + ivaPct / 100))
   const iva = totalBruto - neto
   const ppm = calcularPpm(neto, ppmPct)
-  const metodoPago = body.metodoPago || 'transferencia'
-  const comisionPct = metodoPago === 'debito' ? (cfg?.comision_debito ?? 0) : metodoPago === 'credito' ? (cfg?.comision_credito ?? 0) : 0
-  const comisionBancaria = Math.round(totalBruto * comisionPct / 100)
+  // El método de pago todavía no se define: se elige recién al registrar el primer abono.
+  // Se usa "transferencia" como valor provisorio (0% comisión) hasta entonces.
+  const metodoPagoProvisorio = 'transferencia'
+  const comisionBancaria = 0
 
   const { data: compradorProfile } = await admin
     .from('user_profiles')
@@ -126,7 +127,7 @@ export async function POST(
     iva,
     ppm,
     total: totalBruto,
-    metodo_pago: metodoPago,
+    metodo_pago: metodoPagoProvisorio,
     comision_bancaria: comisionBancaria,
     tipo_documento: body.tipoDocumento || 'factura',
     usuario_id: user.id,
@@ -179,18 +180,16 @@ export async function POST(
     if (itemErr) console.error('[confirmar pedido b2b] error al marcar cantidad confirmada', it.id, itemErr)
   }
 
-  // Pagado de inmediato salvo que sea a credito (igual criterio que las OC a proveedores)
-  const pagadoAlConfirmar = metodoPago !== 'credito'
-
+  // El pago se registra recién cuando se abona de verdad (puede entrar en crédito),
+  // así que al confirmar nunca se marca como pagado.
   await admin.from('sales_orders').update({
     estado: 'confirmado',
     sale_id: venta.id,
     confirmado_por: user.id,
     confirmado_at: new Date().toISOString(),
     total_estimado: totalBruto,
-    metodo_pago: metodoPago,
-    pagado: pagadoAlConfirmar,
-    fecha_pago: pagadoAlConfirmar ? new Date().toISOString() : null,
+    pagado: false,
+    fecha_pago: null,
   }).eq('id', id)
 
   if (compradorProfile?.telefono) {

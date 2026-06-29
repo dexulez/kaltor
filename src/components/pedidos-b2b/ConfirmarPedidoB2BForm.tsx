@@ -52,7 +52,6 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
       precio: String(it.precioSugerido),
     }]))
   )
-  const [metodoPago, setMetodoPago] = useState('transferencia')
   const [tipoDocumento, setTipoDocumento] = useState('factura')
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [mostrarRechazo, setMostrarRechazo] = useState(false)
@@ -134,7 +133,7 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
       const res = await fetch(`/api/pedidos-b2b/${pedidoId}/confirmar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsBody, itemsNuevos, metodoPago, tipoDocumento }),
+        body: JSON.stringify({ items: itemsBody, itemsNuevos, tipoDocumento }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Error al confirmar el pedido'); return }
@@ -233,8 +232,8 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="bg-gray-50 border-b px-4 py-2.5">
+      <div className="bg-white rounded-xl border">
+        <div className="bg-gray-50 border-b rounded-t-xl px-4 py-2.5">
           <h2 className="font-semibold text-gray-800 text-sm">+ Agregar otro producto a esta venta</h2>
         </div>
         <div className="p-4 space-y-3">
@@ -295,19 +294,7 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label>Método de pago</Label>
-          <Select value={metodoPago} onValueChange={v => setMetodoPago(v ?? 'transferencia')}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="transferencia">Transferencia</SelectItem>
-              <SelectItem value="efectivo">Efectivo</SelectItem>
-              <SelectItem value="debito">Débito</SelectItem>
-              <SelectItem value="credito">Crédito</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="bg-white rounded-xl border p-4 max-w-xs">
         <div className="space-y-1.5">
           <Label>Tipo de documento</Label>
           <Select value={tipoDocumento} onValueChange={v => setTipoDocumento(v ?? 'factura')}>

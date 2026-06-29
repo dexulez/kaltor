@@ -47,16 +47,19 @@ export async function POST(
     return NextResponse.json({ error: 'El monto supera el saldo pendiente' }, { status: 400 })
   }
 
+  const metodoAbono = body.metodoPago || 'transferencia'
+
   const { error: pagoErr } = await admin.from('sales_order_payments').insert({
     sales_order_id: id,
     monto: montoNum,
-    metodo_pago: body.metodoPago || 'transferencia',
+    metodo_pago: metodoAbono,
     fecha: new Date().toISOString().split('T')[0],
     nota: body.nota ?? null,
   })
   if (pagoErr) return NextResponse.json({ error: 'Error al registrar el pago: ' + pagoErr.message }, { status: 500 })
 
   const yaEstabaPagado = pedido.pagado === true
+  const esPrimerAbono = (pedido.monto_pagado ?? 0) === 0
   const nuevoMontoPagado = (pedido.monto_pagado ?? 0) + montoNum
   const quedoCompleto = nuevoMontoPagado >= (pedido.total_estimado ?? 0)
 
@@ -64,7 +67,16 @@ export async function POST(
     monto_pagado: nuevoMontoPagado,
     pagado: quedoCompleto,
     fecha_pago: quedoCompleto ? new Date().toISOString() : pedido.fecha_pago,
+    ...(esPrimerAbono ? { metodo_pago: metodoAbono } : {}),
   }).eq('id', id)
+
+  // El primer abono define el método de pago "oficial" de la venta generada (para comisión bancaria)
+  if (esPrimerAbono) {
+    const { data: cfg } = await admin.from('system_config').select('comision_debito, comision_credito').single()
+    const comisionPct = metodoAbono === 'debito' ? (cfg?.comision_debito ?? 0) : metodoAbono === 'credito' ? (cfg?.comision_credito ?? 0) : 0
+    const comisionBancaria = Math.round((pedido.total_estimado ?? 0) * comisionPct / 100)
+    await admin.from('sales').update({ metodo_pago: metodoAbono, comision_bancaria: comisionBancaria }).eq('id', pedido.sale_id)
+  }
 
   if (!yaEstabaPagado && quedoCompleto) {
     const { data: comprador } = await admin.from('user_profiles').select('nombre_completo, telefono').eq('id', pedido.comprador_id).single()
