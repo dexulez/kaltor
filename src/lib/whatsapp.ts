@@ -53,3 +53,11 @@ export function msgPedidoB2BConfirmado(nombre: string, numeroPedido: string, tot
 export function msgPedidoB2BRechazado(nombre: string, numeroPedido: string, motivo: string | null, local: string) {
   return `Hola ${nombre},\n\nLamentablemente no pudimos procesar tu pedido *${numeroPedido}*.${motivo ? `\nMotivo: ${motivo}` : ''}\n\nEscríbenos si tienes dudas.\n\n_${local}_`
 }
+
+export function msgPedidoB2BEntregado(nombre: string, numeroPedido: string, local: string) {
+  return `Hola ${nombre} 📦\n\nTu pedido *${numeroPedido}* fue entregado.\n\n¡Gracias por tu compra! 🙌\n\n_${local}_`
+}
+
+export function msgPedidoB2BPagado(nombre: string, numeroPedido: string, total: number, local: string) {
+  return `Hola ${nombre} 💰\n\nRegistramos el pago completo de tu pedido *${numeroPedido}* por *$${total.toLocaleString('es-CL')}*.\n\n¡Gracias! 🙌\n\n_${local}_`
+}

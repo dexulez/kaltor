@@ -20,6 +20,13 @@ interface ItemSeleccion {
   precioUnitario: number
 }
 
+interface ItemNuevo {
+  productId: string
+  nombre: string
+  cantidad: number
+  precioUnitario: number
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,13 +41,14 @@ export async function POST(
     return NextResponse.json({ error: 'No tienes permiso para confirmar pedidos' }, { status: 403 })
   }
 
-  let body: { items?: Record<string, ItemSeleccion>; metodoPago?: string; tipoDocumento?: string }
+  let body: { items?: Record<string, ItemSeleccion>; itemsNuevos?: ItemNuevo[]; metodoPago?: string; tipoDocumento?: string }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
   const seleccion = body.items ?? {}
+  const itemsNuevos = (body.itemsNuevos ?? []).filter(i => i.cantidad > 0 && i.productId)
 
   const admin = createServiceClient()
 
@@ -58,6 +66,27 @@ export async function POST(
       return { ...it, cantidadConfirmada: sel.cantidadConfirmada, precioFinal: sel.precioUnitario }
     })
     .filter((x): x is NonNullable<typeof x> => x !== null)
+
+  if (itemsNuevos.length > 0) {
+    const { data: insertados, error: insertErr } = await admin.from('sales_order_items').insert(
+      itemsNuevos.map(it => ({
+        sales_order_id: id,
+        product_id: it.productId,
+        nombre: it.nombre,
+        cantidad_solicitada: it.cantidad,
+        cantidad_confirmada: it.cantidad,
+        precio_unitario: it.precioUnitario,
+        subtotal: it.cantidad * it.precioUnitario,
+        agregado_por_staff: true,
+      }))
+    ).select()
+    if (insertErr) {
+      return NextResponse.json({ error: 'Error al agregar productos nuevos: ' + insertErr.message }, { status: 500 })
+    }
+    for (const nuevo of insertados ?? []) {
+      itemsConfirmados.push({ ...nuevo, cantidadConfirmada: nuevo.cantidad_confirmada, precioFinal: nuevo.precio_unitario })
+    }
+  }
 
   if (itemsConfirmados.length === 0) {
     return NextResponse.json({ error: 'Debes confirmar al menos un producto' }, { status: 400 })

@@ -1,18 +1,26 @@
 import { createClient } from '@/lib/supabase/server'
-import { tieneAccesoModulo } from '@/lib/modulos'
+import { tieneAccesoModulo, tieneSubPermiso } from '@/lib/modulos'
 import Link from 'next/link'
 import BotonVolver from '@/components/shared/BotonVolver'
 import ConfirmarPedidoB2BForm from '@/components/pedidos-b2b/ConfirmarPedidoB2BForm'
 import AccionesPedidoB2B from '@/components/pedidos-b2b/AccionesPedidoB2B'
+import DespacharPedidoB2BForm from '@/components/pedidos-b2b/DespacharPedidoB2BForm'
+import CancelarPedidoB2BBtn from '@/components/pedidos-b2b/CancelarPedidoB2BBtn'
+import PagarPedidoB2BBtn from '@/components/pedidos-b2b/PagarPedidoB2BBtn'
+import AgregarComprobanteB2BBtn from '@/components/pedidos-b2b/AgregarComprobanteB2BBtn'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
 const ESTADO_LABEL: Record<string, string> = {
-  pendiente: 'Pendiente', confirmado: 'Confirmado', rechazado: 'Rechazado', cancelado: 'Cancelado',
+  pendiente: 'Pendiente', confirmado: 'Confirmado', preparando: 'Preparando',
+  en_camino: 'En camino', entregado: 'Entregado', rechazado: 'Rechazado', cancelado: 'Cancelado',
 }
 const ESTADO_COLOR: Record<string, string> = {
   pendiente: 'bg-amber-100 text-amber-700',
   confirmado: 'bg-green-100 text-green-700',
+  preparando: 'bg-blue-100 text-blue-700',
+  en_camino: 'bg-indigo-100 text-indigo-700',
+  entregado: 'bg-emerald-100 text-emerald-700',
   rechazado: 'bg-red-100 text-red-700',
   cancelado: 'bg-gray-100 text-gray-500',
 }
@@ -54,6 +62,7 @@ export default async function PedidoB2BDetallePage({
 
   const esComprador = rol === 'comprador_externo'
   const esStaff = ['administrador', 'vendedor', 'supervisor_ventas'].includes(rol)
+  const puedeCancelar = tieneSubPermiso('caja.anular', rol, permisos)
 
   const { data: pedido } = await supabase.from('sales_orders').select('*').eq('id', id).single()
   if (!pedido || (esComprador && pedido.comprador_id !== user!.id)) {
@@ -66,18 +75,29 @@ export default async function PedidoB2BDetallePage({
     )
   }
 
-  const [{ data: items }, { data: comprador }] = await Promise.all([
+  const [{ data: items }, { data: comprador }, { data: pagos }, { data: productosActivos }] = await Promise.all([
     supabase.from('sales_order_items').select('*, products(stock_actual)').eq('sales_order_id', id),
     supabase.from('user_profiles').select('nombre_completo, email, telefono').eq('id', pedido.comprador_id).single(),
+    supabase.from('sales_order_payments').select('*').eq('sales_order_id', id).order('created_at', { ascending: false }),
+    (pedido.estado === 'pendiente' && esStaff)
+      ? supabase.from('products').select('id, nombre, precio_venta, precio_mayorista, stock_actual').eq('activo', true).order('nombre')
+      : Promise.resolve({ data: null }),
   ])
 
   type ItemRow = {
     id: string; product_id: string; nombre: string; cantidad_solicitada: number
     cantidad_confirmada: number | null; precio_unitario: number; subtotal: number
+    agregado_por_staff: boolean | null
     products: { stock_actual: number } | { stock_actual: number }[] | null
   }
   const itemsList = (items ?? []) as ItemRow[]
   const stockDe = (it: ItemRow) => Array.isArray(it.products) ? it.products[0]?.stock_actual ?? 0 : it.products?.stock_actual ?? 0
+
+  const itemsDespacho = itemsList
+    .filter(it => (it.cantidad_confirmada ?? 0) > 0)
+    .map(it => ({ id: it.id, nombre: it.nombre, cantidadConfirmada: it.cantidad_confirmada ?? 0, precioUnitario: it.precio_unitario }))
+
+  const mostrarPagosYCancelar = esStaff && ['confirmado', 'preparando', 'en_camino', 'entregado'].includes(pedido.estado)
 
   return (
     <div className="p-6 space-y-5">
@@ -113,6 +133,9 @@ export default async function PedidoB2BDetallePage({
             precioSugerido: it.precio_unitario,
             stockActual: stockDe(it),
           }))}
+          productosDisponibles={(productosActivos ?? []).map(p => ({
+            id: p.id, nombre: p.nombre, precioVenta: p.precio_venta, precioMayorista: p.precio_mayorista, stockActual: p.stock_actual,
+          }))}
         />
       ) : (
         <div className="bg-white rounded-xl border overflow-hidden">
@@ -125,7 +148,7 @@ export default async function PedidoB2BDetallePage({
                 <tr>
                   <th className="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Producto</th>
                   <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Solicitado</th>
-                  <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">{pedido.estado === 'confirmado' ? 'Confirmado' : '—'}</th>
+                  <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Confirmado</th>
                   <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Precio</th>
                   <th className="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Subtotal</th>
                 </tr>
@@ -133,7 +156,10 @@ export default async function PedidoB2BDetallePage({
               <tbody className="divide-y">
                 {itemsList.map(it => (
                   <tr key={it.id}>
-                    <td className="px-4 py-2.5 font-medium text-gray-900">{it.nombre}</td>
+                    <td className="px-4 py-2.5 font-medium text-gray-900">
+                      {it.nombre}
+                      {it.agregado_por_staff && <span className="ml-1.5 text-[10px] text-blue-600 font-normal">añadido</span>}
+                    </td>
                     <td className="px-4 py-2.5 text-right">{it.cantidad_solicitada}</td>
                     <td className="px-4 py-2.5 text-right">{it.cantidad_confirmada ?? '—'}</td>
                     <td className="px-4 py-2.5 text-right">{formatCLP(it.precio_unitario)}</td>
@@ -154,7 +180,12 @@ export default async function PedidoB2BDetallePage({
               <strong>Motivo:</strong> {pedido.motivo_rechazo}
             </div>
           )}
-          {pedido.estado === 'confirmado' && (
+          {pedido.estado === 'cancelado' && (
+            <div className="px-4 py-3 bg-gray-50 border-t text-sm text-gray-600">
+              <strong>Cancelado{pedido.motivo_cancelacion ? `:` : ''}</strong> {pedido.motivo_cancelacion ?? ''}
+            </div>
+          )}
+          {['confirmado', 'preparando', 'en_camino', 'entregado'].includes(pedido.estado) && (
             <div className="px-4 py-3 border-t space-y-3">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                 <div>
@@ -172,19 +203,57 @@ export default async function PedidoB2BDetallePage({
                   <p className="font-medium">{pedido.fecha_entregado ? pedido.fecha_entregado.split('T')[0] : '—'}</p>
                 </div>
               </div>
-              {esStaff && (
-                <AccionesPedidoB2B
-                  pedidoId={pedido.id}
-                  pagado={pedido.pagado}
-                  metodoPago={pedido.metodo_pago}
-                  fechaEntregado={pedido.fecha_entregado}
-                />
+
+              {pedido.comprobante_envio_url && (
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">Comprobante de despacho</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={pedido.comprobante_envio_url} alt="Comprobante de despacho" className="h-32 rounded-lg border" />
+                </div>
               )}
+
+              {esStaff && pedido.estado === 'preparando' && (
+                <DespacharPedidoB2BForm pedidoId={pedido.id} items={itemsDespacho} />
+              )}
+
+              {esStaff && (
+                <div className="flex flex-wrap gap-2">
+                  <AccionesPedidoB2B pedidoId={pedido.id} estado={pedido.estado} />
+                  <CancelarPedidoB2BBtn pedidoId={pedido.id} numero={pedido.numero_pedido} estado={pedido.estado} puedeCancelar={puedeCancelar} />
+                </div>
+              )}
+
               {esStaff && pedido.sale_id && (
                 <Link href="/caja" className="text-green-700 hover:underline font-medium text-sm inline-block">Ver en Caja / Ventas →</Link>
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {mostrarPagosYCancelar && (
+        <PagarPedidoB2BBtn
+          pedidoId={pedido.id}
+          total={pedido.total_estimado}
+          montoPagado={pedido.monto_pagado ?? 0}
+          pagos={pagos ?? []}
+        />
+      )}
+
+      {mostrarPagosYCancelar && (
+        <div className="bg-white rounded-xl border p-4 space-y-2">
+          <p className="font-semibold text-gray-800 text-sm">Comprobantes de pago</p>
+          {pedido.comprobante_pago_urls?.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {(pedido.comprobante_pago_urls as string[]).map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`Comprobante ${i + 1}`} className="h-20 w-20 object-cover rounded-lg border" />
+                </a>
+              ))}
+            </div>
+          )}
+          <AgregarComprobanteB2BBtn pedidoId={pedido.id} />
         </div>
       )}
     </div>

@@ -22,11 +22,28 @@ interface FilaEstado {
   precio: string
 }
 
+interface ProductoDisponible {
+  id: string
+  nombre: string
+  precioVenta: number
+  precioMayorista: number | null
+  stockActual: number
+}
+
+interface ItemExtra {
+  id: string
+  productId: string
+  nombre: string
+  cantidad: string
+  precio: string
+  stockActual: number
+}
+
 function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value)
 }
 
-export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: string; items: ItemPedido[] }) {
+export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDisponibles = [] }: { pedidoId: string; items: ItemPedido[]; productosDisponibles?: ProductoDisponible[] }) {
   const router = useRouter()
   const [filas, setFilas] = useState<Record<string, FilaEstado>>(() =>
     Object.fromEntries(items.map(it => [it.id, {
@@ -40,6 +57,35 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [mostrarRechazo, setMostrarRechazo] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [extras, setExtras] = useState<ItemExtra[]>([])
+  const [busquedaExtra, setBusquedaExtra] = useState('')
+
+  const idsYaIncluidos = new Set(extras.map(e => e.productId))
+  const sugerencias = busquedaExtra.trim()
+    ? productosDisponibles
+        .filter(p => p.nombre.toLowerCase().includes(busquedaExtra.toLowerCase()) && !idsYaIncluidos.has(p.id))
+        .slice(0, 6)
+    : []
+
+  function agregarExtra(p: ProductoDisponible) {
+    setExtras(prev => [...prev, {
+      id: `extra-${p.id}`,
+      productId: p.id,
+      nombre: p.nombre,
+      cantidad: '1',
+      precio: String(p.precioMayorista ?? p.precioVenta),
+      stockActual: p.stockActual,
+    }])
+    setBusquedaExtra('')
+  }
+
+  function quitarExtra(id: string) {
+    setExtras(prev => prev.filter(e => e.id !== id))
+  }
+
+  function setExtra(id: string, campo: 'cantidad' | 'precio', valor: string) {
+    setExtras(prev => prev.map(e => e.id === id ? { ...e, [campo]: valor } : e))
+  }
 
   function set(id: string, campo: keyof FilaEstado, valor: string | boolean) {
     setFilas(prev => ({ ...prev, [id]: { ...prev[id], [campo]: valor } }))
@@ -56,8 +102,8 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
       const f = filas[it.id]
       if (!f?.incluido) return s
       return s + (Number(f.cantidad) || 0) * (Number(f.precio) || 0)
-    }, 0)
-  , [filas, items])
+    }, 0) + extras.reduce((s, e) => s + (Number(e.cantidad) || 0) * (Number(e.precio) || 0), 0)
+  , [filas, items, extras])
 
   const itemsConExceso = useMemo(() =>
     items.filter(it => {
@@ -74,9 +120,13 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
         itemsBody[it.id] = { cantidadConfirmada: Number(f.cantidad), precioUnitario: Number(f.precio) || 0 }
       }
     })
-    if (Object.keys(itemsBody).length === 0) { toast.error('Marca al menos un producto para confirmar'); return }
+    const itemsNuevos = extras
+      .filter(e => Number(e.cantidad) > 0)
+      .map(e => ({ productId: e.productId, nombre: e.nombre, cantidad: Number(e.cantidad), precioUnitario: Number(e.precio) || 0 }))
 
-    const nProductos = Object.keys(itemsBody).length
+    if (Object.keys(itemsBody).length === 0 && itemsNuevos.length === 0) { toast.error('Marca al menos un producto para confirmar'); return }
+
+    const nProductos = Object.keys(itemsBody).length + itemsNuevos.length
     if (!window.confirm(`¿Confirmar este pedido por ${formatCLP(total)} (${nProductos} producto${nProductos === 1 ? '' : 's'})?\n\nSe generará una venta en Caja y se descontará el stock.`)) return
 
     setLoading(true)
@@ -84,7 +134,7 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
       const res = await fetch(`/api/pedidos-b2b/${pedidoId}/confirmar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsBody, metodoPago, tipoDocumento }),
+        body: JSON.stringify({ items: itemsBody, itemsNuevos, metodoPago, tipoDocumento }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Error al confirmar el pedido'); return }
@@ -180,6 +230,68 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items }: { pedidoId: 
               </tr>
             </tfoot>
           </table>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-gray-50 border-b px-4 py-2.5">
+          <h2 className="font-semibold text-gray-800 text-sm">+ Agregar otro producto a esta venta</h2>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="relative max-w-md">
+            <Input
+              value={busquedaExtra}
+              onChange={e => setBusquedaExtra(e.target.value)}
+              placeholder="Buscar producto del inventario..."
+              autoComplete="off"
+            />
+            {sugerencias.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-10 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1">
+                {sugerencias.map(p => (
+                  <button key={p.id} type="button"
+                    onMouseDown={e => { e.preventDefault(); agregarExtra(p) }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b last:border-0 flex justify-between gap-2">
+                    <span className="font-medium">{p.nombre}</span>
+                    <span className="text-gray-400 whitespace-nowrap">{formatCLP(p.precioMayorista ?? p.precioVenta)} · stock {p.stockActual}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {extras.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500">
+                    <th className="py-1.5 font-medium">Producto</th>
+                    <th className="py-1.5 font-medium text-right">Stock</th>
+                    <th className="py-1.5 font-medium text-right">Cantidad</th>
+                    <th className="py-1.5 font-medium text-right">Precio unitario</th>
+                    <th className="py-1.5 font-medium text-right">Subtotal</th>
+                    <th className="py-1.5 w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {extras.map(e => {
+                    const subtotal = (Number(e.cantidad) || 0) * (Number(e.precio) || 0)
+                    return (
+                      <tr key={e.id}>
+                        <td className="py-2 font-medium text-gray-900">{e.nombre} <span className="text-[10px] text-blue-600 font-normal">añadido</span></td>
+                        <td className="py-2 text-right text-gray-500">{e.stockActual}</td>
+                        <td className="py-2 text-right"><Input type="number" min={0} className="w-20 text-right inline-block" value={e.cantidad} onChange={ev => setExtra(e.id, 'cantidad', ev.target.value)} /></td>
+                        <td className="py-2 text-right"><Input type="number" min={0} className="w-28 text-right inline-block" value={e.precio} onChange={ev => setExtra(e.id, 'precio', ev.target.value)} /></td>
+                        <td className="py-2 text-right font-medium">{formatCLP(subtotal)}</td>
+                        <td className="py-2 text-right">
+                          <button type="button" onClick={() => quitarExtra(e.id)} className="text-gray-400 hover:text-red-600">✕</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

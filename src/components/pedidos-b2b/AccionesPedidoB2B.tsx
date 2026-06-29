@@ -7,58 +7,59 @@ import { toast } from 'sonner'
 
 interface Props {
   pedidoId: string
-  pagado: boolean
-  metodoPago: string | null
-  fechaEntregado: string | null
+  estado: string
 }
 
-export default function AccionesPedidoB2B({ pedidoId, pagado, metodoPago, fechaEntregado }: Props) {
+export default function AccionesPedidoB2B({ pedidoId, estado }: Props) {
   const router = useRouter()
   const supabase = createClient()
-  const [loading, setLoading] = useState<'pago' | 'entrega' | null>(null)
+  const [loading, setLoading] = useState<'preparar' | 'entrega' | null>(null)
 
-  async function marcarPagado() {
-    setLoading('pago')
-    const { error } = await supabase.from('sales_orders')
-      .update({ pagado: true, fecha_pago: new Date().toISOString() })
-      .eq('id', pedidoId)
+  async function empezarAPreparar() {
+    setLoading('preparar')
+    const { error } = await supabase.from('sales_orders').update({ estado: 'preparando' }).eq('id', pedidoId)
     setLoading(null)
-    if (error) { toast.error('Error al marcar como pagado'); return }
-    toast.success('Pedido marcado como pagado')
+    if (error) { toast.error('Error al actualizar el pedido'); return }
+    toast.success('Pedido en preparación')
     router.refresh()
   }
 
   async function marcarEntregado() {
     setLoading('entrega')
-    const { error } = await supabase.from('sales_orders')
-      .update({ fecha_entregado: new Date().toISOString() })
-      .eq('id', pedidoId)
-    setLoading(null)
-    if (error) { toast.error('Error al marcar como entregado'); return }
-    toast.success('Pedido marcado como entregado')
-    router.refresh()
+    try {
+      const res = await fetch(`/api/pedidos-b2b/${pedidoId}/entregar`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'Error al marcar como entregado'); return }
+      toast.success('Pedido marcado como entregado')
+      router.refresh()
+    } catch {
+      toast.error('Error de conexión')
+    } finally {
+      setLoading(null)
+    }
   }
 
-  if (pagado && fechaEntregado) return null
+  if (estado === 'confirmado') {
+    return (
+      <button
+        type="button" onClick={empezarAPreparar} disabled={loading !== null}
+        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 transition-colors"
+      >
+        {loading === 'preparar' ? 'Guardando...' : '📦 Empezar a preparar'}
+      </button>
+    )
+  }
 
-  return (
-    <div className="flex gap-2 flex-wrap">
-      {!pagado && metodoPago === 'credito' && (
-        <button
-          type="button" onClick={marcarPagado} disabled={loading !== null}
-          className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 transition-colors"
-        >
-          {loading === 'pago' ? 'Guardando...' : '💰 Marcar como pagado'}
-        </button>
-      )}
-      {!fechaEntregado && (
-        <button
-          type="button" onClick={marcarEntregado} disabled={loading !== null}
-          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 transition-colors"
-        >
-          {loading === 'entrega' ? 'Guardando...' : '📦 Marcar como entregado'}
-        </button>
-      )}
-    </div>
-  )
+  if (estado === 'en_camino') {
+    return (
+      <button
+        type="button" onClick={marcarEntregado} disabled={loading !== null}
+        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 transition-colors"
+      >
+        {loading === 'entrega' ? 'Guardando...' : '✅ Marcar como entregado'}
+      </button>
+    )
+  }
+
+  return null
 }
