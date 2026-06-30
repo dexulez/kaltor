@@ -337,7 +337,7 @@ export default async function PedidoB2BDetallePage({
                 </div>
               )}
 
-              {esComprador && pedido.estado === 'en_camino' && (
+              {esComprador && ['confirmado', 'en_camino'].includes(pedido.estado) && (
                 <div className="flex flex-wrap gap-2">
                   <AccionesPedidoB2B pedidoId={pedido.id} estado={pedido.estado} />
                 </div>

@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 interface Props {
@@ -12,16 +11,21 @@ interface Props {
 
 export default function AccionesPedidoB2B({ pedidoId, estado }: Props) {
   const router = useRouter()
-  const supabase = createClient()
   const [loading, setLoading] = useState<'preparar' | 'entrega' | null>(null)
 
   async function empezarAPreparar() {
     setLoading('preparar')
-    const { error } = await supabase.from('sales_orders').update({ estado: 'preparando' }).eq('id', pedidoId)
-    setLoading(null)
-    if (error) { toast.error('Error al actualizar el pedido'); return }
-    toast.success('Pedido en preparación')
-    router.refresh()
+    try {
+      const res = await fetch(`/api/pedidos-b2b/${pedidoId}/preparar`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'Error al actualizar el pedido'); return }
+      toast.success('Pedido en preparación')
+      router.refresh()
+    } catch {
+      toast.error('Error de conexión')
+    } finally {
+      setLoading(null)
+    }
   }
 
   async function marcarEntregado() {

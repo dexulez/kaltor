@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { tieneAccesoModulo } from '@/lib/modulos'
 import Link from 'next/link'
 import { Suspense } from 'react'
@@ -94,6 +94,10 @@ export default async function PedidosB2BPage({
   }
 
   const esComprador = rol === 'comprador_externo'
+
+  if (esComprador) {
+    await createServiceClient().from('user_profiles').update({ pedidos_b2b_visto_at: new Date().toISOString() }).eq('id', user!.id)
+  }
 
   let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado, monto_pagado, fecha_vencimiento_pago, confirmado_por, rechazado_por, cancelado_por, motivo_rechazo, motivo_cancelacion, pago_en_revision').order('created_at', { ascending: false })
   if (esComprador) query = query.eq('comprador_id', user!.id)
