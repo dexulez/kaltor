@@ -7,11 +7,15 @@ import BuscadorPedidosB2B from '@/components/pedidos-b2b/BuscadorPedidosB2B'
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
 const ESTADO_LABEL: Record<string, string> = {
-  pendiente: 'Pendiente', confirmado: 'Confirmado', rechazado: 'Rechazado', cancelado: 'Cancelado',
+  pendiente: 'Pendiente', confirmado: 'Confirmado', preparando: 'Preparando', en_camino: 'En camino',
+  entregado: 'Entregado', rechazado: 'Rechazado', cancelado: 'Cancelado',
 }
 const ESTADO_COLOR: Record<string, string> = {
   pendiente: 'bg-amber-100 text-amber-700',
   confirmado: 'bg-green-100 text-green-700',
+  preparando: 'bg-blue-100 text-blue-700',
+  en_camino: 'bg-indigo-100 text-indigo-700',
+  entregado: 'bg-emerald-100 text-emerald-700',
   rechazado: 'bg-red-100 text-red-700',
   cancelado: 'bg-gray-100 text-gray-500',
 }
@@ -96,6 +100,9 @@ export default async function PedidosB2BPage({
   const grupos: { estado: string; titulo: string }[] = [
     { estado: 'pendiente', titulo: esComprador ? 'Pendientes de revisión' : 'Pendientes de confirmar' },
     { estado: 'confirmado', titulo: 'Confirmados' },
+    { estado: 'preparando', titulo: 'Preparando' },
+    { estado: 'en_camino', titulo: 'En camino' },
+    { estado: 'entregado', titulo: 'Entregados' },
     { estado: 'rechazado', titulo: 'Rechazados' },
     { estado: 'cancelado', titulo: 'Cancelados' },
   ]
@@ -239,7 +246,7 @@ export default async function PedidosB2BPage({
                           <td className="px-4 py-2.5 text-gray-500">{p.fecha_entregado ? p.fecha_entregado.split('T')[0] : '—'}</td>
                           <td className="px-4 py-2.5 text-gray-500">{p.metodo_pago ? (METODO_PAGO_LABEL[p.metodo_pago] ?? p.metodo_pago) : '—'}</td>
                           <td className="px-4 py-2.5">
-                            {p.estado === 'confirmado' ? (
+                            {['confirmado', 'preparando', 'en_camino', 'entregado'].includes(p.estado) ? (
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.pagado ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                                 {p.pagado ? '✓ Pagado' : 'Pendiente'}
                               </span>
@@ -249,7 +256,7 @@ export default async function PedidosB2BPage({
                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-600'}`}>
                               {ESTADO_LABEL[p.estado] ?? p.estado}
                             </span>
-                            {p.estado === 'confirmado' && p.confirmado_por && (
+                            {['confirmado', 'preparando', 'en_camino', 'entregado'].includes(p.estado) && p.confirmado_por && (
                               <p className="text-[10px] text-gray-400 mt-1 max-w-[180px] ml-auto">
                                 Por {nombresActores[p.confirmado_por] ?? 'Vendedor'} (TechRepair Pro)
                               </p>
