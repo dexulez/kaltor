@@ -1,9 +1,10 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { tieneAccesoModulo } from '@/lib/modulos'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import BuscadorPedidosB2B from '@/components/pedidos-b2b/BuscadorPedidosB2B'
 import ListaPedidosCompradorPago from '@/components/pedidos-b2b/ListaPedidosCompradorPago'
+import MarcarVistoB2B from '@/components/pedidos-b2b/MarcarVistoB2B'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
@@ -95,10 +96,6 @@ export default async function PedidosB2BPage({
 
   const esComprador = rol === 'comprador_externo'
 
-  if (esComprador) {
-    await createServiceClient().from('user_profiles').update({ pedidos_b2b_visto_at: new Date().toISOString() }).eq('id', user!.id)
-  }
-
   let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado, monto_pagado, fecha_vencimiento_pago, confirmado_por, rechazado_por, cancelado_por, motivo_rechazo, motivo_cancelacion, pago_en_revision').order('created_at', { ascending: false })
   if (esComprador) query = query.eq('comprador_id', user!.id)
 
@@ -167,6 +164,7 @@ export default async function PedidosB2BPage({
 
   return (
     <div className="p-6 space-y-5">
+      {esComprador && <MarcarVistoB2B />}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <span className="text-3xl">📥</span>
