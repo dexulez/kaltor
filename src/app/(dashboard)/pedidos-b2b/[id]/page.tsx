@@ -340,6 +340,9 @@ export default async function PedidoB2BDetallePage({
               {esComprador && ['confirmado', 'en_camino'].includes(pedido.estado) && (
                 <div className="flex flex-wrap gap-2">
                   <AccionesPedidoB2B pedidoId={pedido.id} estado={pedido.estado} />
+                  {pedido.estado === 'confirmado' && (
+                    <CancelarPedidoB2BBtn pedidoId={pedido.id} numero={pedido.numero_pedido} estado={pedido.estado} puedeCancelar={true} />
+                  )}
                 </div>
               )}
 

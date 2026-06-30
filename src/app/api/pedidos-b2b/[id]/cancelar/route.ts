@@ -32,9 +32,6 @@ export async function POST(
 
   const rolNombre = getRoleName(callerProfile as ProfileResult | null) ?? ''
   const permisos = (callerProfile as ProfileResult | null)?.permisos_modulos ?? null
-  if (!tieneSubPermiso('caja.anular', rolNombre, permisos)) {
-    return NextResponse.json({ error: 'No tienes permiso para cancelar pedidos' }, { status: 403 })
-  }
 
   let body: { motivo?: string | null }
   try {
@@ -47,6 +44,11 @@ export async function POST(
   const admin = createServiceClient()
   const { data: pedido } = await admin.from('sales_orders').select('*').eq('id', id).single()
   if (!pedido) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
+
+  const esCompradorDelPedido = rolNombre === 'comprador_externo' && pedido.comprador_id === user.id && pedido.estado === 'confirmado'
+  if (!tieneSubPermiso('caja.anular', rolNombre, permisos) && !esCompradorDelPedido) {
+    return NextResponse.json({ error: 'No tienes permiso para cancelar pedidos' }, { status: 403 })
+  }
   if (!ESTADOS_CANCELABLES.includes(pedido.estado)) {
     return NextResponse.json({ error: 'Este pedido no se puede cancelar en su estado actual' }, { status: 400 })
   }
@@ -99,6 +101,17 @@ export async function POST(
     cancelado_at: new Date().toISOString(),
     motivo_cancelacion: motivo,
   }).eq('id', id)
+
+  if (esCompradorDelPedido) {
+    const nombreComprador = (callerProfile as ProfileResult | null)?.nombre_completo ?? 'El comprador'
+    await admin.from('notifications').insert({
+      tipo: 'pedido_b2b',
+      titulo: `${nombreComprador} canceló el pedido ${pedido.numero_pedido}`,
+      mensaje: motivo ? `Motivo: ${motivo}` : null,
+      url: `/pedidos-b2b/${pedido.id}`,
+      leida: false,
+    })
+  }
 
   return NextResponse.json({ ok: true })
 }
