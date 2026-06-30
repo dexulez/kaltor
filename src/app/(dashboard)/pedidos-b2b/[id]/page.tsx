@@ -33,6 +33,76 @@ function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value)
 }
 
+const PASOS_SEGUIMIENTO = [
+  { id: 'pendiente', label: 'Pedido enviado', icon: '📤' },
+  { id: 'confirmado', label: 'Confirmado', icon: '✅' },
+  { id: 'preparando', label: 'Preparando', icon: '📦' },
+  { id: 'en_camino', label: 'En camino', icon: '🚚' },
+  { id: 'entregado', label: 'Entregado', icon: '📥' },
+] as const
+
+const MENSAJE_SEGUIMIENTO: Record<string, string> = {
+  pendiente: 'Esperando confirmación del vendedor',
+  confirmado: 'El vendedor confirmó tu pedido',
+  preparando: 'Estamos preparando tu pedido',
+  en_camino: 'Tu pedido está en camino',
+  entregado: '¡Pedido entregado!',
+}
+
+// Barra de seguimiento horizontal con los pasos del pedido (mismo estilo que el seguimiento de compras)
+function BarraSeguimientoB2B({ estado }: { estado: string }) {
+  const orden = PASOS_SEGUIMIENTO.map(p => p.id)
+  const detenido = estado === 'rechazado' || estado === 'cancelado'
+  const idxActual = orden.indexOf(estado as typeof orden[number])
+  const completados = new Set(detenido ? orden.slice(0, 1) : orden.slice(0, Math.max(idxActual, 0)))
+  const activoId = detenido ? '' : orden[idxActual]
+
+  return (
+    <div className="bg-white rounded-xl border shadow-sm p-4 space-y-3">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Seguimiento del pedido</p>
+
+      <div className="flex items-center gap-0">
+        {PASOS_SEGUIMIENTO.map((paso, idx) => {
+          const done = completados.has(paso.id)
+          const current = !detenido && activoId === paso.id
+          const fallido = detenido && idx === 1
+          const isLast = idx === PASOS_SEGUIMIENTO.length - 1
+          return (
+            <div key={paso.id} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center flex-shrink-0">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 transition-all
+                  ${fallido ? 'bg-red-500 border-red-500 text-white' :
+                    done ? 'bg-green-500 border-green-500 text-white' :
+                    current ? 'bg-blue-500 border-blue-500 text-white animate-pulse' :
+                    'bg-gray-100 border-gray-200 text-gray-400'}`}>
+                  {fallido ? '✕' : done ? '✓' : paso.icon}
+                </div>
+                <p className={`text-[10px] text-center mt-1 leading-tight max-w-[64px]
+                  ${fallido ? 'text-red-700 font-medium' : done ? 'text-green-700 font-medium' : current ? 'text-blue-700 font-medium' : 'text-gray-400'}`}>
+                  {paso.label}
+                </p>
+              </div>
+              {!isLast && (
+                <div className={`flex-1 h-0.5 mx-1 mb-4 rounded ${done ? 'bg-green-400' : 'bg-gray-200'}`} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className={`text-center text-sm font-medium py-1.5 rounded-lg
+        ${estado === 'entregado' ? 'text-green-700 bg-green-50' :
+          estado === 'rechazado' ? 'text-red-700 bg-red-50' :
+          estado === 'cancelado' ? 'text-gray-600 bg-gray-100' :
+          'text-blue-700 bg-blue-50'}`}>
+        {estado === 'rechazado' ? 'El vendedor rechazó este pedido' :
+         estado === 'cancelado' ? 'Este pedido fue cancelado' :
+         MENSAJE_SEGUIMIENTO[estado] ?? ''}
+      </div>
+    </div>
+  )
+}
+
 export default async function PedidoB2BDetallePage({
   params,
 }: {
@@ -123,6 +193,8 @@ export default async function PedidoB2BDetallePage({
           {ESTADO_LABEL[pedido.estado] ?? pedido.estado}
         </span>
       </div>
+
+      <BarraSeguimientoB2B estado={pedido.estado} />
 
       {esStaff && (
         <div className="bg-white rounded-xl border p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">

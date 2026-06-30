@@ -29,7 +29,7 @@ function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value)
 }
 
-export default function CatalogoB2BCarrito({ productos, ivaPct = 19 }: { productos: ProductoCatalogo[]; ivaPct?: number }) {
+export default function CatalogoB2BCarrito({ productos, ivaPct = 19, mostrarStock = true }: { productos: ProductoCatalogo[]; ivaPct?: number; mostrarStock?: boolean }) {
   const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
   const [carrito, setCarrito] = useState<Record<string, number>>({})
@@ -156,9 +156,11 @@ export default function CatalogoB2BCarrito({ productos, ivaPct = 19 }: { product
                     <div>
                       <p className={`font-bold ${ofertaActiva ? 'text-green-700' : 'text-blue-700'}`}>{formatCLP(mostrar(precioActual))}</p>
                       {ofertaActiva && <p className="text-xs text-gray-400 line-through">{formatCLP(mostrar(p.precio))}</p>}
-                      <p className={`text-xs ${p.stock > 0 ? 'text-gray-400' : 'text-red-500'}`}>
-                        {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
-                      </p>
+                      {mostrarStock && (
+                        <p className={`text-xs ${p.stock > 0 ? 'text-gray-400' : 'text-red-500'}`}>
+                          {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <input

@@ -23,6 +23,7 @@ export default async function ConfiguracionPage() {
     dias_garantia_default: 30,
     moneda: 'CLP',
     mostrar_precio_en_presupuesto: true,
+    mostrar_stock_b2b: true,
     terminos_condiciones: null,
     costo_insumos_promedio: 0,
   }

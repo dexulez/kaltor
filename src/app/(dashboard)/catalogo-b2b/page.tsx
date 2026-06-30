@@ -117,7 +117,7 @@ export default async function CatalogoB2BPage() {
       .eq('visible_compradores', true)
       .eq('activo', true)
       .order('nombre'),
-    supabase.from('system_config').select('iva').maybeSingle(),
+    supabase.from('system_config').select('*').maybeSingle(),
   ])
 
   type ProductoCatalogo = {
@@ -151,7 +151,11 @@ export default async function CatalogoB2BPage() {
           <p className="text-sm text-gray-500">Arma tu pedido y envíalo para confirmación.</p>
         </div>
       </div>
-      <CatalogoB2BCarrito productos={lista} ivaPct={(cfgComprador as { iva?: number } | null)?.iva ?? 19} />
+      <CatalogoB2BCarrito
+        productos={lista}
+        ivaPct={(cfgComprador as { iva?: number } | null)?.iva ?? 19}
+        mostrarStock={(cfgComprador as { mostrar_stock_b2b?: boolean } | null)?.mostrar_stock_b2b !== false}
+      />
     </div>
   )
 }

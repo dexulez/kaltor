@@ -25,6 +25,7 @@ type ConfigData = {
   dias_garantia_default: number
   moneda: string
   mostrar_precio_en_presupuesto: boolean
+  mostrar_stock_b2b?: boolean
   terminos_condiciones?: string | null
   costo_insumos_promedio?: number | null
 }
@@ -65,6 +66,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     mostrar_precio_en_presupuesto: config.mostrar_precio_en_presupuesto,
     mostrar_tecnico_pdf: (config as Record<string, unknown>).mostrar_tecnico_pdf !== false,
     mayusculas_automaticas: (config as Record<string, unknown>).mayusculas_automaticas === true,
+    mostrar_stock_b2b: (config as Record<string, unknown>).mostrar_stock_b2b !== false,
     terminos_condiciones: config.terminos_condiciones ?? TC_DEFAULT,
     costo_insumos_promedio: String(config.costo_insumos_promedio ?? 0),
   })
@@ -168,6 +170,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
       mostrar_precio_en_presupuesto: form.mostrar_precio_en_presupuesto,
       mostrar_tecnico_pdf: form.mostrar_tecnico_pdf,
       mayusculas_automaticas: form.mayusculas_automaticas,
+      mostrar_stock_b2b: form.mostrar_stock_b2b,
       terminos_condiciones: form.terminos_condiciones.trim() || null,
       costo_insumos_promedio: parseInt(form.costo_insumos_promedio) || 0,
     }
@@ -176,7 +179,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
 
     // Columnas agregadas en migraciones posteriores: si todavía no existen en
     // la base de datos, reintentar sin ellas en vez de fallar el guardado completo.
-    const COLUMNAS_OPCIONALES = ['mostrar_tecnico_pdf', 'mayusculas_automaticas']
+    const COLUMNAS_OPCIONALES = ['mostrar_tecnico_pdf', 'mayusculas_automaticas', 'mostrar_stock_b2b']
     while (error && COLUMNAS_OPCIONALES.some(c => error!.message.includes(c))) {
       const columna = COLUMNAS_OPCIONALES.find(c => error!.message.includes(c))!
       delete payload[columna]
@@ -311,6 +314,18 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
             No afecta contraseñas, emails, números ni fechas.
           </p>
         </div>
+      </div>
+
+      {/* Catálogo B2B */}
+      <div className="bg-white rounded-xl border p-5 space-y-3">
+        <h2 className="font-semibold text-gray-800">Catálogo B2B</h2>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={form.mostrar_stock_b2b} onChange={e => set('mostrar_stock_b2b', e.target.checked)} />
+          Mostrar el stock disponible a los compradores externos
+        </label>
+        <p className="text-xs text-gray-400 ml-6">
+          Si lo desactivas, los compradores ya no verán &quot;Stock: X&quot; ni &quot;Sin stock&quot; en el catálogo.
+        </p>
       </div>
 
       {/* Términos y condiciones */}
