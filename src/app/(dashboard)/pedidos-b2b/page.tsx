@@ -67,7 +67,8 @@ export default async function PedidosB2BPage({
   let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado, monto_pagado, fecha_vencimiento_pago, confirmado_por, rechazado_por, cancelado_por, motivo_rechazo, motivo_cancelacion').order('created_at', { ascending: false })
   if (esComprador) query = query.eq('comprador_id', user!.id)
 
-  const { data: pedidos } = await query
+  const { data: pedidos, error: pedidosError } = await query
+  if (pedidosError) console.error('[pedidos-b2b] error al cargar sales_orders:', pedidosError)
   const todaLaLista = (pedidos ?? []) as PedidoRow[]
 
   // Lookup de compradores por separado (evita ambigüedad de FK con confirmado_por)

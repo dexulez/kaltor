@@ -21,6 +21,12 @@ export async function createClient() {
           } catch {}
         },
       },
+      // Evita que Next.js cachee las respuestas REST de Supabase (la cache de fetch
+      // no varía por header de Authorization, así que sin esto distintos usuarios
+      // podían recibir la respuesta cacheada de otra sesión/consulta).
+      global: {
+        fetch: (url, options = {}) => fetch(url, { ...options, cache: 'no-store' }),
+      },
     }
   )
 }
@@ -30,6 +36,11 @@ export function createServiceClient() {
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
+    {
+      auth: { persistSession: false },
+      global: {
+        fetch: (url, options = {}) => fetch(url, { ...options, cache: 'no-store' }),
+      },
+    }
   )
 }
