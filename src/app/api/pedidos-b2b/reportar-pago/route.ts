@@ -56,6 +56,18 @@ export async function POST(req: NextRequest) {
     if (p.pago_en_revision) return NextResponse.json({ error: `El pedido ${p.numero_pedido} ya tiene un pago en revisión` }, { status: 400 })
   }
 
+  const saldos = pedidos.map(p => (p.total_estimado ?? 0) - (p.monto_pagado ?? 0))
+  const sumaSaldos = saldos.reduce((s, v) => s + v, 0)
+
+  const montoRaw = Number(formData.get('monto'))
+  const monto = montoRaw > 0 ? Math.min(Math.round(montoRaw), sumaSaldos) : sumaSaldos
+  if (!monto || monto <= 0) return NextResponse.json({ error: 'Ingresa un monto válido' }, { status: 400 })
+
+  // Reparte el abono entre los pedidos seleccionados proporcionalmente a su saldo pendiente
+  const montosAsignados = pedidos.map((_, i) => Math.round(monto * (saldos[i] / sumaSaldos)))
+  const diferencia = monto - montosAsignados.reduce((s, v) => s + v, 0)
+  montosAsignados[montosAsignados.length - 1] += diferencia
+
   const urls: string[] = []
   for (const file of archivos) {
     if (!file.size) continue
@@ -70,30 +82,31 @@ export async function POST(req: NextRequest) {
   }
   if (urls.length === 0) return NextResponse.json({ error: 'No se pudo subir el comprobante' }, { status: 500 })
 
-  for (const p of pedidos) {
+  for (let i = 0; i < pedidos.length; i++) {
+    const p = pedidos[i]
     const existing = (p.comprobante_pago_urls as string[] | null) ?? []
     await admin.from('sales_orders').update({
       comprobante_pago_urls: [...existing, ...urls],
       pago_en_revision: true,
       metodo_pago_reportado: metodoPago,
       nota_pago_comprador: nota,
+      monto_reportado: montosAsignados[i],
     }).eq('id', p.id)
   }
 
   const nombreComprador = (profile as ProfileRoleResult | null)?.nombre_completo ?? 'Comprador'
-  const montoTotal = pedidos.reduce((s, p) => s + ((p.total_estimado ?? 0) - (p.monto_pagado ?? 0)), 0)
 
   await admin.from('notifications').insert({
     tipo: 'pago_b2b',
     titulo: `${nombreComprador} reportó un pago`,
-    mensaje: `${pedidos.map(p => p.numero_pedido).join(', ')} · Monto: $${montoTotal.toLocaleString('es-CL')}`,
+    mensaje: `${pedidos.map(p => p.numero_pedido).join(', ')} · Monto: $${monto.toLocaleString('es-CL')}`,
     url: `/pedidos-b2b/${pedidos[0].id}`,
     leida: false,
   })
 
   const { data: cfg } = await admin.from('system_config').select('whatsapp').single()
   if (cfg?.whatsapp) {
-    await enviarWAServer(cfg.whatsapp, msgPagoB2BReportado(nombreComprador, pedidos.map(p => p.numero_pedido), montoTotal))
+    await enviarWAServer(cfg.whatsapp, msgPagoB2BReportado(nombreComprador, pedidos.map(p => p.numero_pedido), monto))
   }
 
   return NextResponse.json({ ok: true })

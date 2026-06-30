@@ -35,11 +35,12 @@ export async function POST(
   if (!pedido.sale_id) return NextResponse.json({ error: 'Este pedido todavía no fue confirmado' }, { status: 400 })
 
   const saldoPendiente = (pedido.total_estimado ?? 0) - (pedido.monto_pagado ?? 0)
+  const montoConfirmado = Math.min(pedido.monto_reportado || saldoPendiente, saldoPendiente)
   const metodoAbono = pedido.metodo_pago_reportado || 'transferencia'
 
   const { error: pagoErr } = await admin.from('sales_order_payments').insert({
     sales_order_id: id,
-    monto: saldoPendiente,
+    monto: montoConfirmado,
     metodo_pago: metodoAbono,
     fecha: new Date().toISOString().split('T')[0],
     nota: pedido.nota_pago_comprador ? `Confirmado desde comprobante del comprador — ${pedido.nota_pago_comprador}` : 'Confirmado desde comprobante del comprador',
@@ -47,12 +48,15 @@ export async function POST(
   if (pagoErr) return NextResponse.json({ error: 'Error al registrar el pago: ' + pagoErr.message }, { status: 500 })
 
   const esPrimerAbono = (pedido.monto_pagado ?? 0) === 0
+  const nuevoMontoPagado = (pedido.monto_pagado ?? 0) + montoConfirmado
+  const quedoCompleto = nuevoMontoPagado >= (pedido.total_estimado ?? 0)
 
   await admin.from('sales_orders').update({
-    monto_pagado: pedido.total_estimado ?? 0,
-    pagado: true,
-    fecha_pago: new Date().toISOString(),
+    monto_pagado: nuevoMontoPagado,
+    pagado: quedoCompleto,
+    fecha_pago: quedoCompleto ? new Date().toISOString() : pedido.fecha_pago,
     pago_en_revision: false,
+    monto_reportado: null,
     ...(esPrimerAbono ? { metodo_pago: metodoAbono } : {}),
   }).eq('id', id)
 
@@ -63,13 +67,15 @@ export async function POST(
     await admin.from('sales').update({ metodo_pago: metodoAbono, comision_bancaria: comisionBancaria }).eq('id', pedido.sale_id)
   }
 
-  const { data: comprador } = await admin.from('user_profiles').select('nombre_completo, telefono').eq('id', pedido.comprador_id).single()
-  const { data: cfg } = await admin.from('system_config').select('nombre_local').single()
-  if (comprador?.telefono) {
-    await enviarWAServer(
-      comprador.telefono,
-      msgPedidoB2BPagado(comprador.nombre_completo ?? 'Cliente', pedido.numero_pedido, pedido.total_estimado ?? 0, cfg?.nombre_local ?? 'TechRepair Pro')
-    )
+  if (quedoCompleto) {
+    const { data: comprador } = await admin.from('user_profiles').select('nombre_completo, telefono').eq('id', pedido.comprador_id).single()
+    const { data: cfg } = await admin.from('system_config').select('nombre_local').single()
+    if (comprador?.telefono) {
+      await enviarWAServer(
+        comprador.telefono,
+        msgPedidoB2BPagado(comprador.nombre_completo ?? 'Cliente', pedido.numero_pedido, nuevoMontoPagado, cfg?.nombre_local ?? 'TechRepair Pro')
+      )
+    }
   }
 
   return NextResponse.json({ ok: true })

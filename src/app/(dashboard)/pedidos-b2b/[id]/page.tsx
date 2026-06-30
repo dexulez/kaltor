@@ -359,7 +359,7 @@ export default async function PedidoB2BDetallePage({
         <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-2">
           <p className="font-semibold text-amber-800 text-sm">⏳ Pago en revisión</p>
           <p className="text-xs text-amber-700">
-            El comprador reportó un pago de {formatCLP(saldoPendiente)} vía {METODO_PAGO_LABEL[pedido.metodo_pago_reportado] ?? pedido.metodo_pago_reportado}.
+            El comprador reportó un abono de {formatCLP(pedido.monto_reportado ?? saldoPendiente)} vía {METODO_PAGO_LABEL[pedido.metodo_pago_reportado] ?? pedido.metodo_pago_reportado}.
             {pedido.nota_pago_comprador && <> Nota: {pedido.nota_pago_comprador}</>}
           </p>
           <RevisarPagoB2BBtn pedidoId={pedido.id} />

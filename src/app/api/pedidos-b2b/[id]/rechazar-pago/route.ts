@@ -44,6 +44,7 @@ export async function POST(
     pago_en_revision: false,
     metodo_pago_reportado: null,
     nota_pago_comprador: null,
+    monto_reportado: null,
   }).eq('id', id)
 
   const { data: comprador } = await admin.from('user_profiles').select('nombre_completo, telefono').eq('id', pedido.comprador_id).single()
