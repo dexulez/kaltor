@@ -327,6 +327,12 @@ export default async function PedidoB2BDetallePage({
                 </div>
               )}
 
+              {esComprador && pedido.estado === 'en_camino' && (
+                <div className="flex flex-wrap gap-2">
+                  <AccionesPedidoB2B pedidoId={pedido.id} estado={pedido.estado} />
+                </div>
+              )}
+
               {esStaff && pedido.sale_id && (
                 <Link href="/caja" className="text-green-700 hover:underline font-medium text-sm inline-block">Ver en Caja / Ventas →</Link>
               )}

@@ -24,13 +24,16 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   const { data: callerProfile } = await supabase.from('user_profiles').select('roles(nombre)').eq('id', user.id).single()
-  if (!ROLES_AUTORIZADOS.includes(getRoleName(callerProfile as ProfileRoleResult | null) ?? '')) {
-    return NextResponse.json({ error: 'No tienes permiso para esta acción' }, { status: 403 })
-  }
+  const rolLlamador = getRoleName(callerProfile as ProfileRoleResult | null) ?? ''
 
   const admin = createServiceClient()
   const { data: pedido } = await admin.from('sales_orders').select('*').eq('id', id).single()
   if (!pedido) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
+
+  const esCompradorDelPedido = rolLlamador === 'comprador_externo' && pedido.comprador_id === user.id
+  if (!ROLES_AUTORIZADOS.includes(rolLlamador) && !esCompradorDelPedido) {
+    return NextResponse.json({ error: 'No tienes permiso para esta acción' }, { status: 403 })
+  }
   if (pedido.estado !== 'en_camino') {
     return NextResponse.json({ error: 'Este pedido no está en camino' }, { status: 400 })
   }
