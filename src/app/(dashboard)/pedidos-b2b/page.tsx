@@ -27,6 +27,7 @@ interface PedidoRow {
   id: string; numero_pedido: string; estado: string; total_estimado: number
   comprador_id: string; created_at: string
   metodo_pago: string | null; pagado: boolean; fecha_entregado: string | null
+  monto_pagado: number | null; fecha_vencimiento_pago: string | null
 }
 
 export default async function PedidosB2BPage({
@@ -57,7 +58,7 @@ export default async function PedidosB2BPage({
 
   const esComprador = rol === 'comprador_externo'
 
-  let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado').order('created_at', { ascending: false })
+  let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado, monto_pagado, fecha_vencimiento_pago').order('created_at', { ascending: false })
   if (esComprador) query = query.eq('comprador_id', user!.id)
 
   const { data: pedidos } = await query
@@ -89,6 +90,11 @@ export default async function PedidosB2BPage({
     { estado: 'cancelado', titulo: 'Cancelados' },
   ]
 
+  const hoy = new Date().toISOString().split('T')[0]
+  const pedidosVencidos = !esComprador
+    ? todaLaLista.filter(p => !p.pagado && p.fecha_vencimiento_pago && p.fecha_vencimiento_pago < hoy && ['confirmado', 'preparando', 'en_camino'].includes(p.estado))
+    : []
+
   const filtroHref = (valor?: string) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
@@ -113,6 +119,38 @@ export default async function PedidosB2BPage({
           </Link>
         )}
       </div>
+
+      {pedidosVencidos.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-red-200 flex items-center gap-2">
+            <span className="text-lg">🚨</span>
+            <p className="font-semibold text-red-800 text-sm">
+              {pedidosVencidos.length} pago{pedidosVencidos.length > 1 ? 's' : ''} vencido{pedidosVencidos.length > 1 ? 's' : ''} — requieren atención
+            </p>
+          </div>
+          <div className="divide-y divide-red-100">
+            {pedidosVencidos.map(p => {
+              const comprador = datosComprador[p.comprador_id]
+              const saldo = (p.total_estimado ?? 0) - (p.monto_pagado ?? 0)
+              const diasVencido = Math.floor((new Date(hoy).getTime() - new Date(p.fecha_vencimiento_pago!).getTime()) / 86400000)
+              return (
+                <div key={p.id} className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-sm">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/pedidos-b2b/${p.id}`} className="font-mono font-semibold text-red-700 hover:underline">{p.numero_pedido}</Link>
+                      <span className="text-xs text-red-500">{diasVencido} día{diasVencido !== 1 ? 's' : ''} vencido</span>
+                    </div>
+                    <p className="text-gray-600 text-xs mt-0.5">{comprador?.nombre ?? '—'} · Saldo: <strong>{formatCLP(saldo)}</strong></p>
+                  </div>
+                  <Link href={`/pedidos-b2b/${p.id}`} className="text-xs text-red-700 hover:underline font-medium shrink-0">
+                    Ver pedido →
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Suspense fallback={<input placeholder="Buscar..." className="border rounded-lg px-3 py-2 text-sm w-64" />}>

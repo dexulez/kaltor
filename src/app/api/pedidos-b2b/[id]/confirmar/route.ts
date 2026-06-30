@@ -41,7 +41,7 @@ export async function POST(
     return NextResponse.json({ error: 'No tienes permiso para confirmar pedidos' }, { status: 403 })
   }
 
-  let body: { items?: Record<string, ItemSeleccion>; itemsNuevos?: ItemNuevo[]; tipoDocumento?: string }
+  let body: { items?: Record<string, ItemSeleccion>; itemsNuevos?: ItemNuevo[]; tipoDocumento?: string; plazoPagoDias?: number | null }
   try {
     body = await req.json()
   } catch {
@@ -180,6 +180,14 @@ export async function POST(
     if (itemErr) console.error('[confirmar pedido b2b] error al marcar cantidad confirmada', it.id, itemErr)
   }
 
+  const plazoDias = typeof body.plazoPagoDias === 'number' ? body.plazoPagoDias : null
+  let fechaVencimientoPago: string | null = null
+  if (plazoDias !== null) {
+    const d = new Date()
+    d.setDate(d.getDate() + plazoDias)
+    fechaVencimientoPago = d.toISOString().split('T')[0]
+  }
+
   // El pago se registra recién cuando se abona de verdad (puede entrar en crédito),
   // así que al confirmar nunca se marca como pagado.
   await admin.from('sales_orders').update({
@@ -190,6 +198,8 @@ export async function POST(
     total_estimado: totalBruto,
     pagado: false,
     fecha_pago: null,
+    plazo_pago_dias: plazoDias,
+    fecha_vencimiento_pago: fechaVencimientoPago,
   }).eq('id', id)
 
   if (compradorProfile?.telefono) {

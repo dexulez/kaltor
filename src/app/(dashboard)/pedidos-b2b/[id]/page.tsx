@@ -8,6 +8,7 @@ import DespacharPedidoB2BForm from '@/components/pedidos-b2b/DespacharPedidoB2BF
 import CancelarPedidoB2BBtn from '@/components/pedidos-b2b/CancelarPedidoB2BBtn'
 import PagarPedidoB2BBtn from '@/components/pedidos-b2b/PagarPedidoB2BBtn'
 import AgregarComprobanteB2BBtn from '@/components/pedidos-b2b/AgregarComprobanteB2BBtn'
+import RecordatorioPagoB2BBtn from '@/components/pedidos-b2b/RecordatorioPagoB2BBtn'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
@@ -187,22 +188,39 @@ export default async function PedidoB2BDetallePage({
           )}
           {['confirmado', 'preparando', 'en_camino', 'entregado'].includes(pedido.estado) && (
             <div className="px-4 py-3 border-t space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-400 text-xs">Medio de pago</p>
-                  <p className="font-medium">{METODO_PAGO_LABEL[pedido.metodo_pago] ?? '—'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs">Pagado</p>
-                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-xs font-medium ${pedido.pagado ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {pedido.pagado ? '✓ Pagado' : 'Pendiente'}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs">Fecha entregado</p>
-                  <p className="font-medium">{pedido.fecha_entregado ? pedido.fecha_entregado.split('T')[0] : '—'}</p>
-                </div>
-              </div>
+              {(() => {
+                const hoy = new Date().toISOString().split('T')[0]
+                const vencido = !pedido.pagado && pedido.fecha_vencimiento_pago && pedido.fecha_vencimiento_pago < hoy
+                return (
+                  <div className="space-y-3">
+                    {vencido && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700 font-medium flex items-center gap-2">
+                        🚨 Pago vencido desde el {pedido.fecha_vencimiento_pago}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-400 text-xs">Medio de pago</p>
+                        <p className="font-medium">{METODO_PAGO_LABEL[pedido.metodo_pago] ?? '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-xs">Pagado</p>
+                        <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-xs font-medium ${pedido.pagado ? 'bg-green-100 text-green-700' : vencido ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {pedido.pagado ? '✓ Pagado' : vencido ? '⚠ Vencido' : 'Pendiente'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-xs">Vencimiento pago</p>
+                        <p className="font-medium">{pedido.fecha_vencimiento_pago ?? '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-xs">Fecha entregado</p>
+                        <p className="font-medium">{pedido.fecha_entregado ? pedido.fecha_entregado.split('T')[0] : '—'}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {pedido.comprobante_envio_url && (
                 <div>
@@ -238,6 +256,21 @@ export default async function PedidoB2BDetallePage({
           montoPagado={pedido.monto_pagado ?? 0}
           pagos={pagos ?? []}
         />
+      )}
+
+      {mostrarPagosYCancelar && !pedido.pagado && (
+        <div className="bg-white rounded-xl border p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="text-sm text-gray-600">
+            <p className="font-medium text-gray-800">Recordatorio de pago</p>
+            <p className="text-xs text-gray-400 mt-0.5">Envía un aviso por WhatsApp al comprador sobre su saldo pendiente.</p>
+          </div>
+          <RecordatorioPagoB2BBtn
+            pedidoId={pedido.id}
+            saldoPendiente={(pedido.total_estimado ?? 0) - (pedido.monto_pagado ?? 0)}
+            telefono={comprador?.telefono}
+            recordatorioEnviadoAt={pedido.recordatorio_enviado_at ?? null}
+          />
+        </div>
       )}
 
       {mostrarPagosYCancelar && (

@@ -61,3 +61,15 @@ export function msgPedidoB2BEntregado(nombre: string, numeroPedido: string, loca
 export function msgPedidoB2BPagado(nombre: string, numeroPedido: string, total: number, local: string) {
   return `Hola ${nombre} 💰\n\nRegistramos el pago completo de tu pedido *${numeroPedido}* por *$${total.toLocaleString('es-CL')}*.\n\n¡Gracias! 🙌\n\n_${local}_`
 }
+
+export function msgRecordatorioPagoB2B(
+  nombre: string,
+  numeroPedido: string,
+  saldoPendiente: number,
+  fechaVencimiento: string | null,
+  local: string
+) {
+  const saldo = saldoPendiente.toLocaleString('es-CL')
+  const venc = fechaVencimiento ? `\n📅 Fecha límite: *${fechaVencimiento}*` : ''
+  return `Hola ${nombre} 🔔\n\nTe recordamos que tienes un saldo pendiente en *${local}*.\n\n📋 Pedido: *${numeroPedido}*\n💰 Saldo: *$${saldo}*${venc}\n\nCualquier consulta, estamos a tu disposición.\n\n_${local}_`
+}

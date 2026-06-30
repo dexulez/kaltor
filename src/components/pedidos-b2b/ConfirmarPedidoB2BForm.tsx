@@ -53,6 +53,7 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
     }]))
   )
   const [tipoDocumento, setTipoDocumento] = useState('factura')
+  const [plazoPagoDias, setPlazoPagoDias] = useState<number | null>(30)
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [mostrarRechazo, setMostrarRechazo] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -133,7 +134,7 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
       const res = await fetch(`/api/pedidos-b2b/${pedidoId}/confirmar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsBody, itemsNuevos, tipoDocumento }),
+        body: JSON.stringify({ items: itemsBody, itemsNuevos, tipoDocumento, plazoPagoDias }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Error al confirmar el pedido'); return }
@@ -294,7 +295,7 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border p-4 max-w-xs">
+      <div className="bg-white rounded-xl border p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
         <div className="space-y-1.5">
           <Label>Tipo de documento</Label>
           <Select value={tipoDocumento} onValueChange={v => setTipoDocumento(v ?? 'factura')}>
@@ -302,6 +303,22 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
             <SelectContent>
               <SelectItem value="factura">Factura</SelectItem>
               <SelectItem value="boleta">Boleta</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Plazo de pago</Label>
+          <Select
+            value={plazoPagoDias === null ? 'contado' : String(plazoPagoDias)}
+            onValueChange={v => setPlazoPagoDias(v === 'contado' ? null : Number(v))}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="contado">Al contado</SelectItem>
+              <SelectItem value="7">7 días</SelectItem>
+              <SelectItem value="15">15 días</SelectItem>
+              <SelectItem value="30">30 días</SelectItem>
+              <SelectItem value="60">60 días</SelectItem>
             </SelectContent>
           </Select>
         </div>
