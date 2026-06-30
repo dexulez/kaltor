@@ -85,6 +85,14 @@ export default async function PedidoB2BDetallePage({
       : Promise.resolve({ data: null }),
   ])
 
+  // Lookup de quién confirmó/rechazó/canceló (evita ambigüedad de FK con comprador_id)
+  const actorIds = [...new Set([pedido.confirmado_por, pedido.rechazado_por, pedido.cancelado_por].filter(Boolean))]
+  let nombresActores: Record<string, string> = {}
+  if (actorIds.length > 0) {
+    const { data: actores } = await supabase.from('user_profiles').select('id, nombre_completo').in('id', actorIds)
+    nombresActores = Object.fromEntries((actores ?? []).map(a => [a.id, a.nombre_completo as string]))
+  }
+
   type ItemRow = {
     id: string; product_id: string; nombre: string; cantidad_solicitada: number
     cantidad_confirmada: number | null; precio_unitario: number; subtotal: number
@@ -176,14 +184,16 @@ export default async function PedidoB2BDetallePage({
               </tfoot>
             </table>
           </div>
-          {pedido.estado === 'rechazado' && pedido.motivo_rechazo && (
-            <div className="px-4 py-3 bg-red-50 border-t text-sm text-red-700">
-              <strong>Motivo:</strong> {pedido.motivo_rechazo}
+          {pedido.estado === 'rechazado' && (
+            <div className="px-4 py-3 bg-red-50 border-t text-sm text-red-700 space-y-0.5">
+              <p><strong>Rechazado por:</strong> {nombresActores[pedido.rechazado_por] ?? 'Vendedor'} (TechRepair Pro)</p>
+              {pedido.motivo_rechazo && <p><strong>Motivo:</strong> {pedido.motivo_rechazo}</p>}
             </div>
           )}
           {pedido.estado === 'cancelado' && (
-            <div className="px-4 py-3 bg-gray-50 border-t text-sm text-gray-600">
-              <strong>Cancelado{pedido.motivo_cancelacion ? `:` : ''}</strong> {pedido.motivo_cancelacion ?? ''}
+            <div className="px-4 py-3 bg-gray-50 border-t text-sm text-gray-600 space-y-0.5">
+              <p><strong>Cancelado por:</strong> {nombresActores[pedido.cancelado_por] ?? 'Vendedor'} (TechRepair Pro)</p>
+              {pedido.motivo_cancelacion && <p><strong>Motivo:</strong> {pedido.motivo_cancelacion}</p>}
             </div>
           )}
           {['confirmado', 'preparando', 'en_camino', 'entregado'].includes(pedido.estado) && (
@@ -199,6 +209,10 @@ export default async function PedidoB2BDetallePage({
                       </div>
                     )}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-400 text-xs">Confirmado por</p>
+                        <p className="font-medium">{pedido.confirmado_por ? `${nombresActores[pedido.confirmado_por] ?? 'Vendedor'} (TechRepair Pro)` : '—'}</p>
+                      </div>
                       <div>
                         <p className="text-gray-400 text-xs">Medio de pago</p>
                         <p className="font-medium">{METODO_PAGO_LABEL[pedido.metodo_pago] ?? '—'}</p>

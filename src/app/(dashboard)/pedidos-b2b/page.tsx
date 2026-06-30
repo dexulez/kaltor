@@ -28,6 +28,8 @@ interface PedidoRow {
   comprador_id: string; created_at: string
   metodo_pago: string | null; pagado: boolean; fecha_entregado: string | null
   monto_pagado: number | null; fecha_vencimiento_pago: string | null
+  confirmado_por: string | null; rechazado_por: string | null; cancelado_por: string | null
+  motivo_rechazo: string | null; motivo_cancelacion: string | null
 }
 
 export default async function PedidosB2BPage({
@@ -58,7 +60,7 @@ export default async function PedidosB2BPage({
 
   const esComprador = rol === 'comprador_externo'
 
-  let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado, monto_pagado, fecha_vencimiento_pago').order('created_at', { ascending: false })
+  let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado, monto_pagado, fecha_vencimiento_pago, confirmado_por, rechazado_por, cancelado_por, motivo_rechazo, motivo_cancelacion').order('created_at', { ascending: false })
   if (esComprador) query = query.eq('comprador_id', user!.id)
 
   const { data: pedidos } = await query
@@ -70,6 +72,14 @@ export default async function PedidosB2BPage({
     const ids = [...new Set(todaLaLista.map(p => p.comprador_id))]
     const { data: compradores } = await supabase.from('user_profiles').select('id, nombre_completo, customer_id').in('id', ids)
     datosComprador = Object.fromEntries((compradores ?? []).map(c => [c.id, { nombre: c.nombre_completo as string, customerId: c.customer_id as string | null }]))
+  }
+
+  // Lookup de quién confirmó/rechazó/canceló (mismo motivo: evita ambigüedad de FK)
+  const actorIds = [...new Set(todaLaLista.flatMap(p => [p.confirmado_por, p.rechazado_por, p.cancelado_por]).filter((x): x is string => !!x))]
+  let nombresActores: Record<string, string> = {}
+  if (actorIds.length > 0) {
+    const { data: actores } = await supabase.from('user_profiles').select('id, nombre_completo').in('id', actorIds)
+    nombresActores = Object.fromEntries((actores ?? []).map(a => [a.id, a.nombre_completo as string]))
   }
 
   const qNorm = (q ?? '').trim().toLowerCase()
@@ -239,6 +249,23 @@ export default async function PedidosB2BPage({
                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-600'}`}>
                               {ESTADO_LABEL[p.estado] ?? p.estado}
                             </span>
+                            {p.estado === 'confirmado' && p.confirmado_por && (
+                              <p className="text-[10px] text-gray-400 mt-1 max-w-[180px] ml-auto">
+                                Por {nombresActores[p.confirmado_por] ?? 'Vendedor'} (TechRepair Pro)
+                              </p>
+                            )}
+                            {p.estado === 'rechazado' && (
+                              <p className="text-[10px] text-gray-400 mt-1 max-w-[180px] ml-auto">
+                                Por {p.rechazado_por ? (nombresActores[p.rechazado_por] ?? 'Vendedor') : 'Vendedor'} (TechRepair Pro)
+                                {p.motivo_rechazo && <>: {p.motivo_rechazo}</>}
+                              </p>
+                            )}
+                            {p.estado === 'cancelado' && (
+                              <p className="text-[10px] text-gray-400 mt-1 max-w-[180px] ml-auto">
+                                Por {p.cancelado_por ? (nombresActores[p.cancelado_por] ?? 'Vendedor') : 'Vendedor'} (TechRepair Pro)
+                                {p.motivo_cancelacion && <>: {p.motivo_cancelacion}</>}
+                              </p>
+                            )}
                           </td>
                         </tr>
                       )

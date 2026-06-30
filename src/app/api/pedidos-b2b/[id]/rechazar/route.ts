@@ -46,8 +46,8 @@ export async function POST(
   await admin.from('sales_orders').update({
     estado: 'rechazado',
     motivo_rechazo: body.motivo?.trim() || null,
-    confirmado_por: user.id,
-    confirmado_at: new Date().toISOString(),
+    rechazado_por: user.id,
+    rechazado_at: new Date().toISOString(),
   }).eq('id', id)
 
   const { data: compradorProfile } = await admin
