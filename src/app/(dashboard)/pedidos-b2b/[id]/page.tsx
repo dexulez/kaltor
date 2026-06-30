@@ -11,6 +11,7 @@ import AgregarComprobanteB2BBtn from '@/components/pedidos-b2b/AgregarComprobant
 import RecordatorioPagoB2BBtn from '@/components/pedidos-b2b/RecordatorioPagoB2BBtn'
 import ReportarPagoB2BForm from '@/components/pedidos-b2b/ReportarPagoB2BForm'
 import RevisarPagoB2BBtn from '@/components/pedidos-b2b/RevisarPagoB2BBtn'
+import NotaInternaB2BForm from '@/components/pedidos-b2b/NotaInternaB2BForm'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
@@ -406,8 +407,8 @@ export default async function PedidoB2BDetallePage({
       )}
 
       {mostrarPagosYCancelar && (
-        <div className="bg-white rounded-xl border p-4 space-y-2">
-          <p className="font-semibold text-gray-800 text-sm">Comprobantes de pago</p>
+        <div className="bg-white rounded-xl border p-4 space-y-3">
+          <p className="font-semibold text-gray-800 text-sm">Comprobantes y observaciones</p>
           {pedido.comprobante_pago_urls?.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {(pedido.comprobante_pago_urls as string[]).map((url, i) => (
@@ -419,6 +420,9 @@ export default async function PedidoB2BDetallePage({
             </div>
           )}
           <AgregarComprobanteB2BBtn pedidoId={pedido.id} />
+          <div className="pt-2 border-t">
+            <NotaInternaB2BForm pedidoId={pedido.id} notaInicial={pedido.notas_internas ?? null} />
+          </div>
         </div>
       )}
     </div>
