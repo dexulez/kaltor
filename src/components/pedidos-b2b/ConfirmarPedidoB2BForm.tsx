@@ -43,7 +43,13 @@ function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value)
 }
 
-export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDisponibles = [] }: { pedidoId: string; items: ItemPedido[]; productosDisponibles?: ProductoDisponible[] }) {
+interface SolicitudComprador {
+  tipoDocumento: string | null
+  rutFacturacion: string | null
+  razonSocialFacturacion: string | null
+}
+
+export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDisponibles = [], solicitudComprador }: { pedidoId: string; items: ItemPedido[]; productosDisponibles?: ProductoDisponible[]; solicitudComprador?: SolicitudComprador }) {
   const router = useRouter()
   const [filas, setFilas] = useState<Record<string, FilaEstado>>(() =>
     Object.fromEntries(items.map(it => [it.id, {
@@ -52,7 +58,7 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
       precio: String(it.precioSugerido),
     }]))
   )
-  const [tipoDocumento, setTipoDocumento] = useState('factura')
+  const [tipoDocumento, setTipoDocumento] = useState(solicitudComprador?.tipoDocumento ?? 'factura')
   const [plazoPagoDias, setPlazoPagoDias] = useState<number | null>(30)
   const [exentoIva, setExentoIva] = useState(false)
   const IVA_PCT = 19 // referencial para la vista previa; el valor real se aplica en el servidor
@@ -317,6 +323,14 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
                 <SelectItem value="boleta">Boleta</SelectItem>
               </SelectContent>
             </Select>
+            {solicitudComprador?.tipoDocumento && (
+              <p className="text-xs text-gray-400">
+                El comprador pidió: <strong>{solicitudComprador.tipoDocumento === 'factura' ? 'Factura' : 'Boleta'}</strong>
+                {solicitudComprador.tipoDocumento === 'factura' && solicitudComprador.razonSocialFacturacion && (
+                  <> · {solicitudComprador.razonSocialFacturacion} ({solicitudComprador.rutFacturacion})</>
+                )}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Plazo de pago</Label>

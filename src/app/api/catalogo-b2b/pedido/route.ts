@@ -19,6 +19,8 @@ interface ItemCarrito {
   cantidad: number
 }
 
+const TIPOS_DOCUMENTO = ['boleta', 'factura']
+
 export async function POST(req: NextRequest) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Solo compradores externos pueden crear pedidos' }, { status: 403 })
   }
 
-  let body: { items?: ItemCarrito[] }
+  let body: { items?: ItemCarrito[]; tipoDocumento?: string; rutFacturacion?: string | null; razonSocialFacturacion?: string | null }
   try {
     body = await req.json()
   } catch {
@@ -43,6 +45,11 @@ export async function POST(req: NextRequest) {
 
   const itemsCarrito = (body.items ?? []).filter(i => i.productId && i.cantidad > 0)
   if (itemsCarrito.length === 0) return NextResponse.json({ error: 'El carrito está vacío' }, { status: 400 })
+
+  const tipoDocumento = TIPOS_DOCUMENTO.includes(body.tipoDocumento ?? '') ? body.tipoDocumento! : 'boleta'
+  if (tipoDocumento === 'factura' && (!body.rutFacturacion?.trim() || !body.razonSocialFacturacion?.trim())) {
+    return NextResponse.json({ error: 'Para factura debes indicar RUT y razón social' }, { status: 400 })
+  }
 
   const admin = createServiceClient()
 
@@ -82,7 +89,13 @@ export async function POST(req: NextRequest) {
 
   const { data: pedido, error: pedidoErr } = await admin
     .from('sales_orders')
-    .insert({ comprador_id: user.id, total_estimado: totalEstimado })
+    .insert({
+      comprador_id: user.id,
+      total_estimado: totalEstimado,
+      tipo_documento_solicitado: tipoDocumento,
+      rut_facturacion: tipoDocumento === 'factura' ? body.rutFacturacion!.trim() : null,
+      razon_social_facturacion: tipoDocumento === 'factura' ? body.razonSocialFacturacion!.trim() : null,
+    })
     .select()
     .single()
 

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { calcularPrecioMayoristaConDescuento } from '@/lib/calculations'
+import { calcularPrecioMayoristaConDescuento, formatRut } from '@/lib/calculations'
 
 interface ProductoCatalogo {
   id: string
@@ -36,6 +36,9 @@ export default function CatalogoB2BCarrito({ productos, ivaPct = 19, mostrarStoc
   const [borrador, setBorrador] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
   const [verConIva, setVerConIva] = useState(true)
+  const [tipoDocumento, setTipoDocumento] = useState<'boleta' | 'factura'>('boleta')
+  const [rutFacturacion, setRutFacturacion] = useState('')
+  const [razonSocialFacturacion, setRazonSocialFacturacion] = useState('')
 
   function mostrar(valor: number) {
     return verConIva ? valor : Math.round(valor / (1 + ivaPct / 100))
@@ -79,12 +82,21 @@ export default function CatalogoB2BCarrito({ productos, ivaPct = 19, mostrarStoc
 
   async function enviarPedido() {
     if (itemsCarrito.length === 0) { toast.error('Agrega al menos un producto'); return }
+    if (tipoDocumento === 'factura' && (!rutFacturacion.trim() || !razonSocialFacturacion.trim())) {
+      toast.error('Ingresa el RUT y la razón social para la factura')
+      return
+    }
     setEnviando(true)
     try {
       const res = await fetch('/api/catalogo-b2b/pedido', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsCarrito.map(i => ({ productId: i.producto.id, cantidad: i.cantidad })) }),
+        body: JSON.stringify({
+          items: itemsCarrito.map(i => ({ productId: i.producto.id, cantidad: i.cantidad })),
+          tipoDocumento,
+          rutFacturacion: tipoDocumento === 'factura' ? rutFacturacion.trim() : null,
+          razonSocialFacturacion: tipoDocumento === 'factura' ? razonSocialFacturacion.trim() : null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Error al enviar el pedido'); return }
@@ -214,6 +226,34 @@ export default function CatalogoB2BCarrito({ productos, ivaPct = 19, mostrarStoc
           <div className="border-t pt-3 flex items-center justify-between">
             <span className="text-sm font-medium text-gray-600">Total estimado {!verConIva && <span className="text-xs text-gray-400 font-normal">(sin IVA)</span>}</span>
             <span className="font-bold text-lg text-blue-700">{formatCLP(mostrar(totalCarrito))}</span>
+          </div>
+          <div className="border-t pt-3 space-y-2">
+            <label className="text-xs font-medium text-gray-600">Documento que necesitas</label>
+            <select
+              value={tipoDocumento}
+              onChange={e => setTipoDocumento(e.target.value as 'boleta' | 'factura')}
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="boleta">Boleta</option>
+              <option value="factura">Factura</option>
+            </select>
+            {tipoDocumento === 'factura' && (
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={rutFacturacion}
+                  onChange={e => setRutFacturacion(formatRut(e.target.value))}
+                  placeholder="RUT 76123456-7"
+                  inputMode="numeric"
+                  className="border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <input
+                  value={razonSocialFacturacion}
+                  onChange={e => setRazonSocialFacturacion(e.target.value)}
+                  placeholder="Razón social"
+                  className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            )}
           </div>
           <Button
             type="button"

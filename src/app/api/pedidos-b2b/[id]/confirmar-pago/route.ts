@@ -1,0 +1,76 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createServerClient, createServiceClient } from '@/lib/supabase/server'
+import { enviarWAServer } from '@/lib/whatsapp-server'
+import { msgPedidoB2BPagado } from '@/lib/whatsapp'
+
+type ProfileRoleResult = {
+  roles?: { nombre?: string | null } | { nombre?: string | null }[] | null
+}
+
+function getRoleName(profile: ProfileRoleResult | null) {
+  if (Array.isArray(profile?.roles)) return profile?.roles[0]?.nombre ?? null
+  return profile?.roles?.nombre ?? null
+}
+
+const ROLES_AUTORIZADOS = ['administrador', 'vendedor', 'supervisor_ventas']
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const { data: callerProfile } = await supabase.from('user_profiles').select('roles(nombre)').eq('id', user.id).single()
+  if (!ROLES_AUTORIZADOS.includes(getRoleName(callerProfile as ProfileRoleResult | null) ?? '')) {
+    return NextResponse.json({ error: 'No tienes permiso para confirmar pagos' }, { status: 403 })
+  }
+
+  const admin = createServiceClient()
+  const { data: pedido } = await admin.from('sales_orders').select('*').eq('id', id).single()
+  if (!pedido) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
+  if (!pedido.pago_en_revision) return NextResponse.json({ error: 'Este pedido no tiene un pago en revisión' }, { status: 400 })
+  if (!pedido.sale_id) return NextResponse.json({ error: 'Este pedido todavía no fue confirmado' }, { status: 400 })
+
+  const saldoPendiente = (pedido.total_estimado ?? 0) - (pedido.monto_pagado ?? 0)
+  const metodoAbono = pedido.metodo_pago_reportado || 'transferencia'
+
+  const { error: pagoErr } = await admin.from('sales_order_payments').insert({
+    sales_order_id: id,
+    monto: saldoPendiente,
+    metodo_pago: metodoAbono,
+    fecha: new Date().toISOString().split('T')[0],
+    nota: pedido.nota_pago_comprador ? `Confirmado desde comprobante del comprador — ${pedido.nota_pago_comprador}` : 'Confirmado desde comprobante del comprador',
+  })
+  if (pagoErr) return NextResponse.json({ error: 'Error al registrar el pago: ' + pagoErr.message }, { status: 500 })
+
+  const esPrimerAbono = (pedido.monto_pagado ?? 0) === 0
+
+  await admin.from('sales_orders').update({
+    monto_pagado: pedido.total_estimado ?? 0,
+    pagado: true,
+    fecha_pago: new Date().toISOString(),
+    pago_en_revision: false,
+    ...(esPrimerAbono ? { metodo_pago: metodoAbono } : {}),
+  }).eq('id', id)
+
+  if (esPrimerAbono) {
+    const { data: cfg } = await admin.from('system_config').select('comision_debito, comision_credito').single()
+    const comisionPct = metodoAbono === 'debito' ? (cfg?.comision_debito ?? 0) : metodoAbono === 'credito' ? (cfg?.comision_credito ?? 0) : 0
+    const comisionBancaria = Math.round((pedido.total_estimado ?? 0) * comisionPct / 100)
+    await admin.from('sales').update({ metodo_pago: metodoAbono, comision_bancaria: comisionBancaria }).eq('id', pedido.sale_id)
+  }
+
+  const { data: comprador } = await admin.from('user_profiles').select('nombre_completo, telefono').eq('id', pedido.comprador_id).single()
+  const { data: cfg } = await admin.from('system_config').select('nombre_local').single()
+  if (comprador?.telefono) {
+    await enviarWAServer(
+      comprador.telefono,
+      msgPedidoB2BPagado(comprador.nombre_completo ?? 'Cliente', pedido.numero_pedido, pedido.total_estimado ?? 0, cfg?.nombre_local ?? 'TechRepair Pro')
+    )
+  }
+
+  return NextResponse.json({ ok: true })
+}

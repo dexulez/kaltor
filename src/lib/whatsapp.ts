@@ -62,6 +62,15 @@ export function msgPedidoB2BPagado(nombre: string, numeroPedido: string, total: 
   return `Hola ${nombre} 💰\n\nRegistramos el pago completo de tu pedido *${numeroPedido}* por *$${total.toLocaleString('es-CL')}*.\n\n¡Gracias! 🙌\n\n_${local}_`
 }
 
+export function msgPagoB2BReportado(comprador: string, numerosPedido: string[], montoTotal: number) {
+  return `💳 *${comprador} reportó un pago*\n\nPedido(s): *${numerosPedido.join(', ')}*\nMonto reportado: *$${montoTotal.toLocaleString('es-CL')}*\n\nRevisa el comprobante y confírmalo en el sistema.`
+}
+
+export function msgPagoB2BRechazado(nombre: string, numeroPedido: string, motivo: string | null, local: string) {
+  const detalle = motivo ? `\nMotivo: ${motivo}` : ''
+  return `Hola ${nombre} ⚠️\n\nNo pudimos validar el comprobante de pago de tu pedido *${numeroPedido}*.${detalle}\n\nPor favor revisa y vuelve a enviarlo.\n\n_${local}_`
+}
+
 export function msgRecordatorioPagoB2B(
   nombre: string,
   numeroPedido: string,

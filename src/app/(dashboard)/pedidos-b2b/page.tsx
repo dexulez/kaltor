@@ -3,6 +3,7 @@ import { tieneAccesoModulo } from '@/lib/modulos'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import BuscadorPedidosB2B from '@/components/pedidos-b2b/BuscadorPedidosB2B'
+import ListaPedidosCompradorPago from '@/components/pedidos-b2b/ListaPedidosCompradorPago'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
@@ -63,6 +64,7 @@ interface PedidoRow {
   monto_pagado: number | null; fecha_vencimiento_pago: string | null
   confirmado_por: string | null; rechazado_por: string | null; cancelado_por: string | null
   motivo_rechazo: string | null; motivo_cancelacion: string | null
+  pago_en_revision: boolean
 }
 
 export default async function PedidosB2BPage({
@@ -93,7 +95,7 @@ export default async function PedidosB2BPage({
 
   const esComprador = rol === 'comprador_externo'
 
-  let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado, monto_pagado, fecha_vencimiento_pago, confirmado_por, rechazado_por, cancelado_por, motivo_rechazo, motivo_cancelacion').order('created_at', { ascending: false })
+  let query = supabase.from('sales_orders').select('id, numero_pedido, estado, total_estimado, comprador_id, created_at, metodo_pago, pagado, fecha_entregado, monto_pagado, fecha_vencimiento_pago, confirmado_por, rechazado_por, cancelado_por, motivo_rechazo, motivo_cancelacion, pago_en_revision').order('created_at', { ascending: false })
   if (esComprador) query = query.eq('comprador_id', user!.id)
 
   const { data: pedidos, error: pedidosError } = await query
@@ -142,6 +144,15 @@ export default async function PedidosB2BPage({
     ? todaLaLista.filter(p => !p.pagado && p.fecha_vencimiento_pago && p.fecha_vencimiento_pago < hoy && ['confirmado', 'preparando', 'en_camino'].includes(p.estado))
     : []
 
+  const estadisticasComprador = esComprador ? {
+    totalComprado: todaLaLista.filter(p => !['rechazado', 'cancelado', 'pendiente'].includes(p.estado)).reduce((s, p) => s + p.total_estimado, 0),
+    pedidosEntregados: todaLaLista.filter(p => p.estado === 'entregado').length,
+    pendientePago: todaLaLista
+      .filter(p => ['confirmado', 'preparando', 'en_camino', 'entregado'].includes(p.estado) && !p.pagado && !p.pago_en_revision)
+      .reduce((s, p) => s + (p.total_estimado - (p.monto_pagado ?? 0)), 0),
+    enRevision: todaLaLista.filter(p => p.pago_en_revision).length,
+  } : null
+
   const filtroHref = (valor?: string) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
@@ -166,6 +177,27 @@ export default async function PedidosB2BPage({
           </Link>
         )}
       </div>
+
+      {estadisticasComprador && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-xl border p-4">
+            <p className="text-xs text-gray-500">Total comprado</p>
+            <p className="text-lg font-bold text-gray-900 mt-0.5">{formatCLP(estadisticasComprador.totalComprado)}</p>
+          </div>
+          <div className="bg-white rounded-xl border p-4">
+            <p className="text-xs text-gray-500">Pedidos entregados</p>
+            <p className="text-lg font-bold text-gray-900 mt-0.5">{estadisticasComprador.pedidosEntregados}</p>
+          </div>
+          <div className="bg-white rounded-xl border p-4">
+            <p className="text-xs text-gray-500">Pendiente de pago</p>
+            <p className="text-lg font-bold text-amber-600 mt-0.5">{formatCLP(estadisticasComprador.pendientePago)}</p>
+          </div>
+          <div className="bg-white rounded-xl border p-4">
+            <p className="text-xs text-gray-500">Pagos en revisión</p>
+            <p className="text-lg font-bold text-gray-900 mt-0.5">{estadisticasComprador.enRevision}</p>
+          </div>
+        </div>
+      )}
 
       {pedidosVencidos.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
@@ -227,6 +259,8 @@ export default async function PedidosB2BPage({
               : 'Sin resultados para tu búsqueda/filtro'}
           </p>
         </div>
+      ) : esComprador ? (
+        <ListaPedidosCompradorPago lista={lista} grupos={grupos} />
       ) : (
         grupos.map(g => {
           const items = lista.filter(p => p.estado === g.estado)

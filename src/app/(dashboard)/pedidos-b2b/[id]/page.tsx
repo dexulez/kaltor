@@ -9,6 +9,8 @@ import CancelarPedidoB2BBtn from '@/components/pedidos-b2b/CancelarPedidoB2BBtn'
 import PagarPedidoB2BBtn from '@/components/pedidos-b2b/PagarPedidoB2BBtn'
 import AgregarComprobanteB2BBtn from '@/components/pedidos-b2b/AgregarComprobanteB2BBtn'
 import RecordatorioPagoB2BBtn from '@/components/pedidos-b2b/RecordatorioPagoB2BBtn'
+import ReportarPagoB2BForm from '@/components/pedidos-b2b/ReportarPagoB2BForm'
+import RevisarPagoB2BBtn from '@/components/pedidos-b2b/RevisarPagoB2BBtn'
 
 type RolesRel = { nombre?: string } | { nombre?: string }[] | null | undefined
 
@@ -176,7 +178,10 @@ export default async function PedidoB2BDetallePage({
     .filter(it => (it.cantidad_confirmada ?? 0) > 0)
     .map(it => ({ id: it.id, nombre: it.nombre, cantidadConfirmada: it.cantidad_confirmada ?? 0, precioUnitario: it.precio_unitario }))
 
-  const mostrarPagosYCancelar = esStaff && ['confirmado', 'preparando', 'en_camino', 'entregado'].includes(pedido.estado)
+  const ESTADOS_PAGABLES = ['confirmado', 'preparando', 'en_camino', 'entregado']
+  const mostrarPagosYCancelar = esStaff && ESTADOS_PAGABLES.includes(pedido.estado)
+  const saldoPendiente = (pedido.total_estimado ?? 0) - (pedido.monto_pagado ?? 0)
+  const mostrarPagoComprador = esComprador && ESTADOS_PAGABLES.includes(pedido.estado) && !pedido.pagado
 
   return (
     <div className="p-6 space-y-5">
@@ -217,6 +222,11 @@ export default async function PedidoB2BDetallePage({
           productosDisponibles={(productosActivos ?? []).map(p => ({
             id: p.id, nombre: p.nombre, precioVenta: p.precio_venta, precioMayorista: p.precio_mayorista, stockActual: p.stock_actual,
           }))}
+          solicitudComprador={{
+            tipoDocumento: pedido.tipo_documento_solicitado ?? null,
+            rutFacturacion: pedido.rut_facturacion ?? null,
+            razonSocialFacturacion: pedido.razon_social_facturacion ?? null,
+          }}
         />
       ) : (
         <div className="bg-white rounded-xl border overflow-hidden">
@@ -341,6 +351,17 @@ export default async function PedidoB2BDetallePage({
         </div>
       )}
 
+      {mostrarPagosYCancelar && pedido.pago_en_revision && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-2">
+          <p className="font-semibold text-amber-800 text-sm">⏳ Pago en revisión</p>
+          <p className="text-xs text-amber-700">
+            El comprador reportó un pago de {formatCLP(saldoPendiente)} vía {METODO_PAGO_LABEL[pedido.metodo_pago_reportado] ?? pedido.metodo_pago_reportado}.
+            {pedido.nota_pago_comprador && <> Nota: {pedido.nota_pago_comprador}</>}
+          </p>
+          <RevisarPagoB2BBtn pedidoId={pedido.id} />
+        </div>
+      )}
+
       {mostrarPagosYCancelar && (
         <PagarPedidoB2BBtn
           pedidoId={pedido.id}
@@ -348,6 +369,22 @@ export default async function PedidoB2BDetallePage({
           montoPagado={pedido.monto_pagado ?? 0}
           pagos={pagos ?? []}
         />
+      )}
+
+      {mostrarPagoComprador && (
+        <div className="bg-white rounded-xl border p-4 space-y-3">
+          <div>
+            <p className="font-semibold text-gray-800 text-sm">Pago de este pedido</p>
+            <p className="text-xs text-gray-500 mt-0.5">Saldo pendiente: <strong>{formatCLP(saldoPendiente)}</strong></p>
+          </div>
+          {pedido.pago_en_revision ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-700">
+              ⏳ Tu pago está en revisión. Te avisaremos por WhatsApp cuando se confirme.
+            </div>
+          ) : (
+            <ReportarPagoB2BForm pedidoIds={[pedido.id]} totalAPagar={saldoPendiente} etiqueta="Pagar este pedido" />
+          )}
+        </div>
       )}
 
       {mostrarPagosYCancelar && !pedido.pagado && (
