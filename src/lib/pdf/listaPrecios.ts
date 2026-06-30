@@ -53,7 +53,8 @@ export async function generarListaPreciosPDF(
   productos: ProductoListaPrecios[],
   empresa: EmpresaInfo,
   linkAcceso: string,
-  filename: string
+  filename: string,
+  incluyeIva: boolean = true
 ) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -95,7 +96,7 @@ export async function generarListaPreciosPDF(
     y += 14
     doc.setFontSize(8.5)
     doc.setTextColor(90)
-    doc.text(`Vigente al ${new Date().toLocaleDateString('es-CL')} · Precios netos en CLP, sujetos a confirmación al cotizar`, MARGEN, y)
+    doc.text(`Vigente al ${new Date().toLocaleDateString('es-CL')} · Precios ${incluyeIva ? 'con IVA incluido' : 'netos (sin IVA)'} en CLP, sujetos a confirmación al cotizar`, MARGEN, y)
     doc.setTextColor(0)
     y += 10
 

@@ -29,12 +29,17 @@ function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value)
 }
 
-export default function CatalogoB2BCarrito({ productos }: { productos: ProductoCatalogo[] }) {
+export default function CatalogoB2BCarrito({ productos, ivaPct = 19 }: { productos: ProductoCatalogo[]; ivaPct?: number }) {
   const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
   const [carrito, setCarrito] = useState<Record<string, number>>({})
   const [borrador, setBorrador] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
+  const [verConIva, setVerConIva] = useState(true)
+
+  function mostrar(valor: number) {
+    return verConIva ? valor : Math.round(valor / (1 + ivaPct / 100))
+  }
 
   const q = busqueda.trim().toLowerCase()
   const filtrados = q
@@ -97,12 +102,22 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div className="lg:col-span-2 space-y-4">
-        <input
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-          placeholder="🔍 Buscar por nombre, SKU o categoría..."
-          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="🔍 Buscar por nombre, SKU o categoría..."
+            className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <select
+            value={verConIva ? 'con' : 'sin'}
+            onChange={e => setVerConIva(e.target.value === 'con')}
+            className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="con">Ver precios: con IVA</option>
+            <option value="sin">Ver precios: sin IVA</option>
+          </select>
+        </div>
 
         {filtrados.length === 0 ? (
           <div className="bg-white rounded-xl border p-10 text-center text-gray-400">
@@ -134,13 +149,13 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
                   {p.descripcion && <p className="text-xs text-gray-500 line-clamp-2">{p.descripcion}</p>}
                   {tieneOferta && (
                     <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
-                      🏷️ Desde {p.descuentoDesdeCantidad ?? 1} unid.: {formatCLP(calcularPrecioMayoristaConDescuento(p.precio, p.descuentoDesdeCantidad ?? 1, { tipo: p.descuentoTipo, valor: p.descuentoValor, desdeCantidad: p.descuentoDesdeCantidad }))} c/u
+                      🏷️ Desde {p.descuentoDesdeCantidad ?? 1} unid.: {formatCLP(mostrar(calcularPrecioMayoristaConDescuento(p.precio, p.descuentoDesdeCantidad ?? 1, { tipo: p.descuentoTipo, valor: p.descuentoValor, desdeCantidad: p.descuentoDesdeCantidad })))} c/u
                     </p>
                   )}
                   <div className="flex items-center justify-between mt-auto pt-2">
                     <div>
-                      <p className={`font-bold ${ofertaActiva ? 'text-green-700' : 'text-blue-700'}`}>{formatCLP(precioActual)}</p>
-                      {ofertaActiva && <p className="text-xs text-gray-400 line-through">{formatCLP(p.precio)}</p>}
+                      <p className={`font-bold ${ofertaActiva ? 'text-green-700' : 'text-blue-700'}`}>{formatCLP(mostrar(precioActual))}</p>
+                      {ofertaActiva && <p className="text-xs text-gray-400 line-through">{formatCLP(mostrar(p.precio))}</p>}
                       <p className={`text-xs ${p.stock > 0 ? 'text-gray-400' : 'text-red-500'}`}>
                         {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
                       </p>
@@ -186,17 +201,17 @@ export default function CatalogoB2BCarrito({ productos }: { productos: ProductoC
                   <div key={i.producto.id} className="flex items-center justify-between gap-2 text-sm">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-gray-800">{i.producto.nombre}</p>
-                      <p className="text-xs text-gray-400">{i.cantidad} × {formatCLP(precioUnit)}</p>
+                      <p className="text-xs text-gray-400">{i.cantidad} × {formatCLP(mostrar(precioUnit))}</p>
                     </div>
-                    <p className="font-semibold text-gray-900 shrink-0">{formatCLP(precioUnit * i.cantidad)}</p>
+                    <p className="font-semibold text-gray-900 shrink-0">{formatCLP(mostrar(precioUnit * i.cantidad))}</p>
                   </div>
                 )
               })}
             </div>
           )}
           <div className="border-t pt-3 flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-600">Total estimado</span>
-            <span className="font-bold text-lg text-blue-700">{formatCLP(totalCarrito)}</span>
+            <span className="text-sm font-medium text-gray-600">Total estimado {!verConIva && <span className="text-xs text-gray-400 font-normal">(sin IVA)</span>}</span>
+            <span className="font-bold text-lg text-blue-700">{formatCLP(mostrar(totalCarrito))}</span>
           </div>
           <Button
             type="button"

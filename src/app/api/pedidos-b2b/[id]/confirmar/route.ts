@@ -41,7 +41,7 @@ export async function POST(
     return NextResponse.json({ error: 'No tienes permiso para confirmar pedidos' }, { status: 403 })
   }
 
-  let body: { items?: Record<string, ItemSeleccion>; itemsNuevos?: ItemNuevo[]; tipoDocumento?: string; plazoPagoDias?: number | null }
+  let body: { items?: Record<string, ItemSeleccion>; itemsNuevos?: ItemNuevo[]; tipoDocumento?: string; plazoPagoDias?: number | null; exentoIva?: boolean }
   try {
     body = await req.json()
   } catch {
@@ -103,11 +103,20 @@ export async function POST(
     .select('iva, ppm, comision_debito, comision_credito, nombre_local')
     .single()
 
-  const totalBruto = itemsConfirmados.reduce((s, i) => s + i.cantidadConfirmada * i.precioFinal, 0)
   const ivaPct = cfg?.iva ?? 19
   const ppmPct = cfg?.ppm ?? 3
-  const neto = Math.round(totalBruto / (1 + ivaPct / 100))
-  const iva = totalBruto - neto
+  const exentoIva = !!body.exentoIva
+
+  if (exentoIva) {
+    // Venta exenta de IVA: se cobra el precio neto (sin el 19%) en cada línea
+    for (const it of itemsConfirmados) {
+      it.precioFinal = Math.round(it.precioFinal / (1 + ivaPct / 100))
+    }
+  }
+
+  const totalBruto = itemsConfirmados.reduce((s, i) => s + i.cantidadConfirmada * i.precioFinal, 0)
+  const neto = exentoIva ? totalBruto : Math.round(totalBruto / (1 + ivaPct / 100))
+  const iva = exentoIva ? 0 : totalBruto - neto
   const ppm = calcularPpm(neto, ppmPct)
   // El método de pago todavía no se define: se elige recién al registrar el primer abono.
   // Se usa "transferencia" como valor provisorio (0% comisión) hasta entonces.
@@ -130,6 +139,7 @@ export async function POST(
     metodo_pago: metodoPagoProvisorio,
     comision_bancaria: comisionBancaria,
     tipo_documento: body.tipoDocumento || 'factura',
+    exento_iva: exentoIva,
     usuario_id: user.id,
     notas: `Pedido B2B ${pedido.numero_pedido}`,
   }).select().single()
@@ -176,7 +186,11 @@ export async function POST(
     })
     if (movErr) console.error('[confirmar pedido b2b] error al registrar movimiento de stock', it.product_id, movErr)
 
-    const { error: itemErr } = await admin.from('sales_order_items').update({ cantidad_confirmada: it.cantidadConfirmada }).eq('id', it.id)
+    const { error: itemErr } = await admin.from('sales_order_items').update({
+      cantidad_confirmada: it.cantidadConfirmada,
+      precio_unitario: it.precioFinal,
+      subtotal: it.cantidadConfirmada * it.precioFinal,
+    }).eq('id', it.id)
     if (itemErr) console.error('[confirmar pedido b2b] error al marcar cantidad confirmada', it.id, itemErr)
   }
 
@@ -200,6 +214,7 @@ export async function POST(
     fecha_pago: null,
     plazo_pago_dias: plazoDias,
     fecha_vencimiento_pago: fechaVencimientoPago,
+    exento_iva: exentoIva,
   }).eq('id', id)
 
   if (compradorProfile?.telefono) {

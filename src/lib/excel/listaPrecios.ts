@@ -15,7 +15,8 @@ export function generarListaPreciosExcel(
   productos: ProductoListaPrecios[],
   empresa: EmpresaInfo,
   linkAcceso: string,
-  filename: string
+  filename: string,
+  incluyeIva: boolean = true
 ) {
   const wb = XLSX.utils.book_new()
 
@@ -26,7 +27,7 @@ export function generarListaPreciosExcel(
     [empresa.telefono ?? ''],
     [],
     ['Lista de precios mayorista (B2B)'],
-    [`Vigente al ${new Date().toLocaleDateString('es-CL')} — precios netos en CLP, sujetos a confirmación al cotizar`],
+    [`Vigente al ${new Date().toLocaleDateString('es-CL')} — precios ${incluyeIva ? 'con IVA incluido' : 'netos (sin IVA)'} en CLP, sujetos a confirmación al cotizar`],
     [],
     ['Accede al sistema:', linkAcceso],
   ].filter(row => row.length === 0 || row.some(c => c !== ''))
@@ -38,7 +39,7 @@ export function generarListaPreciosExcel(
   categorias.forEach(cat => {
     const items = productos.filter(p => (p.categoria ?? 'Sin categoría') === cat).sort((a, b) => a.nombre.localeCompare(b.nombre))
     if (items.length === 0) return
-    const headers = ['Producto', 'SKU', 'Precio mayorista (CLP)', 'Oferta por cantidad']
+    const headers = ['Producto', 'SKU', `Precio mayorista (CLP${incluyeIva ? ', IVA incluido' : ', neto sin IVA'})`, 'Oferta por cantidad']
     const rows = items.map(p => [p.nombre, p.sku ?? '', p.precio, ofertaTexto(p)])
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
     ws['!cols'] = [{ wch: 40 }, { wch: 16 }, { wch: 18 }, { wch: 28 }]

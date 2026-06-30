@@ -42,7 +42,7 @@ export default async function CatalogoB2BPage() {
         `)
         .eq('activo', true)
         .order('nombre'),
-      supabase.from('system_config').select('nombre_local, rut_local, direccion, telefono, logo_url').maybeSingle(),
+      supabase.from('system_config').select('nombre_local, rut_local, direccion, telefono, logo_url, iva').maybeSingle(),
     ])
 
     type ProductoInventario = {
@@ -80,7 +80,7 @@ export default async function CatalogoB2BPage() {
         descuentoDesdeCantidad: p.mayorista_descuento_desde_cantidad,
       }))
 
-    const local = cfg as { nombre_local?: string; rut_local?: string | null; direccion?: string | null; telefono?: string | null; logo_url?: string | null } | null
+    const local = cfg as { nombre_local?: string; rut_local?: string | null; direccion?: string | null; telefono?: string | null; logo_url?: string | null; iva?: number | null } | null
 
     return (
       <div className="p-6 space-y-5">
@@ -101,6 +101,7 @@ export default async function CatalogoB2BPage() {
               telefono: local?.telefono,
               logoUrl: local?.logo_url,
             }}
+            ivaPct={local?.iva ?? 19}
           />
         </div>
         <CatalogoB2BAdmin productos={lista} puedeEditar={puedeEditar} />
@@ -109,12 +110,15 @@ export default async function CatalogoB2BPage() {
   }
 
   // Vista comprador: solo columnas seguras (nunca exponer precio_costo) y solo lo publicado.
-  const { data: productos } = await supabase
-    .from('products')
-    .select('id, nombre, descripcion, sku, precio_mayorista, stock_actual, categoria_id, product_categories(nombre), mayorista_descuento_tipo, mayorista_descuento_valor, mayorista_descuento_desde_cantidad')
-    .eq('visible_compradores', true)
-    .eq('activo', true)
-    .order('nombre')
+  const [{ data: productos }, { data: cfgComprador }] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id, nombre, descripcion, sku, precio_mayorista, stock_actual, categoria_id, product_categories(nombre), mayorista_descuento_tipo, mayorista_descuento_valor, mayorista_descuento_desde_cantidad')
+      .eq('visible_compradores', true)
+      .eq('activo', true)
+      .order('nombre'),
+    supabase.from('system_config').select('iva').maybeSingle(),
+  ])
 
   type ProductoCatalogo = {
     id: string; nombre: string; descripcion: string | null; sku: string | null
@@ -147,7 +151,7 @@ export default async function CatalogoB2BPage() {
           <p className="text-sm text-gray-500">Arma tu pedido y envíalo para confirmación.</p>
         </div>
       </div>
-      <CatalogoB2BCarrito productos={lista} />
+      <CatalogoB2BCarrito productos={lista} ivaPct={(cfgComprador as { iva?: number } | null)?.iva ?? 19} />
     </div>
   )
 }

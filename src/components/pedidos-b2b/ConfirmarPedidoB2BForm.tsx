@@ -54,6 +54,8 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
   )
   const [tipoDocumento, setTipoDocumento] = useState('factura')
   const [plazoPagoDias, setPlazoPagoDias] = useState<number | null>(30)
+  const [exentoIva, setExentoIva] = useState(false)
+  const IVA_PCT = 19 // referencial para la vista previa; el valor real se aplica en el servidor
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [mostrarRechazo, setMostrarRechazo] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -112,6 +114,8 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
     })
   , [filas, items])
 
+  const totalExento = useMemo(() => Math.round(total / (1 + IVA_PCT / 100)), [total])
+
   async function confirmar() {
     const itemsBody: Record<string, { cantidadConfirmada: number; precioUnitario: number }> = {}
     items.forEach(it => {
@@ -127,14 +131,15 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
     if (Object.keys(itemsBody).length === 0 && itemsNuevos.length === 0) { toast.error('Marca al menos un producto para confirmar'); return }
 
     const nProductos = Object.keys(itemsBody).length + itemsNuevos.length
-    if (!window.confirm(`¿Confirmar este pedido por ${formatCLP(total)} (${nProductos} producto${nProductos === 1 ? '' : 's'})?\n\nSe generará una venta en Caja y se descontará el stock.`)) return
+    const montoFinal = exentoIva ? totalExento : total
+    if (!window.confirm(`¿Confirmar este pedido por ${formatCLP(montoFinal)}${exentoIva ? ' (exento de IVA)' : ''} (${nProductos} producto${nProductos === 1 ? '' : 's'})?\n\nSe generará una venta en Caja y se descontará el stock.`)) return
 
     setLoading(true)
     try {
       const res = await fetch(`/api/pedidos-b2b/${pedidoId}/confirmar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsBody, itemsNuevos, tipoDocumento, plazoPagoDias }),
+        body: JSON.stringify({ items: itemsBody, itemsNuevos, tipoDocumento, plazoPagoDias, exentoIva }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Error al confirmar el pedido'); return }
@@ -224,9 +229,15 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
               })}
             </tbody>
             <tfoot>
+              {exentoIva && (
+                <tr className="bg-gray-50 text-xs text-gray-400">
+                  <td className="px-3 py-1" colSpan={6}>Total con IVA (referencial)</td>
+                  <td className="px-3 py-1 text-right line-through">{formatCLP(total)}</td>
+                </tr>
+              )}
               <tr className="bg-gray-50 font-semibold border-t-2">
-                <td className="px-3 py-2" colSpan={6}>Total a cobrar</td>
-                <td className="px-3 py-2 text-right text-blue-700">{formatCLP(total)}</td>
+                <td className="px-3 py-2" colSpan={6}>{exentoIva ? 'Total a cobrar (exento de IVA)' : 'Total a cobrar'}</td>
+                <td className="px-3 py-2 text-right text-blue-700">{formatCLP(exentoIva ? totalExento : total)}</td>
               </tr>
             </tfoot>
           </table>
@@ -295,33 +306,42 @@ export default function ConfirmarPedidoB2BForm({ pedidoId, items, productosDispo
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
-        <div className="space-y-1.5">
-          <Label>Tipo de documento</Label>
-          <Select value={tipoDocumento} onValueChange={v => setTipoDocumento(v ?? 'factura')}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="factura">Factura</SelectItem>
-              <SelectItem value="boleta">Boleta</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="bg-white rounded-xl border p-4 space-y-4 max-w-xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label>Tipo de documento</Label>
+            <Select value={tipoDocumento} onValueChange={v => setTipoDocumento(v ?? 'factura')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="factura">Factura</SelectItem>
+                <SelectItem value="boleta">Boleta</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Plazo de pago</Label>
+            <Select
+              value={plazoPagoDias === null ? 'contado' : String(plazoPagoDias)}
+              onValueChange={v => setPlazoPagoDias(v === 'contado' ? null : Number(v))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="contado">Al contado</SelectItem>
+                <SelectItem value="7">7 días</SelectItem>
+                <SelectItem value="15">15 días</SelectItem>
+                <SelectItem value="30">30 días</SelectItem>
+                <SelectItem value="60">60 días</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label>Plazo de pago</Label>
-          <Select
-            value={plazoPagoDias === null ? 'contado' : String(plazoPagoDias)}
-            onValueChange={v => setPlazoPagoDias(v === 'contado' ? null : Number(v))}
-          >
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="contado">Al contado</SelectItem>
-              <SelectItem value="7">7 días</SelectItem>
-              <SelectItem value="15">15 días</SelectItem>
-              <SelectItem value="30">30 días</SelectItem>
-              <SelectItem value="60">60 días</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <label className="flex items-start gap-2 cursor-pointer select-none">
+          <input type="checkbox" className="mt-0.5" checked={exentoIva} onChange={e => setExentoIva(e.target.checked)} />
+          <span className="text-sm text-gray-700">
+            Venta exenta de IVA
+            <span className="block text-xs text-gray-400">El total a cobrar baja a {formatCLP(totalExento)} (precio neto, sin el 19%).</span>
+          </span>
+        </label>
       </div>
 
       {itemsConExceso.length > 0 && (
