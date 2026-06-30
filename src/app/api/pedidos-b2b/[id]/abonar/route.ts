@@ -13,6 +13,7 @@ function getRoleName(profile: ProfileRoleResult | null) {
 }
 
 const ROLES_AUTORIZADOS = ['administrador', 'vendedor', 'supervisor_ventas']
+const BUCKET = 'comprobantes-pago'
 
 export async function POST(
   req: NextRequest,
@@ -28,16 +29,27 @@ export async function POST(
     return NextResponse.json({ error: 'No tienes permiso para registrar pagos' }, { status: 403 })
   }
 
-  let body: { monto?: number; metodoPago?: string; nota?: string | null }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
-  }
-  const montoNum = Number(body.monto)
+  const formData = await req.formData()
+  const montoNum = Number(formData.get('monto'))
   if (!montoNum || montoNum <= 0) return NextResponse.json({ error: 'Monto inválido' }, { status: 400 })
+  const metodoPago = (formData.get('metodoPago') as string) || 'transferencia'
+  const nota = (formData.get('nota') as string) || null
+  const archivo = formData.get('archivo') as File | null
 
   const admin = createServiceClient()
+
+  let comprobanteUrl: string | null = null
+  if (archivo && archivo.size) {
+    const ext = archivo.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+    const safeName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const path = `b2b-abono-${id}/${safeName}`
+    const bytes = await archivo.arrayBuffer()
+    const { error: uploadErr } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType: archivo.type, upsert: false })
+    if (!uploadErr) {
+      const { data: { publicUrl } } = admin.storage.from(BUCKET).getPublicUrl(path)
+      comprobanteUrl = publicUrl
+    }
+  }
   const { data: pedido } = await admin.from('sales_orders').select('*').eq('id', id).single()
   if (!pedido) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
   if (!pedido.sale_id) return NextResponse.json({ error: 'Este pedido todavía no fue confirmado' }, { status: 400 })
@@ -47,14 +59,15 @@ export async function POST(
     return NextResponse.json({ error: 'El monto supera el saldo pendiente' }, { status: 400 })
   }
 
-  const metodoAbono = body.metodoPago || 'transferencia'
+  const metodoAbono = metodoPago
 
   const { error: pagoErr } = await admin.from('sales_order_payments').insert({
     sales_order_id: id,
     monto: montoNum,
     metodo_pago: metodoAbono,
     fecha: new Date().toISOString().split('T')[0],
-    nota: body.nota ?? null,
+    nota,
+    comprobante_url: comprobanteUrl,
   })
   if (pagoErr) return NextResponse.json({ error: 'Error al registrar el pago: ' + pagoErr.message }, { status: 500 })
 

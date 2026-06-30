@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { comprimirArchivos } from '@/lib/imageCompress'
 
 interface Pago {
   id: string
@@ -11,6 +12,7 @@ interface Pago {
   metodo_pago: string
   fecha: string
   nota: string | null
+  comprobante_url: string | null
 }
 
 interface Props {
@@ -31,8 +33,17 @@ export default function PagarPedidoB2BBtn({ pedidoId, total, montoPagado, pagos 
   const [monto, setMonto] = useState('')
   const [metodo, setMetodo] = useState('transferencia')
   const [nota, setNota] = useState('')
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const camRef = useRef<HTMLInputElement>(null)
 
   const saldoPendiente = total - montoPagado
+
+  async function elegirArchivo(files: FileList | null) {
+    if (!files || files.length === 0) return
+    const [comprimido] = await comprimirArchivos(Array.from(files).slice(0, 1), 500)
+    setArchivo(comprimido)
+  }
 
   async function pagar() {
     const montoNum = parseInt(monto)
@@ -41,17 +52,20 @@ export default function PagarPedidoB2BBtn({ pedidoId, total, montoPagado, pagos 
 
     setLoading(true)
     try {
-      const res = await fetch(`/api/pedidos-b2b/${pedidoId}/abonar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ monto: montoNum, metodoPago: metodo, nota: nota.trim() || null }),
-      })
+      const formData = new FormData()
+      formData.append('monto', String(montoNum))
+      formData.append('metodoPago', metodo)
+      if (nota.trim()) formData.append('nota', nota.trim())
+      if (archivo) formData.append('archivo', archivo)
+
+      const res = await fetch(`/api/pedidos-b2b/${pedidoId}/abonar`, { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Error al registrar el pago'); return }
       toast.success(`Pago de ${formatCLP(montoNum)} registrado`)
       setOpen(false)
       setMonto('')
       setNota('')
+      setArchivo(null)
       router.refresh()
     } catch {
       toast.error('Error de conexión')
@@ -77,8 +91,15 @@ export default function PagarPedidoB2BBtn({ pedidoId, total, montoPagado, pagos 
       {pagos.length > 0 && (
         <div className="px-4 py-2 divide-y border-b">
           {pagos.map(p => (
-            <div key={p.id} className="py-1.5 text-xs flex justify-between text-gray-600">
-              <span>{p.fecha} · {p.metodo_pago}{p.nota ? ` · ${p.nota}` : ''}</span>
+            <div key={p.id} className="py-1.5 text-xs flex items-center justify-between text-gray-600">
+              <span>
+                {p.fecha} · {p.metodo_pago}{p.nota ? ` · ${p.nota}` : ''}
+                {p.comprobante_url && (
+                  <a href={p.comprobante_url} target="_blank" rel="noreferrer" className="ml-2 text-blue-600 hover:underline">
+                    📎 Ver comprobante
+                  </a>
+                )}
+              </span>
               <span className="font-medium text-gray-800">{formatCLP(p.monto)}</span>
             </div>
           ))}
@@ -125,11 +146,34 @@ export default function PagarPedidoB2BBtn({ pedidoId, total, montoPagado, pagos 
                 className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
             </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">Comprobante de pago (opcional)</label>
+              <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={e => { elegirArchivo(e.target.files); e.target.value = '' }} />
+              <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden"
+                onChange={e => { elegirArchivo(e.target.files); e.target.value = '' }} />
+              <div className="mt-1 flex items-center gap-2">
+                <button type="button" onClick={() => camRef.current?.click()}
+                  className="flex items-center gap-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors">
+                  📷 Foto
+                </button>
+                <button type="button" onClick={() => fileRef.current?.click()}
+                  className="flex items-center gap-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors">
+                  🖼️ Galería / PDF
+                </button>
+                {archivo && (
+                  <span className="text-xs text-green-700 flex items-center gap-1">
+                    ✓ {archivo.name}
+                    <button type="button" onClick={() => setArchivo(null)} className="text-gray-400 hover:text-red-600">✕</button>
+                  </span>
+                )}
+              </div>
+            </div>
             <div className="flex gap-2">
               <Button onClick={pagar} disabled={loading || !monto} className="flex-1 bg-orange-500 hover:bg-orange-600">
                 {loading ? 'Registrando...' : `Registrar pago${monto ? ` de ${formatCLP(parseInt(monto) || 0)}` : ''}`}
               </Button>
-              <Button variant="outline" onClick={() => { setOpen(false); setMonto(''); setNota('') }} disabled={loading}>
+              <Button variant="outline" onClick={() => { setOpen(false); setMonto(''); setNota(''); setArchivo(null) }} disabled={loading}>
                 Cancelar
               </Button>
             </div>
