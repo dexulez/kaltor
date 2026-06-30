@@ -85,13 +85,14 @@ export async function POST(req: NextRequest) {
   for (let i = 0; i < pedidos.length; i++) {
     const p = pedidos[i]
     const existing = (p.comprobante_pago_urls as string[] | null) ?? []
-    await admin.from('sales_orders').update({
+    const { error: updateErr } = await admin.from('sales_orders').update({
       comprobante_pago_urls: [...existing, ...urls],
       pago_en_revision: true,
       metodo_pago_reportado: metodoPago,
       nota_pago_comprador: nota,
       monto_reportado: montosAsignados[i],
     }).eq('id', p.id)
+    if (updateErr) return NextResponse.json({ error: 'Error al registrar el pago: ' + updateErr.message }, { status: 500 })
   }
 
   const nombreComprador = (profile as ProfileRoleResult | null)?.nombre_completo ?? 'Comprador'

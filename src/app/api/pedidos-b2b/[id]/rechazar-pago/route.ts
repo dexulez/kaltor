@@ -40,12 +40,13 @@ export async function POST(
   if (!pedido) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
   if (!pedido.pago_en_revision) return NextResponse.json({ error: 'Este pedido no tiene un pago en revisión' }, { status: 400 })
 
-  await admin.from('sales_orders').update({
+  const { error: ordenErr } = await admin.from('sales_orders').update({
     pago_en_revision: false,
     metodo_pago_reportado: null,
     nota_pago_comprador: null,
     monto_reportado: null,
   }).eq('id', id)
+  if (ordenErr) return NextResponse.json({ error: 'Error al actualizar el pedido: ' + ordenErr.message }, { status: 500 })
 
   const { data: comprador } = await admin.from('user_profiles').select('nombre_completo, telefono').eq('id', pedido.comprador_id).single()
   const { data: cfg } = await admin.from('system_config').select('nombre_local').single()

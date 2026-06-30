@@ -51,7 +51,7 @@ export async function POST(
   const nuevoMontoPagado = (pedido.monto_pagado ?? 0) + montoConfirmado
   const quedoCompleto = nuevoMontoPagado >= (pedido.total_estimado ?? 0)
 
-  await admin.from('sales_orders').update({
+  const { error: ordenErr } = await admin.from('sales_orders').update({
     monto_pagado: nuevoMontoPagado,
     pagado: quedoCompleto,
     fecha_pago: quedoCompleto ? new Date().toISOString() : pedido.fecha_pago,
@@ -59,6 +59,7 @@ export async function POST(
     monto_reportado: null,
     ...(esPrimerAbono ? { metodo_pago: metodoAbono } : {}),
   }).eq('id', id)
+  if (ordenErr) return NextResponse.json({ error: 'Error al actualizar el pedido: ' + ordenErr.message }, { status: 500 })
 
   if (esPrimerAbono) {
     const { data: cfg } = await admin.from('system_config').select('comision_debito, comision_credito').single()
