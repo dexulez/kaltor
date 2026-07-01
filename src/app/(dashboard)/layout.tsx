@@ -41,7 +41,7 @@ export default async function DashboardLayout({
   ])
 
   const logoUrl = (config as { logo_url?: string | null } | null)?.logo_url ?? null
-  const nombreLocal = (config as { nombre_local?: string } | null)?.nombre_local ?? 'TechRepair Pro'
+  const nombreLocal = (config as { nombre_local?: string } | null)?.nombre_local ?? 'Kaltor'
   const mayusculasActivas = (config as { mayusculas_automaticas?: boolean } | null)?.mayusculas_automaticas === true
   const alertas = { compras: solicitudesPendientes ?? 0, pedidosB2B: pedidosB2BPendientes ?? 0 }
 

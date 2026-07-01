@@ -71,7 +71,7 @@ export default function ConfiguracionForm({ config }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Nombre del local <span className="text-red-500">*</span></Label>
-            <Input value={form.nombre_local} onChange={e => set('nombre_local', e.target.value)} required placeholder="TechRepair Pro" />
+            <Input value={form.nombre_local} onChange={e => set('nombre_local', e.target.value)} required placeholder="Kaltor" />
           </div>
           <div className="space-y-1.5">
             <Label>RUT del local</Label>
@@ -91,7 +91,7 @@ export default function ConfiguracionForm({ config }: Props) {
           </div>
           <div className="sm:col-span-2 space-y-1.5">
             <Label>Email</Label>
-            <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="contacto@techrepair.cl" />
+            <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="contacto@ejemplo.cl" />
           </div>
         </div>
       </div>

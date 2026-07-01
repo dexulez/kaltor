@@ -43,7 +43,7 @@ export async function POST(
     .single()
 
   const { data: cfg } = await admin.from('system_config').select('nombre_local').single()
-  const nombreLocal = cfg?.nombre_local ?? 'TechRepair Pro'
+  const nombreLocal = cfg?.nombre_local ?? 'Kaltor'
 
   if (comprador?.telefono) {
     await enviarWAServer(

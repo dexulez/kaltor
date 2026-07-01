@@ -8,7 +8,7 @@ export default async function ConfiguracionPage() {
 
   const config = data ?? {
     id: '',
-    nombre_local: 'TechRepair Pro',
+    nombre_local: 'Kaltor',
     rut_local: null,
     direccion: null,
     telefono: null,

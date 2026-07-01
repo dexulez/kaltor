@@ -13,7 +13,7 @@ export default function EnviarPedidoWhatsAppBtn({ ordenId, numero, supplierPhone
   const [copiado, setCopiado] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const router = useRouter()
-  const link = `${typeof window !== 'undefined' ? window.location.origin : 'https://techrepair-pro.vercel.app'}/pedido/${ordenId}`
+  const link = `${typeof window !== 'undefined' ? window.location.origin : 'https://app.kaltorpos.com'}/pedido/${ordenId}`
 
   async function enviarWhatsApp() {
     setEnviando(true)

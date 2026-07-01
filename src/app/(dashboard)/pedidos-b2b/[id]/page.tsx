@@ -269,13 +269,13 @@ export default async function PedidoB2BDetallePage({
           </div>
           {pedido.estado === 'rechazado' && (
             <div className="px-4 py-3 bg-red-50 border-t text-sm text-red-700 space-y-0.5">
-              <p><strong>Rechazado por:</strong> {nombresActores[pedido.rechazado_por] ?? 'Vendedor'} (TechRepair Pro)</p>
+              <p><strong>Rechazado por:</strong> {nombresActores[pedido.rechazado_por] ?? 'Vendedor'} (Kaltor)</p>
               {pedido.motivo_rechazo && <p><strong>Motivo:</strong> {pedido.motivo_rechazo}</p>}
             </div>
           )}
           {pedido.estado === 'cancelado' && (
             <div className="px-4 py-3 bg-gray-50 border-t text-sm text-gray-600 space-y-0.5">
-              <p><strong>Cancelado por:</strong> {nombresActores[pedido.cancelado_por] ?? 'Vendedor'} (TechRepair Pro)</p>
+              <p><strong>Cancelado por:</strong> {nombresActores[pedido.cancelado_por] ?? 'Vendedor'} (Kaltor)</p>
               {pedido.motivo_cancelacion && <p><strong>Motivo:</strong> {pedido.motivo_cancelacion}</p>}
             </div>
           )}
@@ -294,7 +294,7 @@ export default async function PedidoB2BDetallePage({
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                       <div>
                         <p className="text-gray-400 text-xs">Confirmado por</p>
-                        <p className="font-medium">{pedido.confirmado_por ? `${nombresActores[pedido.confirmado_por] ?? 'Vendedor'} (TechRepair Pro)` : '—'}</p>
+                        <p className="font-medium">{pedido.confirmado_por ? `${nombresActores[pedido.confirmado_por] ?? 'Vendedor'} (Kaltor)` : '—'}</p>
                       </div>
                       <div>
                         <p className="text-gray-400 text-xs">Medio de pago</p>

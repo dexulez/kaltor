@@ -69,7 +69,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
 
   // Obtener host para construir la URL de seguimiento
   const headersList = await headers()
-  const host = headersList.get('host') ?? 'techrepair-pro.vercel.app'
+  const host = headersList.get('host') ?? 'app.kaltorpos.com'
   const protocol = host.includes('localhost') ? 'http' : 'https'
   const baseUrl = `${protocol}://${host}`
 
@@ -110,7 +110,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
   const mostrarTecnico = configRaw?.mostrar_tecnico_pdf !== false  // default true
 
   const configShare = {
-    nombre_local: config?.nombre_local ?? 'TechRepair Pro',
+    nombre_local: config?.nombre_local ?? 'Kaltor',
     rut_local: config?.rut_local ?? null,
     direccion: config?.direccion ?? null,
     telefono: config?.telefono ?? null,
@@ -243,7 +243,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
                 modelo: equipo?.modelo ?? '',
                 falla_reportada: equipo?.falla_reportada ?? null,
               }}
-              config={{ nombre_local: config?.nombre_local ?? 'TechRepair Pro', telefono: config?.telefono ?? null }}
+              config={{ nombre_local: config?.nombre_local ?? 'Kaltor', telefono: config?.telefono ?? null }}
               baseUrl={baseUrl}
             />
             <OTBotonesCompartir

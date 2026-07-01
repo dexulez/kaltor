@@ -145,7 +145,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         )}
         {!collapsed && (
           <div className="overflow-hidden flex-1 min-w-0">
-            <p className="font-bold text-sm leading-tight truncate">{nombreLocal ?? 'TechRepair Pro'}</p>
+            <p className="font-bold text-sm leading-tight truncate">{nombreLocal ?? 'Kaltor'}</p>
             <p className="text-blue-300 text-xs truncate">Gestión de taller</p>
           </div>
         )}

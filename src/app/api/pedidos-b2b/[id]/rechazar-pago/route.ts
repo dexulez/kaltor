@@ -53,7 +53,7 @@ export async function POST(
   if (comprador?.telefono) {
     await enviarWAServer(
       comprador.telefono,
-      msgPagoB2BRechazado(comprador.nombre_completo ?? 'Cliente', pedido.numero_pedido, body.motivo?.trim() || null, cfg?.nombre_local ?? 'TechRepair Pro')
+      msgPagoB2BRechazado(comprador.nombre_completo ?? 'Cliente', pedido.numero_pedido, body.motivo?.trim() || null, cfg?.nombre_local ?? 'Kaltor')
     )
   }
 

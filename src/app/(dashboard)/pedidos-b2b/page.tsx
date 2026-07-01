@@ -326,18 +326,18 @@ export default async function PedidosB2BPage({
                               <MiniSeguimientoB2B estado={p.estado} />
                               {['confirmado', 'preparando', 'en_camino', 'entregado'].includes(p.estado) && p.confirmado_por && (
                                 <p className="text-[10px] text-gray-400 max-w-[180px] ml-auto">
-                                  Por {nombresActores[p.confirmado_por] ?? 'Vendedor'} (TechRepair Pro)
+                                  Por {nombresActores[p.confirmado_por] ?? 'Vendedor'} (Kaltor)
                                 </p>
                               )}
                               {p.estado === 'rechazado' && (
                                 <p className="text-[10px] text-gray-400 max-w-[180px] ml-auto">
-                                  Por {p.rechazado_por ? (nombresActores[p.rechazado_por] ?? 'Vendedor') : 'Vendedor'} (TechRepair Pro)
+                                  Por {p.rechazado_por ? (nombresActores[p.rechazado_por] ?? 'Vendedor') : 'Vendedor'} (Kaltor)
                                   {p.motivo_rechazo && <>: {p.motivo_rechazo}</>}
                                 </p>
                               )}
                               {p.estado === 'cancelado' && (
                                 <p className="text-[10px] text-gray-400 max-w-[180px] ml-auto">
-                                  Por {p.cancelado_por ? (nombresActores[p.cancelado_por] ?? 'Vendedor') : 'Vendedor'} (TechRepair Pro)
+                                  Por {p.cancelado_por ? (nombresActores[p.cancelado_por] ?? 'Vendedor') : 'Vendedor'} (Kaltor)
                                   {p.motivo_cancelacion && <>: {p.motivo_cancelacion}</>}
                                 </p>
                               )}

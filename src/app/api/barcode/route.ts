@@ -15,7 +15,7 @@ export interface BarcodeProducto {
 async function buscarUpcItemDb(codigo: string): Promise<BarcodeProducto | null> {
   try {
     const res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${codigo}`, {
-      headers: { 'User-Agent': 'TechRepair-Pro/1.0' },
+      headers: { 'User-Agent': 'Kaltor/1.0' },
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) return null

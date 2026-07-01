@@ -94,7 +94,7 @@ export default async function PedidoProveedorPage({ params }: { params: Promise<
             <img src={local.logo_url} alt="Logo" className="h-10 max-w-24 object-contain" />
           )}
           <div>
-            <p className="font-bold text-gray-900">{local?.nombre_local ?? 'TechRepair'}</p>
+            <p className="font-bold text-gray-900">{local?.nombre_local ?? 'Kaltor'}</p>
             {local?.telefono && <p className="text-xs text-gray-500">Tel: {local.telefono}</p>}
           </div>
         </div>

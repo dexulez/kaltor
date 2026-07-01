@@ -150,7 +150,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ co
               <img src={(config as { logo_url: string }).logo_url} alt="Logo" className="h-10 max-w-24 object-contain" />
             )}
             <div>
-              <p className="font-bold text-gray-900 text-sm">{config?.nombre_local ?? 'TechRepair Pro'}</p>
+              <p className="font-bold text-gray-900 text-sm">{config?.nombre_local ?? 'Kaltor'}</p>
               <p className="text-xs text-gray-400">Seguimiento de reparación</p>
             </div>
           </div>

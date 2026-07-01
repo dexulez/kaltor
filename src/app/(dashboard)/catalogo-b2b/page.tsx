@@ -95,7 +95,7 @@ export default async function CatalogoB2BPage() {
           <GenerarListaPreciosBtn
             productos={productosListaPrecios}
             empresa={{
-              nombreLocal: local?.nombre_local ?? 'TechRepair Pro',
+              nombreLocal: local?.nombre_local ?? 'Kaltor',
               rut: local?.rut_local,
               direccion: local?.direccion,
               telefono: local?.telefono,

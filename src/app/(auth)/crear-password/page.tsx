@@ -67,7 +67,7 @@ export default function CrearPasswordPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
             <span className="text-3xl">🔧</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">TechRepair Pro</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Kaltor</h1>
           <p className="text-gray-500 mt-1">Bienvenido al sistema</p>
         </div>
 

@@ -7,13 +7,13 @@ import NoScrollNumbers from '@/components/NoScrollNumbers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'TechRepair Pro',
-  description: 'Sistema integral de gestión para taller de reparación de teléfonos',
+  title: 'Kaltor',
+  description: 'Sistema integral de gestión para talleres y negocios',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'TechRepair Pro',
+    title: 'Kaltor',
   },
 }
 

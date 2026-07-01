@@ -220,7 +220,7 @@ export async function POST(
   if (compradorProfile?.telefono) {
     await enviarWAServer(
       compradorProfile.telefono,
-      msgPedidoB2BConfirmado(compradorProfile.nombre_completo ?? 'Cliente', pedido.numero_pedido, totalBruto, cfg?.nombre_local ?? 'TechRepair Pro')
+      msgPedidoB2BConfirmado(compradorProfile.nombre_completo ?? 'Cliente', pedido.numero_pedido, totalBruto, cfg?.nombre_local ?? 'Kaltor')
     )
   }
 

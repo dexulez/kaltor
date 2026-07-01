@@ -74,7 +74,7 @@ export async function POST(
     if (comprador?.telefono) {
       await enviarWAServer(
         comprador.telefono,
-        msgPedidoB2BPagado(comprador.nombre_completo ?? 'Cliente', pedido.numero_pedido, nuevoMontoPagado, cfg?.nombre_local ?? 'TechRepair Pro')
+        msgPedidoB2BPagado(comprador.nombre_completo ?? 'Cliente', pedido.numero_pedido, nuevoMontoPagado, cfg?.nombre_local ?? 'Kaltor')
       )
     }
   }

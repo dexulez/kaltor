@@ -39,8 +39,8 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
             <span className="text-3xl">🔧</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">TechRepair Pro</h1>
-          <p className="text-gray-500 mt-1">Sistema de gestión para tu taller</p>
+          <h1 className="text-3xl font-bold text-gray-900">Kaltor</h1>
+          <p className="text-gray-500 mt-1">Sistema de gestión para tu negocio</p>
         </div>
 
         <Card className="shadow-xl border-0">
@@ -55,7 +55,7 @@ export default function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="usuario@techrepair.cl"
+                  placeholder="usuario@ejemplo.cl"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -82,7 +82,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          TechRepair Pro v1.0 — Gestión integral de taller
+          Kaltor v1.0 — Gestión integral para tu negocio
         </p>
       </div>
     </div>
