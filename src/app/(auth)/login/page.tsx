@@ -82,7 +82,10 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          Kaltor v1.0 — Gestión integral para tu negocio
+          ¿Nuevo en Kaltor?{' '}
+          <a href="/registro" className="text-blue-600 hover:underline font-medium">
+            Crear cuenta gratis
+          </a>
         </p>
       </div>
     </div>

@@ -157,21 +157,21 @@ function Hero() {
       </p>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 72, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <a href="#planes" style={{
+        <a href="https://app.kaltorpos.com/registro" style={{
           padding: '14px 32px', borderRadius: 12, backgroundColor: C.signal, color: '#fff',
           fontWeight: 600, fontSize: 16, textDecoration: 'none', transition: 'transform 0.2s',
         }}
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
-          Ver planes
+          Comenzar gratis →
         </a>
-        <a href="#modulos" style={{
+        <a href="#planes" style={{
           padding: '14px 32px', borderRadius: 12, border: `2px solid ${C.line}`,
           color: C.ink, fontWeight: 600, fontSize: 16, textDecoration: 'none', transition: 'border-color 0.2s',
         }}
           onMouseEnter={e => (e.currentTarget.style.borderColor = C.ink)}
           onMouseLeave={e => (e.currentTarget.style.borderColor = C.line)}>
-          Cómo funciona
+          Ver planes
         </a>
       </div>
 
@@ -351,7 +351,7 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
         ))}
       </div>
 
-      <a href="/login" style={{
+      <a href="https://app.kaltorpos.com/registro" style={{
         display: 'block', textAlign: 'center', padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 600,
         textDecoration: 'none', transition: 'all 0.2s',
         backgroundColor: plan.destacado ? C.signal : 'transparent',
@@ -361,7 +361,7 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
         onMouseEnter={e => { if (!plan.destacado) e.currentTarget.style.borderColor = C.ink }}
         onMouseLeave={e => { if (!plan.destacado) e.currentTarget.style.borderColor = C.line }}
       >
-        Comenzar
+        Comenzar gratis
       </a>
     </div>
   )
