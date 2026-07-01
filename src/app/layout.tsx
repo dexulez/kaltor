@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import NoScrollNumbers from '@/components/NoScrollNumbers'
 
 const inter = Inter({ subsets: ['latin'] })
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-display' })
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
   title: 'Kaltor',
@@ -31,7 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className="h-full">
-      <body className={`${inter.className} min-h-full`} suppressHydrationWarning>
+      <body className={`${inter.className} ${spaceGrotesk.variable} ${jetbrainsMono.variable} min-h-full`} suppressHydrationWarning>
         <NoScrollNumbers />
         {children}
         <Toaster richColors position="top-right" closeButton expand visibleToasts={5} />
