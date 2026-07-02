@@ -98,14 +98,8 @@ function Nav() {
       transition: 'border-color 0.3s',
     }}>
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: C.signal, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M9 2L3 9h5l-1 5 6-7H8l1-5z" fill="white" strokeWidth="0"/>
-          </svg>
-        </div>
-        <span style={{ fontFamily: FD, fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: '-0.02em' }}>Kaltor</span>
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/kaltor-logo.svg" alt="Kaltor" style={{ height: 36 }} />
 
       {/* Links */}
       <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>

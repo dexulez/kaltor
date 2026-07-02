@@ -141,7 +141,8 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="Logo" className={cn('object-contain shrink-0', collapsed ? 'h-7 w-7' : 'h-9 max-w-[40px]')} />
         ) : (
-          <span className="text-2xl shrink-0">🔧</span>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/kaltor-logo-hex.svg" alt="Kaltor" className={cn('object-contain shrink-0', collapsed ? 'h-7 w-7' : 'h-8 w-8')} />
         )}
         {!collapsed && (
           <div className="overflow-hidden flex-1 min-w-0">
