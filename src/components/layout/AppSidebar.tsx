@@ -68,7 +68,8 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
 
   const visibleItems = MODULOS.filter(m => {
     if (!tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)) return false
-    if (modulosDelPlan && !MODULOS_CORE.has(m.key) && !modulosDelPlan.has(m.key)) return false
+    // El administrador siempre ve todos los módulos que su rol permite
+    if (roleName !== 'administrador' && modulosDelPlan && !MODULOS_CORE.has(m.key) && !modulosDelPlan.has(m.key)) return false
     return true
   })
   const visibleKeys = new Set(visibleItems.map(m => m.key))
