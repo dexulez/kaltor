@@ -98,8 +98,10 @@ function Nav() {
       transition: 'border-color 0.3s',
     }}>
       {/* Logo */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/kaltor-logo.svg" alt="Kaltor" style={{ height: 36 }} />
+      <a href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/kaltor-logo.svg" alt="Kaltor" style={{ height: 52 }} />
+      </a>
 
       {/* Links */}
       <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
