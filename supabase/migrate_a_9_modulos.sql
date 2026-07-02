@@ -3,13 +3,11 @@
 -- Kaltor_Arquitectura_Planes.md § 2
 --
 -- EJECUTAR EN: Supabase Dashboard → SQL Editor
--- BACKUP: exportar store_modules antes si querés conservar los datos viejos
 -- ═══════════════════════════════════════════════════════════════════════════
 
 BEGIN;
 
--- ─── 0. Agregar los 9 nuevos keys al catálogo modules ───────────────────────
--- store_modules.module_key tiene FK → modules, hay que registrarlos primero.
+-- ─── 0. Registrar los 9 nuevos keys en el catálogo modules ──────────────────
 
 INSERT INTO modules (key, nombre, descripcion) VALUES
   ('ventas',        'Ventas',        'Caja, punto de venta y clientes')
@@ -24,50 +22,46 @@ INSERT INTO modules (key, nombre, descripcion) VALUES
 ON CONFLICT (key) DO NOTHING;
 
 
--- ─── 1. Migrar store_modules ────────────────────────────────────────────────
--- Insertar los nuevos 9 keys mapeados desde los keys viejos de cada tienda.
--- ON CONFLICT DO NOTHING → idempotente si se corre más de una vez.
+-- ─── 1. Migrar store_modules ─────────────────────────────────────────────────
 
 INSERT INTO store_modules (store_id, module_key, activo)
-SELECT DISTINCT store_id, 'ventas', true
-FROM store_modules
+SELECT DISTINCT store_id, 'ventas', true FROM store_modules
 WHERE module_key IN ('caja', 'clientes') AND activo = true
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
 INSERT INTO store_modules (store_id, module_key, activo)
-SELECT DISTINCT store_id, 'compras', true
-FROM store_modules
+SELECT DISTINCT store_id, 'compras', true FROM store_modules
 WHERE module_key = 'compras' AND activo = true
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
 INSERT INTO store_modules (store_id, module_key, activo)
-SELECT DISTINCT store_id, 'productos', true
-FROM store_modules
+SELECT DISTINCT store_id, 'productos', true FROM store_modules
 WHERE module_key IN ('inventario', 'catalogo_b2b') AND activo = true
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
 INSERT INTO store_modules (store_id, module_key, activo)
-SELECT DISTINCT store_id, 'servicios', true
-FROM store_modules
+SELECT DISTINCT store_id, 'servicios', true FROM store_modules
 WHERE module_key = 'servicios' AND activo = true
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
 INSERT INTO store_modules (store_id, module_key, activo)
-SELECT DISTINCT store_id, 'taller', true
-FROM store_modules
+SELECT DISTINCT store_id, 'taller', true FROM store_modules
 WHERE module_key = 'reparaciones' AND activo = true
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
 INSERT INTO store_modules (store_id, module_key, activo)
-SELECT DISTINCT store_id, 'informes', true
-FROM store_modules
+SELECT DISTINCT store_id, 'informes', true FROM store_modules
 WHERE module_key = 'informes' AND activo = true
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
 INSERT INTO store_modules (store_id, module_key, activo)
-SELECT DISTINCT store_id, 'contabilidad', true
-FROM store_modules
+SELECT DISTINCT store_id, 'contabilidad', true FROM store_modules
 WHERE module_key = 'contabilidad' AND activo = true
+ON CONFLICT (store_id, module_key) DO NOTHING;
+
+INSERT INTO store_modules (store_id, module_key, activo)
+SELECT DISTINCT store_id, 'canal_b2b', true FROM store_modules
+WHERE module_key IN ('pedidos_b2b', 'catalogo_b2b') AND activo = true
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
 -- configuracion siempre activo en todas las tiendas
@@ -75,14 +69,7 @@ INSERT INTO store_modules (store_id, module_key, activo)
 SELECT id, 'configuracion', true FROM stores
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
--- canal_b2b: solo si la tienda tenía pedidos_b2b O catalogo_b2b activos
-INSERT INTO store_modules (store_id, module_key, activo)
-SELECT DISTINCT store_id, 'canal_b2b', true
-FROM store_modules
-WHERE module_key IN ('pedidos_b2b', 'catalogo_b2b') AND activo = true
-ON CONFLICT (store_id, module_key) DO NOTHING;
-
--- Eliminar todos los keys viejos de store_modules
+-- Eliminar keys viejos
 DELETE FROM store_modules
 WHERE module_key IN (
   'dashboard', 'caja', 'clientes', 'compras', 'inventario',
@@ -91,68 +78,52 @@ WHERE module_key IN (
 );
 
 
--- ─── 2. Resetear plan_modules con los 9 módulos de negocio ──────────────────
+-- ─── 2. Resetear plan_modules ────────────────────────────────────────────────
+-- Columna identificadora en plans: slug (basico, pro, taller-basico, etc.)
 
 DELETE FROM plan_modules;
 
 -- Básico: ventas, compras, productos, configuracion
 INSERT INTO plan_modules (plan_id, module_key)
 SELECT id, m.key FROM plans, (VALUES
-  ('ventas'), ('compras'), ('productos'), ('configuracion')
+  ('ventas'),('compras'),('productos'),('configuracion')
 ) AS m(key)
-WHERE plans.key = 'basic';
+WHERE plans.slug = 'basico';
 
--- Pro: básico + informes, contabilidad
+-- Pro: + informes, contabilidad
 INSERT INTO plan_modules (plan_id, module_key)
 SELECT id, m.key FROM plans, (VALUES
-  ('ventas'), ('compras'), ('productos'), ('configuracion'),
-  ('informes'), ('contabilidad')
+  ('ventas'),('compras'),('productos'),('configuracion'),
+  ('informes'),('contabilidad')
 ) AS m(key)
-WHERE plans.key = 'pro';
+WHERE plans.slug = 'pro';
 
--- Taller Básico: básico + servicios, taller
+-- Taller Básico: + servicios, taller
 INSERT INTO plan_modules (plan_id, module_key)
 SELECT id, m.key FROM plans, (VALUES
-  ('ventas'), ('compras'), ('productos'), ('configuracion'),
-  ('servicios'), ('taller')
+  ('ventas'),('compras'),('productos'),('configuracion'),
+  ('servicios'),('taller')
 ) AS m(key)
-WHERE plans.key = 'taller_basico';
+WHERE plans.slug = 'taller-basico';
 
--- Taller Básico 5 Usuarios: mismos módulos que Taller Básico
+-- Taller Básico 5U: mismos módulos que Taller Básico
 INSERT INTO plan_modules (plan_id, module_key)
 SELECT id, m.key FROM plans, (VALUES
-  ('ventas'), ('compras'), ('productos'), ('configuracion'),
-  ('servicios'), ('taller')
+  ('ventas'),('compras'),('productos'),('configuracion'),
+  ('servicios'),('taller')
 ) AS m(key)
-WHERE plans.key = 'taller_basico_5u';
+WHERE plans.slug = 'taller-basico-5u';
 
--- Taller Básico Multiusuario
+-- Taller Multiusuario: + informes, contabilidad
 INSERT INTO plan_modules (plan_id, module_key)
 SELECT id, m.key FROM plans, (VALUES
-  ('ventas'), ('compras'), ('productos'), ('configuracion'),
-  ('servicios'), ('taller')
+  ('ventas'),('compras'),('productos'),('configuracion'),
+  ('servicios'),('taller'),('informes'),('contabilidad')
 ) AS m(key)
-WHERE plans.key IN ('taller_basico_multiusuario', 'taller_basico_multi');
-
--- Taller Pro: todos excepto canal_b2b
-INSERT INTO plan_modules (plan_id, module_key)
-SELECT id, m.key FROM plans, (VALUES
-  ('ventas'), ('compras'), ('productos'), ('configuracion'),
-  ('servicios'), ('taller'), ('informes'), ('contabilidad')
-) AS m(key)
-WHERE plans.key = 'taller_pro';
-
--- Taller Multi-tienda: todos los 9
-INSERT INTO plan_modules (plan_id, module_key)
-SELECT id, m.key FROM plans, (VALUES
-  ('ventas'), ('compras'), ('productos'), ('configuracion'),
-  ('servicios'), ('taller'), ('informes'), ('contabilidad'), ('canal_b2b')
-) AS m(key)
-WHERE plans.key IN ('taller_multistore', 'taller_multi_tienda');
+WHERE plans.slug = 'taller-multiusuario';
 
 
--- ─── 3. Limpiar keys viejos del catálogo modules ────────────────────────────
--- Solo después de haber migrado store_modules y plan_modules
+-- ─── 3. Limpiar keys viejos del catálogo modules ─────────────────────────────
 
 DELETE FROM modules
 WHERE key IN (
@@ -162,8 +133,8 @@ WHERE key IN (
 );
 
 
--- ─── 4. Resumen final ────────────────────────────────────────────────────────
-SELECT 'store_modules después de migración' AS tabla, module_key, count(*) AS tiendas
+-- ─── 4. Resumen ──────────────────────────────────────────────────────────────
+SELECT module_key, count(*) AS tiendas
 FROM store_modules
 GROUP BY module_key
 ORDER BY module_key;
