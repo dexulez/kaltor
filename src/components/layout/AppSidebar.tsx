@@ -119,8 +119,8 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
         className={cn(
           'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative',
           isActive
-            ? 'bg-[#FF7A1A]/10 text-[#FF7A1A]'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            ? 'bg-[#FF7A1A]/15 text-[#FF7A1A]'
+            : 'text-[#8B94A3] hover:bg-[#171D24] hover:text-[#E6E9ED]'
         )}
       >
         <span className="text-base shrink-0">{item.icon}</span>
@@ -136,12 +136,12 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
 
   return (
     <aside className={cn(
-      'hidden md:flex flex-col bg-white border-r border-gray-200 transition-all duration-300 shrink-0',
+      'hidden md:flex flex-col bg-[#0F1318] border-r border-[#2A3340] transition-all duration-300 shrink-0',
       collapsed ? 'w-16' : 'w-72'
     )}>
       {/* Logo */}
       <div className={cn(
-        'flex items-center border-b border-gray-200',
+        'flex items-center border-b border-[#2A3340]',
         collapsed ? 'flex-col gap-2 px-1 py-3' : 'gap-3 px-4 py-4'
       )}>
         {logoUrl ? (
@@ -153,14 +153,14 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
         )}
         {!collapsed && (
           <div className="overflow-hidden flex-1 min-w-0">
-            <p className="font-bold text-sm leading-tight truncate text-gray-900">{nombreLocal ?? 'Kaltor'}</p>
-            <p className="text-gray-400 text-xs truncate">Gestión de taller</p>
+            <p className="font-bold text-sm leading-tight truncate text-[#E6E9ED]">{nombreLocal ?? 'Kaltor'}</p>
+            <p className="text-[#8B94A3] text-xs truncate">Gestión de taller</p>
           </div>
         )}
         <Button
           variant="ghost"
           size="sm"
-          className={cn('text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1 h-7 w-7 shrink-0', !collapsed && 'ml-auto')}
+          className={cn('text-[#8B94A3] hover:text-[#E6E9ED] hover:bg-[#171D24] p-1 h-7 w-7 shrink-0', !collapsed && 'ml-auto')}
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? '→' : '←'}
@@ -198,7 +198,9 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
                   }}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                    grupoActivo ? 'text-gray-900 bg-gray-100' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    grupoActivo
+                      ? 'text-[#E6E9ED] bg-[#171D24]'
+                      : 'text-[#8B94A3] hover:bg-[#171D24] hover:text-[#E6E9ED]'
                   )}
                 >
                   <span className="text-lg shrink-0 relative">
@@ -217,21 +219,21 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
                     </span>
                   )}
                   {!collapsed && (
-                    <span className={cn('text-xs text-gray-400 transition-transform shrink-0', abierto && 'rotate-90')}>▸</span>
+                    <span className={cn('text-xs text-[#8B94A3] transition-transform shrink-0', abierto && 'rotate-90')}>▸</span>
                   )}
                 </button>
 
                 {/* Expandido en línea (sidebar ancho) */}
                 {!collapsed && abierto && (
-                  <ul className="mt-1 ml-4 pl-3 border-l border-gray-200 space-y-0.5">
+                  <ul className="mt-1 ml-4 pl-3 border-l border-[#2A3340] space-y-0.5">
                     {itemsDelGrupo.map(item => <li key={item.href}>{renderLink(item)}</li>)}
                   </ul>
                 )}
 
-                {/* Flyout (sidebar colapsado) */}
+                {/* Flyout (sidebar colapsado) — mantiene fondo claro para legibilidad */}
                 {collapsed && flyout === grupo.key && (
-                  <div className="absolute left-full top-0 ml-1 z-[100] bg-white border border-gray-200 rounded-xl shadow-2xl py-2 w-56">
-                    <p className="px-3 pb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{grupo.label}</p>
+                  <div className="absolute left-full top-0 ml-1 z-[100] bg-[#171D24] border border-[#2A3340] rounded-xl shadow-2xl py-2 w-56">
+                    <p className="px-3 pb-1.5 text-xs font-semibold text-[#8B94A3] uppercase tracking-wide">{grupo.label}</p>
                     <ul className="space-y-0.5 px-1">
                       {itemsDelGrupo.map(item => <li key={item.href}>{renderLink(item)}</li>)}
                     </ul>
@@ -251,7 +253,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
       )}
 
       {/* User info */}
-      <div className="border-t border-gray-200 p-3">
+      <div className="border-t border-[#2A3340] p-3">
         <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
           <Avatar className="h-8 w-8 shrink-0">
             <AvatarFallback className="bg-[#FF7A1A] text-white text-xs font-bold">
@@ -260,22 +262,22 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
           </Avatar>
           {!collapsed && (
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate text-gray-900">{user?.nombre_completo ?? 'Usuario'}</p>
-              <p className="text-xs text-gray-400 truncate">{ROL_LABEL[roleName] ?? roleName}</p>
+              <p className="text-sm font-medium truncate text-[#E6E9ED]">{user?.nombre_completo ?? 'Usuario'}</p>
+              <p className="text-xs text-[#8B94A3] truncate">{ROL_LABEL[roleName] ?? roleName}</p>
             </div>
           )}
         </div>
         {!collapsed && (
           <div className="flex gap-1 mt-2">
             <Link href="/perfil" className="flex-1">
-              <Button variant="ghost" size="sm" className="w-full text-gray-500 hover:text-gray-800 hover:bg-gray-100 text-xs">
+              <Button variant="ghost" size="sm" className="w-full text-[#8B94A3] hover:text-[#E6E9ED] hover:bg-[#171D24] text-xs">
                 👤 Perfil
               </Button>
             </Link>
             <Button
               variant="ghost"
               size="sm"
-              className="flex-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 text-xs"
+              className="flex-1 text-[#8B94A3] hover:text-[#E6E9ED] hover:bg-[#171D24] text-xs"
               onClick={handleLogout}
             >
               Salir
