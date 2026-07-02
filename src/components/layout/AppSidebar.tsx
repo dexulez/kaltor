@@ -61,7 +61,8 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
     return inicial ? { [inicial]: true } : {}
   })
   const [flyout, setFlyout] = useState<string | null>(null)
-  const roleName = user?.roles?.nombre ?? ''
+  const rolesRaw = user?.roles as unknown as { nombre?: string } | { nombre?: string }[] | null
+  const roleName = (Array.isArray(rolesRaw) ? rolesRaw[0]?.nombre : rolesRaw?.nombre) ?? ''
 
   const visibleItems = MODULOS.filter(m => {
     if (!tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)) return false

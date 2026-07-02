@@ -16,15 +16,15 @@ const FM = 'var(--font-mono, "JetBrains Mono", monospace)'
 
 // ── Datos ─────────────────────────────────────────────────────────────────────
 const MODULOS = [
-  { code: 'MOD-01', key: 'inventory',   abbr: 'INV', label: 'Inventario',   desc: 'Control de stock, movimientos, alertas de bajo inventario y valorización.' },
-  { code: 'MOD-02', key: 'purchases',   abbr: 'COM', label: 'Compras',       desc: 'Órdenes de compra, proveedores, recepciones y pagos a proveedores.' },
-  { code: 'MOD-03', key: 'sales',       abbr: 'VTA', label: 'Ventas',        desc: 'Punto de venta, cotizaciones, facturas y seguimiento de cobranza.' },
-  { code: 'MOD-04', key: 'repair_shop', abbr: 'TAL', label: 'Taller',        desc: 'Órdenes de trabajo, seguimiento de reparaciones y etiquetas térmicas.' },
-  { code: 'MOD-05', key: 'reports',     abbr: 'INF', label: 'Informes',      desc: 'Dashboard financiero, punto de equilibrio e informes exportables.' },
-  { code: 'MOD-06', key: 'hr',          abbr: 'RRH', label: 'RRHH',          desc: 'Gestión de personal, liquidaciones y control de asistencia.' },
-  { code: 'MOD-07', key: 'accounting',  abbr: 'CTB', label: 'Contabilidad',  desc: 'Libro de ingresos/egresos, IVA, PPM y cierre mensual.' },
-  { code: 'MOD-08', key: 'manuals',     abbr: 'MAN', label: 'Manuales',      desc: 'Base de conocimiento técnico e integración con iFixit para reparaciones.' },
-  { code: 'MOD-09', key: 'multi_store', abbr: 'MTI', label: 'Multi-tienda',  desc: 'Múltiples sucursales con reportes consolidados.' },
+  { code: 'MOD-01', key: 'ventas',        abbr: 'VTA', label: 'Ventas',        desc: 'Caja, punto de venta, clientes y venta directa desde cualquier dispositivo.' },
+  { code: 'MOD-02', key: 'compras',       abbr: 'COM', label: 'Compras',       desc: 'Órdenes de compra, proveedores, recepciones y control de pagos pendientes.' },
+  { code: 'MOD-03', key: 'productos',     abbr: 'INV', label: 'Inventario',    desc: 'Control de stock, movimientos, alertas de quiebre y valorización.' },
+  { code: 'MOD-04', key: 'servicios',     abbr: 'SVC', label: 'Servicios',     desc: 'Catálogo de servicios del taller con precios y tiempos estándar.' },
+  { code: 'MOD-05', key: 'taller',        abbr: 'TAL', label: 'Taller',        desc: 'Órdenes de trabajo, seguimiento de reparaciones y etiquetas térmicas.' },
+  { code: 'MOD-06', key: 'informes',      abbr: 'INF', label: 'Informes',      desc: 'Dashboard financiero, punto de equilibrio e informes exportables a Excel.' },
+  { code: 'MOD-07', key: 'contabilidad',  abbr: 'CTB', label: 'Contabilidad',  desc: 'Libro de ingresos/egresos, IVA, PPM y preparación de declaraciones.' },
+  { code: 'MOD-08', key: 'canal_b2b',     abbr: 'B2B', label: 'Canal B2B',     desc: 'Catálogo mayorista para compradores externos con pedidos y precios diferenciados.' },
+  { code: 'MOD-09', key: 'configuracion', abbr: 'CFG', label: 'Configuración', desc: 'Usuarios, roles, permisos y ajustes generales del sistema.' },
 ]
 
 type Plan = {
@@ -39,13 +39,13 @@ type Plan = {
 }
 
 const PLANES: Plan[] = [
-  { nombre: 'Básico',              precio_mes: 14990, precio_anual: 149900, usuarios: '1 usuario · 1 sesión',       modulos: ['inventory','purchases','sales'],                                                                  familia: 'básico',       destacado: false },
-  { nombre: 'Pro',                 precio_mes: 23990, precio_anual: 239900, usuarios: 'Multiusuario',                modulos: ['inventory','purchases','sales','reports','hr','accounting','manuals'],                          familia: 'básico',       destacado: false },
-  { nombre: 'Taller Básico',       precio_mes: 19990, precio_anual: 199900, usuarios: '1 usuario · 1 sesión',       modulos: ['inventory','purchases','sales','repair_shop'],                                                    familia: 'taller',       destacado: false },
-  { nombre: 'Taller Básico 5U',    precio_mes: 29990, precio_anual: 299900, usuarios: 'Hasta 5 usuarios',            modulos: ['inventory','purchases','sales','repair_shop'],                                                    familia: 'taller',       destacado: true  },
-  { nombre: 'Taller Multiusuario', precio_mes: 36990, precio_anual: 369900, usuarios: 'Usuarios ilimitados',         modulos: ['inventory','purchases','sales','repair_shop'],                                                    familia: 'taller',       destacado: false },
-  { nombre: 'Taller Pro',          precio_mes: 44990, precio_anual: 449900, usuarios: 'Multiusuario',                modulos: ['inventory','purchases','sales','repair_shop','reports','hr','accounting','manuals'],             familia: 'taller',       destacado: false },
-  { nombre: 'Taller Multi-tienda', precio_mes: 84990, precio_anual: 849900, usuarios: 'Multi-usuario · Multi-sucursal', modulos: ['inventory','purchases','sales','repair_shop','reports','hr','accounting','manuals','multi_store'], familia: 'multi-tienda', destacado: false, addon: 'Incluye B2B Wholesale' },
+  { nombre: 'Básico',              precio_mes: 14990, precio_anual: 149900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','configuracion'],                                                                  familia: 'básico',       destacado: false },
+  { nombre: 'Pro',                 precio_mes: 23990, precio_anual: 239900, usuarios: 'Multiusuario',                    modulos: ['ventas','compras','productos','configuracion','informes','contabilidad'],                                        familia: 'básico',       destacado: false },
+  { nombre: 'Taller Básico',       precio_mes: 19990, precio_anual: 199900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','configuracion','servicios','taller'],                                             familia: 'taller',       destacado: false },
+  { nombre: 'Taller Básico 5U',    precio_mes: 29990, precio_anual: 299900, usuarios: 'Hasta 5 usuarios',                modulos: ['ventas','compras','productos','configuracion','servicios','taller'],                                             familia: 'taller',       destacado: true  },
+  { nombre: 'Taller Multiusuario', precio_mes: 36990, precio_anual: 369900, usuarios: 'Usuarios ilimitados',             modulos: ['ventas','compras','productos','configuracion','servicios','taller','informes','contabilidad'],                   familia: 'taller',       destacado: false },
+  { nombre: 'Taller Pro',          precio_mes: 44990, precio_anual: 449900, usuarios: 'Multiusuario + informes',         modulos: ['ventas','compras','productos','configuracion','servicios','taller','informes','contabilidad'],                   familia: 'taller',       destacado: false },
+  { nombre: 'Taller Multi-tienda', precio_mes: 84990, precio_anual: 849900, usuarios: 'Multi-usuario · Multi-sucursal', modulos: ['ventas','compras','productos','configuracion','servicios','taller','informes','contabilidad','canal_b2b'],       familia: 'multi-tienda', destacado: false, addon: 'Incluye Canal B2B' },
 ]
 
 function clp(n: number) { return `$${n.toLocaleString('es-CL')}` }
@@ -193,9 +193,9 @@ function Modulos() {
     <section id="modulos" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Módulos</p>
-        <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>Nueve módulos.</h2>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>9 módulos de negocio.</h2>
         <p style={{ fontSize: 17, color: C.ink, opacity: 0.6, marginBottom: 56, maxWidth: 560 }}>
-          Enciende los que tu negocio necesita hoy, agrega el resto cuando lo necesites.
+          Activa los que tu empresa necesita hoy. Cada módulo es independiente — si no lo usas, no lo pagas.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
