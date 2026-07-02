@@ -61,7 +61,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[#F5F6F4] overflow-hidden">
       <InactivityRedirect />
       <RealtimeRefresh />
       <MayusculasListener activo={mayusculasActivas} />

@@ -44,20 +44,7 @@ export async function generateMetadata(
   }
 }
 
-const ESTADO_INFO: Record<string, { label: string; color: string; bg: string; icono: string }> = {
-  recibido:           { label: 'Recibido en taller',        color: 'text-gray-700',    bg: 'bg-gray-100',    icono: '📥' },
-  en_diagnostico:     { label: 'En diagnóstico',            color: 'text-yellow-700',  bg: 'bg-yellow-100',  icono: '🔍' },
-  presupuestado:      { label: 'Presupuesto en proceso',     color: 'text-blue-700',    bg: 'bg-blue-100',    icono: '📋' },
-  aprobado:           { label: 'Presupuesto aceptado',       color: 'text-indigo-700',  bg: 'bg-indigo-100',  icono: '✅' },
-  rechazado:          { label: 'Presupuesto rechazado',      color: 'text-red-700',     bg: 'bg-red-100',     icono: '❌' },
-  esperando_repuesto: { label: 'Esperando repuesto',         color: 'text-orange-700',  bg: 'bg-orange-100',  icono: '📦' },
-  en_reparacion:      { label: 'En reparación',              color: 'text-purple-700',  bg: 'bg-purple-100',  icono: '🔧' },
-  listo:              { label: '¡Reparación finalizada!',    color: 'text-green-700',   bg: 'bg-green-100',   icono: '🎉' },
-  para_entrega:       { label: '¡Listo para retirar!',       color: 'text-cyan-700',    bg: 'bg-cyan-100',    icono: '📬' },
-  entregado:          { label: 'Entregado al cliente',       color: 'text-emerald-700', bg: 'bg-emerald-100', icono: '✅' },
-  en_garantia:        { label: 'En garantía',                color: 'text-teal-700',    bg: 'bg-teal-100',    icono: '🛡️' },
-  cancelado:          { label: 'Cancelado',                  color: 'text-gray-500',    bg: 'bg-gray-100',    icono: '🚫' },
-}
+import { ESTADO_SEGUIMIENTO as ESTADO_INFO } from '@/lib/ot-estados'
 
 export default async function SeguimientoPage({ params }: { params: Promise<{ codigo: string }> }) {
   const { codigo } = await params

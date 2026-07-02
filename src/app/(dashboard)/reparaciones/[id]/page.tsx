@@ -18,19 +18,11 @@ import { labelTipoEquipo } from '@/lib/tipoEquipo'
 import EtiquetaTermica from '@/components/reparaciones/EtiquetaTermica'
 import { tieneSubPermiso } from '@/lib/modulos'
 
-const ESTADO_INFO: Record<string, { label: string; color: string }> = {
-  recibido:           { label: 'Recibido',           color: 'bg-gray-100 text-gray-700' },
-  en_diagnostico:     { label: 'En diagnóstico',     color: 'bg-yellow-100 text-yellow-700' },
-  presupuestado:      { label: 'Presupuestado',       color: 'bg-blue-100 text-blue-700' },
-  aprobado:           { label: 'Aprobado',            color: 'bg-indigo-100 text-indigo-700' },
-  rechazado:          { label: 'Rechazado',           color: 'bg-red-100 text-red-700' },
-  esperando_repuesto: { label: 'Esperando repuesto',  color: 'bg-orange-100 text-orange-700' },
-  en_reparacion:      { label: 'En reparación',       color: 'bg-purple-100 text-purple-700' },
-  listo:              { label: 'Listo',               color: 'bg-green-100 text-green-700' },
-  entregado:          { label: 'Entregado',           color: 'bg-emerald-100 text-emerald-700' },
-  en_garantia:        { label: 'En garantía',         color: 'bg-teal-100 text-teal-700' },
-  cancelado:          { label: 'Cancelado',           color: 'bg-gray-200 text-gray-500' },
-}
+import { ESTADO_COLOR, ESTADO_LABEL_LARGO } from '@/lib/ot-estados'
+
+const ESTADO_INFO: Record<string, { label: string; color: string }> = Object.fromEntries(
+  Object.keys(ESTADO_COLOR).map(k => [k, { label: ESTADO_LABEL_LARGO[k as keyof typeof ESTADO_LABEL_LARGO] ?? k, color: ESTADO_COLOR[k] }])
+)
 
 type OTDetalle = RepairOrder & {
   fecha_estimada_entrega?: string | null

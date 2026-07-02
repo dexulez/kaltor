@@ -8,46 +8,28 @@ import { Suspense } from 'react'
 import BuscadorOTs from '@/components/reparaciones/BuscadorOTs'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
 
+import { ESTADO_COLOR, ESTADO_LABEL_LARGO as ESTADO_LABEL_MAP } from '@/lib/ot-estados'
+
 // ── Constantes de estados ────────────────────────────────────────────────────
 
+export { ESTADO_COLOR }
+export { ESTADO_LABEL_MAP }
+
 const ESTADOS: { value: RepairStatus | 'todas' | 'reparado' | 'sin_reparacion'; label: string; color: string }[] = [
-  { value: 'todas',              label: 'Todas',              color: 'bg-gray-100 text-gray-700' },
-  { value: 'recibido',           label: 'Recibido',           color: 'bg-gray-200 text-gray-700' },
-  { value: 'en_diagnostico',     label: 'En diagnóstico',     color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'presupuestado',      label: 'Presupuestando',     color: 'bg-blue-100 text-blue-700' },
-  { value: 'aprobado',           label: 'Aceptado',           color: 'bg-indigo-100 text-indigo-700' },
-  { value: 'esperando_repuesto', label: 'Esperando repuesto', color: 'bg-orange-100 text-orange-700' },
-  { value: 'en_reparacion',      label: 'En reparación',      color: 'bg-purple-100 text-purple-700' },
-  { value: 'listo',              label: 'Listo',              color: 'bg-green-100 text-green-700' },
-  { value: 'para_entrega',       label: 'Para entrega',       color: 'bg-cyan-100 text-cyan-700' },
-  { value: 'entregado',          label: 'Entregado',          color: 'bg-emerald-100 text-emerald-700' },
-  { value: 'rechazado',          label: 'Rechazado',          color: 'bg-red-100 text-red-600' },
-  { value: 'reparado',           label: '✓ Reparado',         color: 'bg-green-100 text-green-700' },
-  { value: 'sin_reparacion',     label: '⚠ Sin reparación',   color: 'bg-orange-100 text-orange-700' },
+  { value: 'todas',              label: 'Todas',              color: 'bg-gray-100 text-gray-600' },
+  { value: 'recibido',           label: 'Recibido',           color: ESTADO_COLOR.recibido! },
+  { value: 'en_diagnostico',     label: 'En diagnóstico',     color: ESTADO_COLOR.en_diagnostico! },
+  { value: 'presupuestado',      label: 'Presupuestando',     color: ESTADO_COLOR.presupuestado! },
+  { value: 'aprobado',           label: 'Aceptado',           color: ESTADO_COLOR.aprobado! },
+  { value: 'esperando_repuesto', label: 'Esperando repuesto', color: ESTADO_COLOR.esperando_repuesto! },
+  { value: 'en_reparacion',      label: 'En reparación',      color: ESTADO_COLOR.en_reparacion! },
+  { value: 'listo',              label: 'Listo',              color: ESTADO_COLOR.listo! },
+  { value: 'para_entrega',       label: 'Para entrega',       color: ESTADO_COLOR.para_entrega! },
+  { value: 'entregado',          label: 'Entregado',          color: ESTADO_COLOR.entregado! },
+  { value: 'rechazado',          label: 'Rechazado',          color: ESTADO_COLOR.rechazado! },
+  { value: 'reparado',           label: '✓ Reparado',         color: ESTADO_COLOR.listo! },
+  { value: 'sin_reparacion',     label: '⚠ Sin reparación',   color: ESTADO_COLOR.esperando_repuesto! },
 ]
-
-export const ESTADO_COLOR: Partial<Record<RepairStatus, string>> = {
-  recibido:           'bg-gray-200 text-gray-700',
-  en_diagnostico:     'bg-yellow-100 text-yellow-700',
-  presupuestado:      'bg-blue-100 text-blue-700',
-  aprobado:           'bg-indigo-100 text-indigo-700',
-  rechazado:          'bg-red-100 text-red-600',
-  esperando_repuesto: 'bg-orange-100 text-orange-700',
-  en_reparacion:      'bg-purple-100 text-purple-700',
-  listo:              'bg-green-100 text-green-700',
-  para_entrega:       'bg-cyan-100 text-cyan-700',
-  entregado:          'bg-emerald-100 text-emerald-700',
-  en_garantia:        'bg-teal-100 text-teal-700',
-  cancelado:          'bg-gray-100 text-gray-400',
-}
-
-export const ESTADO_LABEL_MAP: Partial<Record<RepairStatus, string>> = {
-  recibido: 'Recibido', en_diagnostico: 'En diagnóstico',
-  presupuestado: 'Presupuestando', aprobado: 'Aceptado', rechazado: 'Rechazado',
-  esperando_repuesto: 'Esperando repuesto', en_reparacion: 'En reparación',
-  listo: 'Listo', para_entrega: 'Para entrega',
-  entregado: 'Entregado', en_garantia: 'En garantía', cancelado: 'Cancelado',
-}
 
 // ── Grupo de OT (0 = en proceso, 1 = listo para entregar, 2 = entregado/cerrado)
 const GRUPO_ESTADO: Partial<Record<RepairStatus, 0 | 1 | 2>> = {

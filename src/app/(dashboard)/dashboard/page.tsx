@@ -5,29 +5,9 @@ import { formatCLP } from '@/lib/calculations'
 import GastoRapidoModal from '@/components/dashboard/GastoRapidoModal'
 import QRScannerOT from '@/components/dashboard/QRScannerOT'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
+import { ESTADO_COLOR, ESTADO_LABEL } from '@/lib/ot-estados'
 
 const TZ = 'America/Santiago'
-
-const ESTADO_BADGE: Record<string, string> = {
-  recibido: 'bg-gray-100 text-gray-700',
-  en_diagnostico: 'bg-yellow-100 text-yellow-700',
-  presupuestado: 'bg-blue-100 text-blue-700',
-  aprobado: 'bg-indigo-100 text-indigo-700',
-  esperando_repuesto: 'bg-orange-100 text-orange-700',
-  en_reparacion: 'bg-purple-100 text-purple-700',
-  listo: 'bg-green-100 text-green-700',
-  entregado: 'bg-emerald-100 text-emerald-700',
-  rechazado: 'bg-red-100 text-red-700',
-  cancelado: 'bg-gray-200 text-gray-500',
-  en_garantia: 'bg-teal-100 text-teal-700',
-}
-
-const ESTADO_LABEL: Record<string, string> = {
-  recibido: 'Recibido', en_diagnostico: 'Diagnóstico', presupuestado: 'Presupuestado',
-  aprobado: 'Aprobado', esperando_repuesto: 'Esp. repuesto', en_reparacion: 'En reparación',
-  listo: 'Listo ✓', entregado: 'Entregado', rechazado: 'Rechazado', cancelado: 'Cancelado',
-  en_garantia: 'En garantía',
-}
 
 const CAT_ICON: Record<string, string> = {
   arriendo: '🏠', servicios: '💡', sueldos: '👤', materiales: '🧹',
@@ -196,19 +176,19 @@ export default async function DashboardPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/reparaciones/nueva">
-            <button className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-xl font-medium transition-colors">
+            <button className="flex items-center gap-1.5 bg-[#FF7A1A] hover:bg-[#E56900] text-white text-sm px-3 py-2 rounded-xl font-medium transition-colors">
               📋 Nueva OT
             </button>
           </Link>
           <Link href="/caja/venta-directa">
-            <button className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-2 rounded-xl font-medium transition-colors">
+            <button className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm px-3 py-2 rounded-xl font-medium transition-colors">
               🛒 Venta directa
             </button>
           </Link>
           <QRScannerOT />
           <GastoRapidoModal />
           <Link href="/compras/orden/nueva">
-            <button className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-100 text-sm px-3 py-2 rounded-xl font-medium transition-colors">
+            <button className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm px-3 py-2 rounded-xl font-medium transition-colors">
               📦 Nueva OC
             </button>
           </Link>
@@ -227,29 +207,29 @@ export default async function DashboardPage() {
           label={`Gastos ${labelTemporal}`}
           value={formatCLP(totalGastosHoy)}
           sub={`${gastosList.length} gasto(s)`}
-          colorClass="text-red-600"
+          colorClass={totalGastosHoy > 0 ? 'text-red-700' : 'text-gray-400'}
         />
         <KpiCard
           label={`Balance ${labelTemporal}`}
           value={`${balanceDia < 0 ? '-' : ''}${formatCLP(Math.abs(balanceDia))}`}
           sub="Ventas − Gastos"
-          colorClass={balanceDia >= 0 ? 'text-blue-700' : 'text-red-600'}
+          colorClass={balanceDia >= 0 ? 'text-green-700' : 'text-red-700'}
         />
         <KpiCard
           label="OT activas" href="/reparaciones"
           value={String(otActivas ?? 0)}
-          colorClass="text-blue-600"
+          colorClass="text-blue-700"
         />
         <KpiCard
           label="Listas cobrar" href="/caja"
           value={String(otListasCobrar ?? 0)}
-          colorClass={(otListasCobrar ?? 0) > 0 ? 'text-green-600' : 'text-gray-400'}
+          colorClass={(otListasCobrar ?? 0) > 0 ? 'text-green-700' : 'text-gray-400'}
         />
         <KpiCard
           label="OT hoy"
           value={String(otHoy ?? 0)}
           sub={totalComprasHoy > 0 ? `Compras: ${formatCLP(totalComprasHoy)}` : 'Sin compras'}
-          colorClass="text-orange-600"
+          colorClass="text-gray-900"
         />
       </div>
 
@@ -292,7 +272,7 @@ export default async function DashboardPage() {
                         <p className="text-sm text-gray-800 truncate">{ot.customers?.nombre}</p>
                         <p className="text-xs text-gray-400 truncate">{[labelTipoEquipo(ot.equipment?.tipo_equipo), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
                       </div>
-                      <span className={`ml-2 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${ESTADO_BADGE[ot.estado] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`ml-2 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${ESTADO_COLOR[ot.estado] ?? 'bg-gray-100 text-gray-600'}`}>
                         {ESTADO_LABEL[ot.estado] ?? ot.estado}
                       </span>
                     </div>
