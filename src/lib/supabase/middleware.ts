@@ -26,6 +26,7 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/registro') ||
     request.nextUrl.pathname.startsWith('/recuperar') ||
     request.nextUrl.pathname.startsWith('/auth')
   // Siempre accesible: no requiere sesión previa ni redirige si ya tiene sesión
