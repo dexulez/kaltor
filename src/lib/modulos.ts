@@ -14,7 +14,8 @@ export const MODULOS = [
   { key: 'dashboard',     label: 'Dashboard',            icon: '📊', href: '/dashboard',     modulo: null             },
   { key: 'caja',          label: 'Caja / Ventas',        icon: '💰', href: '/caja',          modulo: 'ventas'         },
   { key: 'clientes',      label: 'Clientes',             icon: '👤', href: '/clientes',      modulo: 'ventas'         },
-  { key: 'compras',       label: 'Compras',              icon: '🏭', href: '/compras',       modulo: 'compras'        },
+  { key: 'compras',       label: 'Órdenes de Compra',    icon: '🏭', href: '/compras',       modulo: 'compras'        },
+  { key: 'proveedores',   label: 'Proveedores',          icon: '🤝', href: '/proveedores',   modulo: 'compras'        },
   { key: 'inventario',    label: 'Inventario',           icon: '📦', href: '/inventario',    modulo: 'productos'      },
   { key: 'servicios',     label: 'Catálogo de Servicios',icon: '🔩', href: '/servicios',     modulo: 'servicios'      },
   { key: 'reparaciones',  label: 'Reparaciones',         icon: '🔧', href: '/reparaciones',  modulo: 'taller'         },
@@ -44,7 +45,7 @@ export interface MenuGroup {
 
 export const MENU_GROUPS: MenuGroup[] = [
   { key: 'ventas',       label: 'Ventas',        icon: '💰', modulos: ['caja', 'clientes'] },
-  { key: 'compras',      label: 'Compras',       icon: '🏭', modulos: ['compras'], standalone: true },
+  { key: 'compras',      label: 'Compras',       icon: '🏭', modulos: ['compras', 'proveedores'] },
   { key: 'productos',    label: 'Productos',     icon: '📦', modulos: ['inventario'], standalone: true },
   { key: 'taller',       label: 'Taller',        icon: '🔧', modulos: ['reparaciones', 'servicios'] },
   { key: 'canal_b2b',    label: 'Canal B2B',     icon: '🛍️', modulos: ['catalogo_b2b', 'pedidos_b2b'] },
@@ -113,10 +114,10 @@ export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: strin
 // ── Acceso a módulos por rol (items de menú) ──────────────────────────────────
 // Controla qué items de navegación puede ver cada rol, independientemente del plan.
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
-  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones'],
+  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones'],
   tecnico:           ['dashboard', 'reparaciones', 'inventario', 'servicios', 'manuales', 'informes', 'notificaciones'],
   vendedor:          ['dashboard', 'caja', 'clientes', 'reparaciones', 'inventario', 'servicios', 'informes', 'pedidos_b2b', 'notificaciones'],
-  supervisor_ventas: ['dashboard', 'caja', 'clientes', 'compras', 'inventario', 'servicios', 'reparaciones', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones'],
+  supervisor_ventas: ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones'],
   comprador_externo: ['catalogo_b2b', 'pedidos_b2b'],
 }
 
