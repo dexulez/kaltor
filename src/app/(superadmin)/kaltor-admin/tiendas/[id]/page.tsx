@@ -18,13 +18,14 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const admin = createServiceClient()
 
+  // Columnas base (siempre existen)
   const [
-    { data: store },
+    { data: storeBase },
     { data: users },
     { data: plans },
   ] = await Promise.all([
     admin.from('stores')
-      .select('*, plans(id, nombre, slug, precio_mes, max_usuarios)')
+      .select('id, nombre, email, activo, created_at, trial_hasta, plan_id, plans(id, nombre, slug, precio_mes, max_usuarios)')
       .eq('id', id)
       .single(),
     admin.from('user_profiles')
@@ -36,7 +37,16 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
       .order('precio_mes', { ascending: true }),
   ])
 
-  if (!store) notFound()
+  if (!storeBase) notFound()
+
+  // Columnas de billing opcionales
+  const { data: billingRow } = await admin
+    .from('stores')
+    .select('billing_status, flow_customer_id, flow_subscription_id, ultimo_pago_at, proximo_cobro_at')
+    .eq('id', id)
+    .single()
+
+  const store = { ...storeBase, ...(billingRow ?? {}) }
 
   // Intentar cargar eventos de pago (requiere supabase/kaltor_flow_billing.sql)
   let flowEvents: Record<string, unknown>[] = []

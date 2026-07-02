@@ -4,22 +4,47 @@ import StoresTable, { StoreRow } from './_components/StoresTable'
 export const dynamic = 'force-dynamic'
 
 async function loadStores(admin: ReturnType<typeof createServiceClient>): Promise<StoreRow[]> {
-  // Intentar con columnas de billing (requiere supabase/kaltor_flow_billing.sql)
-  const { data, error } = await admin
+  // 1. Tiendas — columnas base que siempre existen
+  const { data: stores, error: storesErr } = await admin
     .from('stores')
-    .select('id, nombre, email, activo, created_at, trial_hasta, billing_status, flow_subscription_id, proximo_cobro_at, plans(nombre, precio_mes), user_profiles(count)')
+    .select('id, nombre, email, activo, created_at, trial_hasta, plan_id, plans(nombre, precio_mes)')
     .order('created_at', { ascending: false })
 
-  if (!error) return (data ?? []) as unknown as StoreRow[]
+  if (storesErr || !stores || stores.length === 0) return []
 
-  // Fallback sin columnas de billing
-  const { data: fallback } = await admin
+  // 2. Columnas de billing — opcionales (requieren supabase/kaltor_flow_billing.sql)
+  type BillingRow = { id: string; billing_status: string | null; flow_subscription_id: string | null; proximo_cobro_at: string | null }
+  const billingMap: Record<string, BillingRow> = {}
+  const { data: billingRows } = await admin
     .from('stores')
-    .select('id, nombre, email, activo, created_at, trial_hasta, plans(nombre, precio_mes), user_profiles(count)')
-    .order('created_at', { ascending: false })
+    .select('id, billing_status, flow_subscription_id, proximo_cobro_at')
+  if (billingRows) {
+    for (const b of billingRows as BillingRow[]) billingMap[b.id] = b
+  }
 
-  return ((fallback ?? []) as unknown[])
-    .map(s => ({ ...(s as Record<string, unknown>), billing_status: 'trial', flow_subscription_id: null, proximo_cobro_at: null })) as StoreRow[]
+  // 3. Conteo de usuarios por tienda
+  const countMap: Record<string, number> = {}
+  const { data: profiles } = await admin.from('user_profiles').select('store_id')
+  if (profiles) {
+    for (const p of profiles as { store_id: string }[]) {
+      countMap[p.store_id] = (countMap[p.store_id] ?? 0) + 1
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (stores as any[]).map(s => ({
+    id:                   s.id,
+    nombre:               s.nombre,
+    email:                s.email,
+    activo:               s.activo,
+    created_at:           s.created_at,
+    trial_hasta:          s.trial_hasta ?? null,
+    billing_status:       billingMap[s.id]?.billing_status ?? 'trial',
+    flow_subscription_id: billingMap[s.id]?.flow_subscription_id ?? null,
+    proximo_cobro_at:     billingMap[s.id]?.proximo_cobro_at ?? null,
+    plans:                Array.isArray(s.plans) ? s.plans[0] ?? null : s.plans ?? null,
+    user_profiles:        [{ count: countMap[s.id] ?? 0 }],
+  })) as StoreRow[]
 }
 
 export default async function KaltorAdminPage() {
@@ -27,32 +52,28 @@ export default async function KaltorAdminPage() {
   const stores = await loadStores(admin)
 
   const ahora = new Date()
-  const total       = stores.length
-  const enTrial     = stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && s.trial_hasta && new Date(s.trial_hasta) > ahora).length
-  const trialVencido= stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && s.trial_hasta && new Date(s.trial_hasta) <= ahora).length
-  const activas     = stores.filter(s => s.billing_status === 'active').length
-  const sinPago     = stores.filter(s => s.billing_status === 'past_due' || s.billing_status === 'cancelled' || s.billing_status === 'suspended').length
-  const mrr         = stores.filter(s => s.billing_status === 'active').reduce((acc, s) => acc + (s.plans?.precio_mes ?? 0), 0)
+  const total        = stores.length
+  const enTrial      = stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && s.trial_hasta && new Date(s.trial_hasta) > ahora).length
+  const trialVencido = stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && s.trial_hasta && new Date(s.trial_hasta) <= ahora).length
+  const activas      = stores.filter(s => s.billing_status === 'active').length
+  const sinPago      = stores.filter(s => ['past_due', 'cancelled', 'suspended'].includes(s.billing_status ?? '')).length
+  const mrr          = stores.filter(s => s.billing_status === 'active').reduce((acc, s) => acc + (s.plans?.precio_mes ?? 0), 0)
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Panel de Plataforma</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {new Date().toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Panel de Plataforma</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          {new Date().toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
       </div>
 
-      {/* Métricas */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <MetricCard label="Total" value={total}      color="slate"  />
-        <MetricCard label="En trial" value={enTrial}   color="blue"   />
-        <MetricCard label="Trial vencido" value={trialVencido} color="red" />
-        <MetricCard label="Activas" value={activas}    color="green"  />
-        <MetricCard label="Problemas" value={sinPago}   color="orange" />
+        <MetricCard label="Total"         value={total}        color="slate"  />
+        <MetricCard label="En trial"      value={enTrial}      color="blue"   />
+        <MetricCard label="Trial vencido" value={trialVencido} color="red"    />
+        <MetricCard label="Activas"       value={activas}      color="green"  />
+        <MetricCard label="Problemas"     value={sinPago}      color="orange" />
         <MetricCard
           label="MRR estimado"
           value={mrr > 0 ? `$${mrr.toLocaleString('es-CL')}` : '$0'}
@@ -61,7 +82,6 @@ export default async function KaltorAdminPage() {
         />
       </div>
 
-      {/* Tabla de tiendas */}
       <div>
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Todas las empresas</h2>
         <StoresTable stores={stores} />
@@ -70,9 +90,7 @@ export default async function KaltorAdminPage() {
   )
 }
 
-function MetricCard({
-  label, value, color, sub,
-}: {
+function MetricCard({ label, value, color, sub }: {
   label: string
   value: number | string
   color: 'slate' | 'blue' | 'red' | 'green' | 'orange' | 'kaltor'
