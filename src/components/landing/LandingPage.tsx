@@ -1,6 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings } from 'lucide-react'
+
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
+
+const HERO_ICONS: Record<string, LucideIcon> = {
+  ventas:        ShoppingCart,
+  compras:       Building2,
+  productos:     Package,
+  servicios:     Wrench,
+  taller:        Hammer,
+  informes:      BarChart2,
+  contabilidad:  Receipt,
+  canal_b2b:     Store,
+  configuracion: Settings,
+}
 
 // ── Paleta ────────────────────────────────────────────────────────────────────
 const C = {
@@ -80,11 +95,12 @@ function Switch({ on, code, color = 'signal', size = 'md', dimCode = false }: {
 }
 
 // ── Módulo interactivo del hero ───────────────────────────────────────────────
-function HeroModuloItem({ m, lit, isOpen, onToggle }: {
-  m: typeof MODULOS[0]; lit: boolean; isOpen: boolean; onToggle: () => void
+function HeroModuloItem({ m, lit, isOpen, onToggle, iconColor }: {
+  m: typeof MODULOS[0]; lit: boolean; isOpen: boolean; onToggle: () => void; iconColor: string
 }) {
   const [hov, setHov] = useState(false)
   const activo = hov || isOpen || lit
+  const Icon = HERO_ICONS[m.key]
 
   return (
     <div
@@ -94,18 +110,17 @@ function HeroModuloItem({ m, lit, isOpen, onToggle }: {
       onMouseLeave={() => setHov(false)}
       onClick={onToggle}
     >
-      {/* Círculo con icono */}
+      {/* Círculo naranja con icono vectorizado */}
       <div style={{
         width: 54, height: 54, borderRadius: '50%',
-        backgroundColor: activo ? C.signal : 'transparent',
+        backgroundColor: activo ? C.signal : '#f0f0f0',
         border: `2px solid ${activo ? C.signal : C.line}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 22, lineHeight: 1,
         transition: 'all 0.3s ease',
         transform: (hov || isOpen) ? 'scale(1.18)' : 'scale(1)',
         boxShadow: (hov || isOpen) ? `0 0 18px ${C.signal}55` : activo ? `0 0 8px ${C.signal}33` : 'none',
       }}>
-        {m.icon}
+        {Icon && <Icon size={22} color={activo ? iconColor : C.line} strokeWidth={1.8} />}
       </div>
 
       {/* Etiqueta: hover/open → nombre completo, normal → abreviatura */}
@@ -141,8 +156,10 @@ function HeroModuloItem({ m, lit, isOpen, onToggle }: {
               backgroundColor: `${C.signal}25`,
               border: `1.5px solid ${C.signal}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, flexShrink: 0,
-            }}>{m.icon}</span>
+              flexShrink: 0,
+            }}>
+              {Icon && <Icon size={18} color={C.signal} strokeWidth={1.8} />}
+            </span>
             <div>
               <p style={{ fontFamily: FD, fontSize: 13, fontWeight: 700, margin: 0, color: C.paper }}>{m.label}</p>
               <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.signal, margin: 0 }}>{m.abbr}</p>
@@ -187,6 +204,7 @@ function HeroModuloPanel({ lit }: { lit: number }) {
             lit={i < lit}
             isOpen={popup === m.key}
             onToggle={() => setPopup(p => p === m.key ? null : m.key)}
+            iconColor={i % 2 === 0 ? '#ffffff' : '#000000'}
           />
         ))}
       </div>
