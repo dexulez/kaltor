@@ -8,6 +8,22 @@
 
 BEGIN;
 
+-- ─── 0. Agregar los 9 nuevos keys al catálogo modules ───────────────────────
+-- store_modules.module_key tiene FK → modules, hay que registrarlos primero.
+
+INSERT INTO modules (key, nombre, descripcion) VALUES
+  ('ventas',        'Ventas',        'Caja, punto de venta y clientes')
+ ,('compras',       'Compras',       'Órdenes de compra y proveedores')
+ ,('productos',     'Productos',     'Inventario y catálogo de productos')
+ ,('servicios',     'Servicios',     'Catálogo de servicios de taller')
+ ,('taller',        'Taller',        'Reparaciones y órdenes de trabajo')
+ ,('informes',      'Informes',      'Reportes y análisis de negocio')
+ ,('contabilidad',  'Contabilidad',  'Contabilidad y comprobantes')
+ ,('configuracion', 'Configuración', 'Configuración general del sistema')
+ ,('canal_b2b',     'Canal B2B',     'Catálogo y pedidos B2B')
+ON CONFLICT (key) DO NOTHING;
+
+
 -- ─── 1. Migrar store_modules ────────────────────────────────────────────────
 -- Insertar los nuevos 9 keys mapeados desde los keys viejos de cada tienda.
 -- ON CONFLICT DO NOTHING → idempotente si se corre más de una vez.
@@ -66,7 +82,7 @@ FROM store_modules
 WHERE module_key IN ('pedidos_b2b', 'catalogo_b2b') AND activo = true
 ON CONFLICT (store_id, module_key) DO NOTHING;
 
--- Eliminar todos los keys viejos
+-- Eliminar todos los keys viejos de store_modules
 DELETE FROM store_modules
 WHERE module_key IN (
   'dashboard', 'caja', 'clientes', 'compras', 'inventario',
@@ -102,8 +118,7 @@ SELECT id, m.key FROM plans, (VALUES
 ) AS m(key)
 WHERE plans.key = 'taller_basico';
 
--- Taller Básico 5 Usuarios: mismo módulos que Taller Básico
--- (la diferencia de usuarios va por plans.max_users, no por module_key)
+-- Taller Básico 5 Usuarios: mismos módulos que Taller Básico
 INSERT INTO plan_modules (plan_id, module_key)
 SELECT id, m.key FROM plans, (VALUES
   ('ventas'), ('compras'), ('productos'), ('configuracion'),
@@ -111,7 +126,7 @@ SELECT id, m.key FROM plans, (VALUES
 ) AS m(key)
 WHERE plans.key = 'taller_basico_5u';
 
--- Taller Básico Multiusuario: idéntico en módulos a 5U
+-- Taller Básico Multiusuario
 INSERT INTO plan_modules (plan_id, module_key)
 SELECT id, m.key FROM plans, (VALUES
   ('ventas'), ('compras'), ('productos'), ('configuracion'),
@@ -136,7 +151,18 @@ SELECT id, m.key FROM plans, (VALUES
 WHERE plans.key IN ('taller_multistore', 'taller_multi_tienda');
 
 
--- ─── 3. Resumen final ────────────────────────────────────────────────────────
+-- ─── 3. Limpiar keys viejos del catálogo modules ────────────────────────────
+-- Solo después de haber migrado store_modules y plan_modules
+
+DELETE FROM modules
+WHERE key IN (
+  'dashboard', 'caja', 'clientes', 'inventario',
+  'catalogo_b2b', 'pedidos_b2b', 'reparaciones',
+  'notificaciones', 'usuarios', 'manuales'
+);
+
+
+-- ─── 4. Resumen final ────────────────────────────────────────────────────────
 SELECT 'store_modules después de migración' AS tabla, module_key, count(*) AS tiendas
 FROM store_modules
 GROUP BY module_key
