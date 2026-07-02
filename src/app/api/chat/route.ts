@@ -1,7 +1,15 @@
-import { anthropic } from '@ai-sdk/anthropic'
+import { createAnthropic } from '@ai-sdk/anthropic'
 import { streamText } from 'ai'
 
 export const maxDuration = 30
+
+// Vercel AI Gateway → Anthropic
+// La clave AI_GATEWAY_API_KEY (vck_...) autentica con el gateway de Vercel,
+// que reenvía la request a Anthropic con observabilidad, caché y rate limiting.
+const gateway = createAnthropic({
+  baseURL: 'https://gateway.ai.vercel.app/v1/appmaretopteam/kaltor/anthropic',
+  apiKey: process.env.AI_GATEWAY_API_KEY ?? '',
+})
 
 const LANDING_SYSTEM = `Eres el asistente de ventas de Kaltor, sistema de gestión modular para negocios en Chile.
 Responde siempre en español, de forma concisa y amigable. Máximo 3 párrafos por respuesta.
@@ -30,7 +38,7 @@ PLANES Y PRECIOS (en CLP + IVA):
 - Taller Pro $44.990/mes · Multiusuario · + Informes, Contabilidad, Manuales, Conciliaciones
 - Taller Multi-tienda $84.990/mes · Multi-usuario Multi-sucursal · todos los módulos
 
-Todos los planes tienen pago anual con descuento equivalente a 2 meses gratis.
+Todos los planes tienen opción de pago anual equivalente a 2 meses gratis.
 Registro en: https://app.kaltorpos.com/registro`
 
 const APP_SYSTEM = `Eres el asistente de soporte de Kaltor, sistema de gestión para negocios.
@@ -52,14 +60,14 @@ MÓDULOS DEL SISTEMA:
 - Manuales: Base de conocimiento interna. Crea guías de reparación con pasos e imágenes.
 - Conciliaciones: Compara los movimientos del sistema con el extracto bancario. Detecta diferencias.
 - Trazabilidad: Historial completo de un producto: de qué OC vino y en qué venta salió.
-- Configuración: Usuarios, roles, permisos por módulo, datos de la empresa, integraciones.
+- Configuración: Usuarios, datos de la empresa, integraciones y ajustes generales del sistema.
 - Usuarios: Invita usuarios, asigna roles y configura permisos granulares por módulo.
 
 ROLES:
 - Administrador: acceso total a todos los módulos.
 - Vendedor: caja, clientes, inventario, reparaciones, informes.
 - Técnico: reparaciones, inventario, servicios, manuales, informes propios.
-- Supervisor de ventas: ventas + compras + informes, sin acceso a configuración de usuarios.
+- Supervisor de ventas: ventas + compras + informes, sin gestión de usuarios.
 
 Si el usuario tiene un problema técnico que no puedes resolver, indica que contacte soporte en hola@kaltorpos.com.`
 
@@ -69,7 +77,7 @@ export async function POST(req: Request) {
   const systemPrompt = context === 'app' ? APP_SYSTEM : LANDING_SYSTEM
 
   const result = streamText({
-    model: anthropic('claude-haiku-4-5-20251001'),
+    model: gateway('claude-haiku-4-5-20251001'),
     system: systemPrompt,
     messages,
     maxTokens: 512,
