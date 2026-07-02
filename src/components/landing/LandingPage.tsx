@@ -79,7 +79,7 @@ function Switch({ on, code, color = 'signal', size = 'md', dimCode = false }: {
   const c    = color === 'signal' ? C.signal : C.mod
   const wh   = size === 'sm' ? 18 : size === 'lg' ? 40 : 28
   const dWh  = size === 'sm' ? 6  : size === 'lg' ? 16 : 10
-  const fs   = size === 'sm' ? 8  : size === 'lg' ? 11 : 9
+  const fs   = size === 'sm' ? 9  : size === 'lg' ? 13 : 10
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
@@ -132,7 +132,7 @@ function HeroModuloItem({ m, lit, isOpen, onToggle, iconColor }: {
 
       {/* Etiqueta: hover/open → nombre completo, normal → abreviatura */}
       <span style={{
-        fontFamily: FM, fontSize: (hov || isOpen) ? 10 : 9,
+        fontFamily: FM, fontSize: (hov || isOpen) ? 12 : 10,
         textTransform: 'uppercase', letterSpacing: '0.1em',
         color: (hov || isOpen) ? C.signal : activo ? C.ink : C.line,
         transition: 'all 0.25s ease', whiteSpace: 'nowrap',
@@ -168,11 +168,11 @@ function HeroModuloItem({ m, lit, isOpen, onToggle, iconColor }: {
               {Icon && <Icon size={18} color={C.signal} strokeWidth={1.8} />}
             </span>
             <div>
-              <p style={{ fontFamily: FD, fontSize: 13, fontWeight: 700, margin: 0, color: C.paper }}>{m.label}</p>
-              <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.signal, margin: 0 }}>{m.abbr}</p>
+              <p style={{ fontFamily: FD, fontSize: 15, fontWeight: 700, margin: 0, color: C.paper }}>{m.label}</p>
+              <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.signal, margin: 0 }}>{m.abbr}</p>
             </div>
           </div>
-          <p style={{ fontSize: 12, lineHeight: 1.55, opacity: 0.82, margin: 0 }}>{m.ventaja}</p>
+          <p style={{ fontSize: 14, lineHeight: 1.55, opacity: 0.82, margin: 0 }}>{m.ventaja}</p>
           {/* Flecha */}
           <div style={{
             position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
@@ -215,7 +215,7 @@ function HeroModuloPanel({ lit }: { lit: number }) {
           />
         ))}
       </div>
-      <p style={{ textAlign: 'center', fontSize: 11, color: C.line, marginTop: 16, marginBottom: 0, letterSpacing: '0.05em' }}>
+      <p style={{ textAlign: 'center', fontSize: 13, color: C.line, marginTop: 16, marginBottom: 0, letterSpacing: '0.05em' }}>
         Haz clic en cualquier módulo para saber más
       </p>
     </div>
@@ -249,7 +249,7 @@ function Nav() {
       {/* Links */}
       <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
         {[['Módulos', '#modulos'], ['Planes', '#planes'], ['Contacto', '#contacto']].map(([label, href]) => (
-          <a key={label} href={href} style={{ fontSize: 14, color: C.ink, textDecoration: 'none', opacity: 0.7, transition: 'opacity 0.2s' }}
+          <a key={label} href={href} style={{ fontSize: 16, color: C.ink, textDecoration: 'none', opacity: 0.7, transition: 'opacity 0.2s' }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}>
             {label}
@@ -257,7 +257,7 @@ function Nav() {
         ))}
         <a href="/login" style={{
           padding: '8px 18px', borderRadius: 8, backgroundColor: C.signal, color: '#fff',
-          fontSize: 14, fontWeight: 600, textDecoration: 'none', transition: 'opacity 0.2s',
+          fontSize: 16, fontWeight: 600, textDecoration: 'none', transition: 'opacity 0.2s',
         }}
           onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
           onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
@@ -282,23 +282,23 @@ function Hero() {
 
   return (
     <section style={{ minHeight: '88vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', textAlign: 'center', backgroundColor: C.paper }}>
-      <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 24 }}>
+      <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 24 }}>
         Sistema de gestión modular
       </p>
 
-      <h1 style={{ fontFamily: FD, fontSize: 'clamp(40px, 7vw, 72px)', fontWeight: 700, lineHeight: 1.1, color: C.ink, marginBottom: 20, maxWidth: 800 }}>
+      <h1 style={{ fontFamily: FD, fontSize: 'clamp(46px, 7vw, 83px)', fontWeight: 700, lineHeight: 1.1, color: C.ink, marginBottom: 20, maxWidth: 800 }}>
         El sistema que enciendes<br />
         <span style={{ color: C.signal }}>módulo por módulo.</span>
       </h1>
 
-      <p style={{ fontSize: 18, color: C.ink, opacity: 0.6, maxWidth: 560, marginBottom: 40, lineHeight: 1.6 }}>
+      <p style={{ fontSize: 21, color: C.ink, opacity: 0.6, maxWidth: 560, marginBottom: 40, lineHeight: 1.6 }}>
         Ventas, inventario, compras, taller — paga solo por lo que tu negocio usa.
       </p>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 72, flexWrap: 'wrap', justifyContent: 'center' }}>
         <a href="https://app.kaltorpos.com/registro" style={{
           padding: '14px 32px', borderRadius: 12, backgroundColor: C.signal, color: '#fff',
-          fontWeight: 600, fontSize: 16, textDecoration: 'none', transition: 'transform 0.2s',
+          fontWeight: 600, fontSize: 18, textDecoration: 'none', transition: 'transform 0.2s',
         }}
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
@@ -306,7 +306,7 @@ function Hero() {
         </a>
         <a href="#planes" style={{
           padding: '14px 32px', borderRadius: 12, border: `2px solid ${C.line}`,
-          color: C.ink, fontWeight: 600, fontSize: 16, textDecoration: 'none', transition: 'border-color 0.2s',
+          color: C.ink, fontWeight: 600, fontSize: 18, textDecoration: 'none', transition: 'border-color 0.2s',
         }}
           onMouseEnter={e => (e.currentTarget.style.borderColor = C.ink)}
           onMouseLeave={e => (e.currentTarget.style.borderColor = C.line)}>
@@ -325,9 +325,9 @@ function Modulos() {
   return (
     <section id="modulos" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Módulos</p>
-        <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>{MODULOS.length} módulos de negocio.</h2>
-        <p style={{ fontSize: 17, color: C.ink, opacity: 0.6, marginBottom: 56, maxWidth: 560 }}>
+        <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Módulos</p>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>{MODULOS.length} módulos de negocio.</h2>
+        <p style={{ fontSize: 20, color: C.ink, opacity: 0.6, marginBottom: 56, maxWidth: 560 }}>
           Activa los que tu empresa necesita hoy. Cada módulo es independiente — si no lo usas, no lo pagas.
         </p>
 
@@ -371,14 +371,14 @@ function ModuloCard({ m, idx }: { m: typeof MODULOS[0]; idx: number }) {
         }}>
           {Icon && <Icon size={20} color={iconColor} strokeWidth={1.8} />}
         </div>
-        <span style={{ fontFamily: FM, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', color: hov ? C.signal : C.line }}>{m.abbr}</span>
+        <span style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: hov ? C.signal : C.line }}>{m.abbr}</span>
       </div>
       <div style={{ flex: 1 }}>
-        <span style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.line, display: 'block', marginBottom: 4 }}>{m.code}</span>
-        <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{m.label}</h3>
-        <p style={{ fontSize: 13, color: C.ink, opacity: 0.55, lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
+        <span style={{ fontFamily: FM, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.line, display: 'block', marginBottom: 4 }}>{m.code}</span>
+        <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{m.label}</h3>
+        <p style={{ fontSize: 15, color: C.ink, opacity: 0.55, lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
         {hov && (
-          <p style={{ fontSize: 12, color: C.signal, lineHeight: 1.5, margin: '10px 0 0', fontWeight: 600, borderTop: `1px solid ${C.signal}33`, paddingTop: 8 }}>
+          <p style={{ fontSize: 14, color: C.signal, lineHeight: 1.5, margin: '10px 0 0', fontWeight: 600, borderTop: `1px solid ${C.signal}33`, paddingTop: 8 }}>
             ✦ {m.ventaja}
           </p>
         )}
@@ -399,13 +399,13 @@ function Planes() {
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 56 }}>
           <div>
-            <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Planes</p>
-            <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, color: C.ink }}>Elige tu plan.</h2>
+            <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Planes</p>
+            <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink }}>Elige tu plan.</h2>
           </div>
 
           {/* Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 14, color: anual ? C.line : C.ink }}>Mensual</span>
+            <span style={{ fontSize: 16, color: anual ? C.line : C.ink }}>Mensual</span>
             <button
               onClick={() => setAnual(a => !a)}
               style={{ position: 'relative', width: 48, height: 26, borderRadius: 13, backgroundColor: anual ? C.signal : C.line, border: 'none', cursor: 'pointer', transition: 'background-color 0.3s' }}
@@ -418,8 +418,8 @@ function Planes() {
                 boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
               }} />
             </button>
-            <span style={{ fontSize: 14, color: anual ? C.ink : C.line }}>
-              Anual <span style={{ color: C.mod, fontSize: 12 }}>· ahorra 2 meses</span>
+            <span style={{ fontSize: 16, color: anual ? C.ink : C.line }}>
+              Anual <span style={{ color: C.mod, fontSize: 14 }}>· ahorra 2 meses</span>
             </span>
           </div>
         </div>
@@ -451,7 +451,7 @@ function Planes() {
 
 function FamiliaLabel({ label }: { label: string }) {
   return (
-    <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.18em', color: C.ink, opacity: 0.35, marginBottom: 14 }}>
+    <p style={{ fontFamily: FM, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.18em', color: C.ink, opacity: 0.35, marginBottom: 14 }}>
       {label}
     </p>
   )
@@ -480,53 +480,46 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
       {/* Badges */}
       {(plan.destacado || plan.addon) && (
         <div style={{ marginBottom: 8 }}>
-          {plan.destacado && <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.signal, margin: 0 }}>⬥ Más elegido</p>}
-          {plan.addon    && <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.mod,    margin: 0 }}>⬥ {plan.addon}</p>}
+          {plan.destacado && <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.signal, margin: 0 }}>⬥ Más elegido</p>}
+          {plan.addon    && <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.mod,    margin: 0 }}>⬥ {plan.addon}</p>}
         </div>
       )}
 
       {/* Título centrado */}
-      <h3 style={{ fontFamily: FD, fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 4, textAlign: 'center' }}>{plan.nombre}</h3>
-      <p style={{ fontSize: 12, color: C.ink, opacity: 0.5, marginBottom: 16, textAlign: 'center' }}>{plan.usuarios}</p>
+      <h3 style={{ fontFamily: FD, fontSize: 23, fontWeight: 700, color: C.ink, marginBottom: 4, textAlign: 'center' }}>{plan.nombre}</h3>
+      <p style={{ fontSize: 14, color: C.ink, opacity: 0.5, marginBottom: 16, textAlign: 'center' }}>{plan.usuarios}</p>
 
       {/* Precio */}
       <p style={{ marginBottom: 24, textAlign: 'center' }}>
-        <span style={{ fontFamily: FM, fontSize: 26, fontWeight: 700, color: C.ink }}>{clp(precio)}</span>
-        <span style={{ fontSize: 12, color: C.ink, opacity: 0.45, marginLeft: 4 }}>{sufijo}</span>
+        <span style={{ fontFamily: FM, fontSize: 30, fontWeight: 700, color: C.ink }}>{clp(precio)}</span>
+        <span style={{ fontSize: 14, color: C.ink, opacity: 0.45, marginLeft: 4 }}>{sufijo}</span>
       </p>
 
-      {/* Módulos en 2 columnas — ocupa el espacio disponible */}
+      {/* Módulos en 2 columnas — sin descripción, solo nombre */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 10px', marginBottom: 24, alignContent: 'start' }}>
         {MODULOS.map(m => {
           const included = plan.modulos.includes(m.key)
           const Icon = HERO_ICONS[m.key]
           return (
             <div key={m.key} style={{
-              display: 'flex', alignItems: 'flex-start', gap: 5,
-              padding: '5px 0',
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 0',
               borderBottom: `1px solid ${C.line}1A`,
               opacity: included ? 1 : 0.28,
             }}>
-              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, paddingTop: 1 }}>
-                <span style={{ color: included ? C.mod : C.line, fontWeight: 700, fontSize: 11, width: 11 }}>
-                  {included ? '✓' : '—'}
+              <span style={{ color: included ? C.mod : C.line, fontWeight: 700, fontSize: 13, width: 13, flexShrink: 0 }}>
+                {included ? '✓' : '—'}
+              </span>
+              {included && Icon && (
+                <span style={{
+                  width: 18, height: 18, borderRadius: '50%',
+                  backgroundColor: C.signal,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <Icon size={9} color="#fff" strokeWidth={2.2} />
                 </span>
-                {included && Icon && (
-                  <span style={{
-                    width: 18, height: 18, borderRadius: '50%',
-                    backgroundColor: C.signal,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  }}>
-                    <Icon size={9} color="#fff" strokeWidth={2.2} />
-                  </span>
-                )}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 11, fontWeight: included ? 600 : 400, color: C.ink, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.label}</p>
-                {included && (
-                  <p style={{ fontSize: 10, color: C.ink, opacity: 0.45, margin: '1px 0 0', lineHeight: 1.35 }}>{m.desc}</p>
-                )}
-              </div>
+              )}
+              <p style={{ fontSize: 13, fontWeight: included ? 600 : 400, color: C.ink, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.label}</p>
             </div>
           )
         })}
@@ -534,7 +527,7 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
 
       {/* Botón siempre al final */}
       <a href="https://app.kaltorpos.com/registro" style={{
-        display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, fontSize: 13, fontWeight: 600,
+        display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, fontSize: 15, fontWeight: 600,
         textDecoration: 'none', transition: 'all 0.2s',
         backgroundColor: plan.destacado ? C.signal : 'transparent',
         color: plan.destacado ? '#fff' : C.ink,
@@ -553,11 +546,11 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
 function TablaComparativa({ anual }: { anual: boolean }) {
   return (
     <div style={{ marginTop: 72, paddingTop: 48, borderTop: `2px solid ${C.line}` }}>
-      <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Comparativa</p>
-      <h3 style={{ fontFamily: FD, fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 700, color: C.ink, marginBottom: 32 }}>Todos los planes, de un vistazo.</h3>
+      <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Comparativa</p>
+      <h3 style={{ fontFamily: FD, fontSize: 'clamp(25px, 3.45vw, 37px)', fontWeight: 700, color: C.ink, marginBottom: 32 }}>Todos los planes, de un vistazo.</h3>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 780 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15, minWidth: 780 }}>
           <thead>
             <tr style={{ borderBottom: `2px solid ${C.line}` }}>
               <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600, color: C.ink, opacity: 0.45, minWidth: 140 }}>Módulo</th>
@@ -568,8 +561,8 @@ function TablaComparativa({ anual }: { anual: boolean }) {
                   borderLeft: `1px solid ${C.line}44`,
                   minWidth: 100,
                 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700 }}>{p.nombre}</p>
-                  <p style={{ margin: '2px 0 0', fontFamily: FM, fontSize: 10, fontWeight: 400, color: C.ink, opacity: 0.5 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{p.nombre}</p>
+                  <p style={{ margin: '2px 0 0', fontFamily: FM, fontSize: 12, fontWeight: 400, color: C.ink, opacity: 0.5 }}>
                     {clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}/mes
                   </p>
                 </th>
@@ -597,8 +590,8 @@ function TablaComparativa({ anual }: { anual: boolean }) {
                   {PLANES.map(p => (
                     <td key={p.nombre} style={{ textAlign: 'center', padding: '9px 6px', borderLeft: `1px solid ${C.line}33` }}>
                       {p.modulos.includes(m.key)
-                        ? <span style={{ color: C.mod, fontWeight: 700, fontSize: 15 }}>✓</span>
-                        : <span style={{ color: C.line, fontSize: 13 }}>—</span>}
+                        ? <span style={{ color: C.mod, fontWeight: 700, fontSize: 17 }}>✓</span>
+                        : <span style={{ color: C.line, fontSize: 15 }}>—</span>}
                     </td>
                   ))}
                 </tr>
@@ -609,7 +602,7 @@ function TablaComparativa({ anual }: { anual: boolean }) {
             <tr style={{ backgroundColor: '#f5f5f5', borderTop: `1px solid ${C.line}` }}>
               <td style={{ padding: '9px 12px', fontWeight: 600, color: C.ink }}>Usuarios</td>
               {PLANES.map(p => (
-                <td key={p.nombre} style={{ textAlign: 'center', padding: '9px 6px', fontSize: 11, color: C.ink, opacity: 0.7, borderLeft: `1px solid ${C.line}33` }}>
+                <td key={p.nombre} style={{ textAlign: 'center', padding: '9px 6px', fontSize: 13, color: C.ink, opacity: 0.7, borderLeft: `1px solid ${C.line}33` }}>
                   {p.usuarios}
                 </td>
               ))}
@@ -620,11 +613,11 @@ function TablaComparativa({ anual }: { anual: boolean }) {
               <td style={{ padding: '16px 12px', fontWeight: 700, color: C.ink }}>Precio/mes</td>
               {PLANES.map(p => (
                 <td key={p.nombre} style={{ textAlign: 'center', padding: '16px 6px', borderLeft: `1px solid ${C.line}33` }}>
-                  <p style={{ margin: '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 14, color: p.destacado ? C.signal : C.ink }}>
+                  <p style={{ margin: '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 16, color: p.destacado ? C.signal : C.ink }}>
                     {clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}
                   </p>
                   <a href="https://app.kaltorpos.com/registro" style={{
-                    display: 'inline-block', padding: '5px 14px', borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: 'none',
+                    display: 'inline-block', padding: '5px 14px', borderRadius: 6, fontSize: 13, fontWeight: 600, textDecoration: 'none',
                     backgroundColor: p.destacado ? C.signal : 'transparent',
                     color: p.destacado ? '#fff' : C.ink,
                     border: p.destacado ? 'none' : `1.5px solid ${C.line}`,
@@ -637,7 +630,7 @@ function TablaComparativa({ anual }: { anual: boolean }) {
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 11, color: C.ink, opacity: 0.35, marginTop: 16 }}>Precios en CLP · IVA no incluido</p>
+      <p style={{ fontSize: 13, color: C.ink, opacity: 0.35, marginTop: 16 }}>Precios en CLP · IVA no incluido</p>
     </div>
   )
 }
@@ -652,14 +645,14 @@ function ComoFunciona() {
   return (
     <section id="contacto" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Cómo funciona</p>
-        <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, color: C.ink, marginBottom: 56 }}>Tres pasos para empezar.</h2>
+        <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Cómo funciona</p>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 56 }}>Tres pasos para empezar.</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 40 }}>
           {pasos.map(p => (
             <div key={p.num}>
-              <span style={{ fontFamily: FM, fontSize: 40, fontWeight: 700, color: C.line, display: 'block', marginBottom: 16 }}>{p.num}</span>
-              <h3 style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 10 }}>{p.titulo}</h3>
-              <p style={{ fontSize: 15, color: C.ink, opacity: 0.6, lineHeight: 1.6 }}>{p.desc}</p>
+              <span style={{ fontFamily: FM, fontSize: 46, fontWeight: 700, color: C.line, display: 'block', marginBottom: 16 }}>{p.num}</span>
+              <h3 style={{ fontSize: 21, fontWeight: 700, color: C.ink, marginBottom: 10 }}>{p.titulo}</h3>
+              <p style={{ fontSize: 17, color: C.ink, opacity: 0.6, lineHeight: 1.6 }}>{p.desc}</p>
             </div>
           ))}
         </div>
@@ -680,7 +673,7 @@ function Footer() {
           </a>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {[['Módulos', '#modulos'], ['Planes', '#planes'], ['Entrar', '/login']].map(([label, href]) => (
-              <a key={label} href={href} style={{ fontSize: 13, color: C.paper, opacity: 0.5, textDecoration: 'none', transition: 'opacity 0.2s' }}
+              <a key={label} href={href} style={{ fontSize: 15, color: C.paper, opacity: 0.5, textDecoration: 'none', transition: 'opacity 0.2s' }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
                 onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}>
                 {label}
@@ -706,8 +699,8 @@ function Footer() {
         </div>
 
         <div style={{ borderTop: `1px solid #ffffff15`, paddingTop: 20, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <p style={{ fontSize: 12, opacity: 0.35 }}>© {new Date().getFullYear()} Kaltor · kaltorpos.com</p>
-          <p style={{ fontSize: 12, opacity: 0.35 }}>Precios en CLP · IVA no incluido</p>
+          <p style={{ fontSize: 14, opacity: 0.35 }}>© {new Date().getFullYear()} Kaltor · kaltorpos.com</p>
+          <p style={{ fontSize: 14, opacity: 0.35 }}>Precios en CLP · IVA no incluido</p>
         </div>
       </div>
     </footer>
