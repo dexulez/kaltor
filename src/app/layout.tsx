@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   title: 'Kaltor',
   description: 'Sistema integral de gestión para talleres y negocios',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/kaltor-logo-hex.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/kaltor-logo-hex.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
