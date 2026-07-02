@@ -16,15 +16,15 @@ const FM = 'var(--font-mono, "JetBrains Mono", monospace)'
 
 // ── Datos ─────────────────────────────────────────────────────────────────────
 const MODULOS = [
-  { code: 'MOD-01', key: 'ventas',        abbr: 'VTA', label: 'Ventas',        desc: 'Caja, punto de venta, clientes y venta directa desde cualquier dispositivo.' },
-  { code: 'MOD-02', key: 'compras',       abbr: 'COM', label: 'Compras',       desc: 'Órdenes de compra, proveedores, recepciones y control de pagos pendientes.' },
-  { code: 'MOD-03', key: 'productos',     abbr: 'INV', label: 'Inventario',    desc: 'Control de stock, movimientos, alertas de quiebre y valorización.' },
-  { code: 'MOD-04', key: 'servicios',     abbr: 'SVC', label: 'Servicios',     desc: 'Catálogo de servicios del taller con precios y tiempos estándar.' },
-  { code: 'MOD-05', key: 'taller',        abbr: 'TAL', label: 'Taller',        desc: 'Órdenes de trabajo, seguimiento de reparaciones y etiquetas térmicas.' },
-  { code: 'MOD-06', key: 'informes',      abbr: 'INF', label: 'Informes',      desc: 'Dashboard financiero, punto de equilibrio e informes exportables a Excel.' },
-  { code: 'MOD-07', key: 'contabilidad',  abbr: 'CTB', label: 'Contabilidad',  desc: 'Libro de ingresos/egresos, IVA, PPM y preparación de declaraciones.' },
-  { code: 'MOD-08', key: 'canal_b2b',     abbr: 'B2B', label: 'Canal B2B',     desc: 'Catálogo mayorista para compradores externos con pedidos y precios diferenciados.' },
-  { code: 'MOD-09', key: 'configuracion', abbr: 'CFG', label: 'Configuración', desc: 'Usuarios, roles, permisos y ajustes generales del sistema.' },
+  { code: 'MOD-01', key: 'ventas',        abbr: 'VTA', icon: '💰', label: 'Ventas',        desc: 'Caja, punto de venta, clientes y venta directa desde cualquier dispositivo.',             ventaja: 'Cobra en segundos con POS táctil. Boleta y factura integradas, sin papeleos.' },
+  { code: 'MOD-02', key: 'compras',       abbr: 'COM', icon: '🏭', label: 'Compras',       desc: 'Órdenes de compra, proveedores, recepciones y control de pagos pendientes.',             ventaja: 'Nunca pierdas trazabilidad de un pago. Cada OC, recepción y abono en un solo lugar.' },
+  { code: 'MOD-03', key: 'productos',     abbr: 'INV', icon: '📦', label: 'Inventario',    desc: 'Control de stock, movimientos, alertas de quiebre y valorización.',                       ventaja: 'Stock en tiempo real. Alertas automáticas antes de quedarte sin mercadería.' },
+  { code: 'MOD-04', key: 'servicios',     abbr: 'SVC', icon: '🔩', label: 'Servicios',     desc: 'Catálogo de servicios del taller con precios y tiempos estándar.',                       ventaja: 'Cotiza cualquier reparación en segundos con precios y tiempos predefinidos.' },
+  { code: 'MOD-05', key: 'taller',        abbr: 'TAL', icon: '🔧', label: 'Taller',        desc: 'Órdenes de trabajo, seguimiento de reparaciones y etiquetas térmicas.',                   ventaja: 'Desde la recepción hasta la entrega. El cliente sabe en qué etapa está su equipo.' },
+  { code: 'MOD-06', key: 'informes',      abbr: 'INF', icon: '📈', label: 'Informes',      desc: 'Dashboard financiero, punto de equilibrio e informes exportables a Excel.',               ventaja: 'Ve la rentabilidad de tu negocio en un vistazo. Exporta a Excel con un clic.' },
+  { code: 'MOD-07', key: 'contabilidad',  abbr: 'CTB', icon: '🧾', label: 'Contabilidad',  desc: 'Libro de ingresos/egresos, IVA, PPM y preparación de declaraciones.',                    ventaja: 'IVA y PPM calculados automáticamente. Tu contador agradecerá el orden.' },
+  { code: 'MOD-08', key: 'canal_b2b',     abbr: 'B2B', icon: '🛍️', label: 'Canal B2B',     desc: 'Catálogo mayorista para compradores externos con pedidos y precios diferenciados.',      ventaja: 'Vende al por mayor con precios exclusivos por cliente. Tu catálogo, siempre actualizado.' },
+  { code: 'MOD-09', key: 'configuracion', abbr: 'CFG', icon: '⚙️', label: 'Configuración', desc: 'Usuarios, roles, permisos y ajustes generales del sistema.',                              ventaja: 'Permisos finos por módulo y acción. Cada usuario ve solo lo que necesita.' },
 ]
 
 type Plan = {
@@ -75,6 +75,124 @@ function Switch({ on, code, color = 'signal', size = 'md', dimCode = false }: {
           {code}
         </span>
       )}
+    </div>
+  )
+}
+
+// ── Módulo interactivo del hero ───────────────────────────────────────────────
+function HeroModuloItem({ m, lit, isOpen, onToggle }: {
+  m: typeof MODULOS[0]; lit: boolean; isOpen: boolean; onToggle: () => void
+}) {
+  const [hov, setHov] = useState(false)
+  const activo = hov || isOpen || lit
+
+  return (
+    <div
+      data-modulo={m.key}
+      style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none', minWidth: 56 }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      onClick={onToggle}
+    >
+      {/* Círculo con icono */}
+      <div style={{
+        width: 54, height: 54, borderRadius: '50%',
+        backgroundColor: activo ? C.signal : 'transparent',
+        border: `2px solid ${activo ? C.signal : C.line}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 22, lineHeight: 1,
+        transition: 'all 0.3s ease',
+        transform: (hov || isOpen) ? 'scale(1.18)' : 'scale(1)',
+        boxShadow: (hov || isOpen) ? `0 0 18px ${C.signal}55` : activo ? `0 0 8px ${C.signal}33` : 'none',
+      }}>
+        {m.icon}
+      </div>
+
+      {/* Etiqueta: hover/open → nombre completo, normal → abreviatura */}
+      <span style={{
+        fontFamily: FM, fontSize: (hov || isOpen) ? 10 : 9,
+        textTransform: 'uppercase', letterSpacing: '0.1em',
+        color: (hov || isOpen) ? C.signal : activo ? C.ink : C.line,
+        transition: 'all 0.25s ease', whiteSpace: 'nowrap',
+        fontWeight: (hov || isOpen) ? 600 : 400,
+        maxWidth: 72, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>
+        {(hov || isOpen) ? m.label : m.abbr}
+      </span>
+
+      {/* Popup al hacer click */}
+      {isOpen && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute', bottom: 'calc(100% + 14px)', left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: C.navy, color: C.paper,
+            borderRadius: 16, padding: '16px 18px',
+            width: 230, zIndex: 200,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
+            pointerEvents: 'none',
+            animation: 'popupIn 0.18s ease',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <span style={{
+              width: 38, height: 38, borderRadius: '50%',
+              backgroundColor: `${C.signal}25`,
+              border: `1.5px solid ${C.signal}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, flexShrink: 0,
+            }}>{m.icon}</span>
+            <div>
+              <p style={{ fontFamily: FD, fontSize: 13, fontWeight: 700, margin: 0, color: C.paper }}>{m.label}</p>
+              <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.signal, margin: 0 }}>{m.abbr}</p>
+            </div>
+          </div>
+          <p style={{ fontSize: 12, lineHeight: 1.55, opacity: 0.82, margin: 0 }}>{m.ventaja}</p>
+          {/* Flecha */}
+          <div style={{
+            position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
+            width: 0, height: 0,
+            borderLeft: '8px solid transparent', borderRight: '8px solid transparent',
+            borderTop: `8px solid ${C.navy}`,
+          }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HeroModuloPanel({ lit }: { lit: number }) {
+  const [popup, setPopup] = useState<string | null>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (!(e.target as HTMLElement).closest('[data-modulo]')) setPopup(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div style={{
+      padding: '28px 36px', borderRadius: 20,
+      border: `1px solid ${C.line}`, backgroundColor: '#fff',
+      boxShadow: '0 4px 32px rgba(0,0,0,0.05)',
+    }}>
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {MODULOS.map((m, i) => (
+          <HeroModuloItem
+            key={m.key}
+            m={m}
+            lit={i < lit}
+            isOpen={popup === m.key}
+            onToggle={() => setPopup(p => p === m.key ? null : m.key)}
+          />
+        ))}
+      </div>
+      <p style={{ textAlign: 'center', fontSize: 11, color: C.line, marginTop: 16, marginBottom: 0, letterSpacing: '0.05em' }}>
+        Haz clic en cualquier módulo para saber más
+      </p>
     </div>
   )
 }
@@ -171,18 +289,8 @@ function Hero() {
         </a>
       </div>
 
-      {/* Panel de interruptores */}
-      <div style={{
-        padding: '28px 36px', borderRadius: 20,
-        border: `1px solid ${C.line}`, backgroundColor: '#fff',
-        boxShadow: '0 4px 32px rgba(0,0,0,0.05)',
-      }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 20 }}>
-          {MODULOS.map((m, i) => (
-            <Switch key={m.key} on={i < lit} code={m.abbr} color="signal" size="lg" />
-          ))}
-        </div>
-      </div>
+      {/* Panel interactivo de módulos */}
+      <HeroModuloPanel lit={lit} />
     </section>
   )
 }
@@ -434,6 +542,12 @@ function Footer() {
 export default function LandingPage() {
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', backgroundColor: C.paper, color: C.ink }}>
+      <style>{`
+        @keyframes popupIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `}</style>
       <Nav />
       <Hero />
       <Modulos />
