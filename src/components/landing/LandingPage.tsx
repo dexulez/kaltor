@@ -687,11 +687,20 @@ function Footer() {
           </div>
         </div>
 
-        {/* Mini switches decorativos */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 32, opacity: 0.15 }}>
-          {MODULOS.map(m => (
-            <Switch key={m.key} on={true} code="" color="signal" size="sm" />
-          ))}
+        {/* Iconos decorativos */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 32, flexWrap: 'wrap', opacity: 0.28 }}>
+          {MODULOS.map(m => {
+            const Icon = HERO_ICONS[m.key]
+            return Icon ? (
+              <span key={m.key} style={{
+                width: 28, height: 28, borderRadius: '50%',
+                backgroundColor: C.signal,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon size={13} color="#fff" strokeWidth={2} />
+              </span>
+            ) : null
+          })}
         </div>
 
         <div style={{ borderTop: `1px solid #ffffff15`, paddingTop: 20, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
