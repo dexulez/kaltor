@@ -673,14 +673,10 @@ function Footer() {
     <footer style={{ padding: '64px 48px 40px', backgroundColor: C.navy, color: C.paper }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20, marginBottom: 40 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 7, backgroundColor: C.signal, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M9 2L3 9h5l-1 5 6-7H8l1-5z" fill="white" />
-              </svg>
-            </div>
-            <span style={{ fontFamily: FD, fontSize: 18, fontWeight: 700 }}>Kaltor</span>
-          </div>
+          <a href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/kaltor-logo.svg" alt="Kaltor" style={{ height: 44, filter: 'brightness(0) invert(1)' }} />
+          </a>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {[['Módulos', '#modulos'], ['Planes', '#planes'], ['Entrar', '/login']].map(([label, href]) => (
               <a key={label} href={href} style={{ fontSize: 13, color: C.paper, opacity: 0.5, textDecoration: 'none', transition: 'opacity 0.2s' }}
