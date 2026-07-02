@@ -1,20 +1,23 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings } from 'lucide-react'
+import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck } from 'lucide-react'
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
 
 const HERO_ICONS: Record<string, LucideIcon> = {
-  ventas:        ShoppingCart,
-  compras:       Building2,
-  productos:     Package,
-  servicios:     Wrench,
-  taller:        Hammer,
-  informes:      BarChart2,
-  contabilidad:  Receipt,
-  canal_b2b:     Store,
-  configuracion: Settings,
+  ventas:         ShoppingCart,
+  compras:        Building2,
+  productos:      Package,
+  servicios:      Wrench,
+  taller:         Hammer,
+  informes:       BarChart2,
+  contabilidad:   Receipt,
+  canal_b2b:      Store,
+  configuracion:  Settings,
+  manuales:       BookOpen,
+  conciliaciones: Banknote,
+  trazabilidad:   Truck,
 }
 
 // ── Paleta ────────────────────────────────────────────────────────────────────
@@ -39,7 +42,10 @@ const MODULOS = [
   { code: 'MOD-06', key: 'informes',      abbr: 'INF', icon: '📈', label: 'Informes',      desc: 'Dashboard financiero, punto de equilibrio e informes exportables a Excel.',               ventaja: 'Ve la rentabilidad de tu negocio en un vistazo. Exporta a Excel con un clic.' },
   { code: 'MOD-07', key: 'contabilidad',  abbr: 'CTB', icon: '🧾', label: 'Contabilidad',  desc: 'Libro de ingresos/egresos, IVA, PPM y preparación de declaraciones.',                    ventaja: 'IVA y PPM calculados automáticamente. Tu contador agradecerá el orden.' },
   { code: 'MOD-08', key: 'canal_b2b',     abbr: 'B2B', icon: '🛍️', label: 'Canal B2B',     desc: 'Catálogo mayorista para compradores externos con pedidos y precios diferenciados.',      ventaja: 'Vende al por mayor con precios exclusivos por cliente. Tu catálogo, siempre actualizado.' },
-  { code: 'MOD-09', key: 'configuracion', abbr: 'CFG', icon: '⚙️', label: 'Configuración', desc: 'Usuarios, roles, permisos y ajustes generales del sistema.',                              ventaja: 'Permisos finos por módulo y acción. Cada usuario ve solo lo que necesita.' },
+  { code: 'MOD-09', key: 'configuracion',  abbr: 'CFG', icon: '⚙️', label: 'Configuración',  desc: 'Usuarios, roles, permisos y ajustes generales del sistema.',                                                         ventaja: 'Permisos finos por módulo y acción. Cada usuario ve solo lo que necesita.' },
+  { code: 'MOD-10', key: 'manuales',       abbr: 'MAN', icon: '🧠', label: 'Manuales',       desc: 'Base de conocimiento para reparaciones con guías paso a paso y tiempos estándar por modelo y falla.',           ventaja: 'Tu equipo resuelve fallas complejas sin depender de un solo técnico. Saber colectivo.' },
+  { code: 'MOD-11', key: 'conciliaciones', abbr: 'BNK', icon: '🏦', label: 'Conciliaciones',  desc: 'Conciliación bancaria: cruza movimientos de caja con el extracto del banco y detecta diferencias.',            ventaja: 'Detecta diferencias antes de cerrar el mes. Sin sorpresas al enfrentar la contabilidad.' },
+  { code: 'MOD-12', key: 'trazabilidad',   abbr: 'TRZ', icon: '📍', label: 'Trazabilidad',   desc: 'Seguimiento de compra y venta de mercancía: desde el proveedor de origen hasta la venta final al cliente.',    ventaja: 'Sabe exactamente de dónde viene cada producto y adónde fue. Auditoría y control total.' },
 ]
 
 type Plan = {
@@ -54,13 +60,13 @@ type Plan = {
 }
 
 const PLANES: Plan[] = [
-  { nombre: 'Básico',              precio_mes: 14990, precio_anual: 149900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','configuracion'],                                                                  familia: 'básico',       destacado: false },
-  { nombre: 'Pro',                 precio_mes: 23990, precio_anual: 239900, usuarios: 'Multiusuario',                    modulos: ['ventas','compras','productos','configuracion','informes','contabilidad'],                                        familia: 'básico',       destacado: false },
-  { nombre: 'Taller Básico',       precio_mes: 19990, precio_anual: 199900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','configuracion','servicios','taller'],                                             familia: 'taller',       destacado: false },
-  { nombre: 'Taller Básico 5U',    precio_mes: 29990, precio_anual: 299900, usuarios: 'Hasta 5 usuarios',                modulos: ['ventas','compras','productos','configuracion','servicios','taller'],                                             familia: 'taller',       destacado: true  },
-  { nombre: 'Taller Multiusuario', precio_mes: 36990, precio_anual: 369900, usuarios: 'Usuarios ilimitados',             modulos: ['ventas','compras','productos','configuracion','servicios','taller','informes','contabilidad'],                   familia: 'taller',       destacado: false },
-  { nombre: 'Taller Pro',          precio_mes: 44990, precio_anual: 449900, usuarios: 'Multiusuario + informes',         modulos: ['ventas','compras','productos','configuracion','servicios','taller','informes','contabilidad'],                   familia: 'taller',       destacado: false },
-  { nombre: 'Taller Multi-tienda', precio_mes: 84990, precio_anual: 849900, usuarios: 'Multi-usuario · Multi-sucursal', modulos: ['ventas','compras','productos','configuracion','servicios','taller','informes','contabilidad','canal_b2b'],       familia: 'multi-tienda', destacado: false, addon: 'Incluye Canal B2B' },
+  { nombre: 'Básico',              precio_mes: 14990, precio_anual: 149900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','trazabilidad','configuracion'],                                                                                          familia: 'básico',       destacado: false },
+  { nombre: 'Pro',                 precio_mes: 23990, precio_anual: 239900, usuarios: 'Multiusuario',                    modulos: ['ventas','compras','productos','informes','contabilidad','conciliaciones','trazabilidad','configuracion'],                                             familia: 'básico',       destacado: false },
+  { nombre: 'Taller Básico',       precio_mes: 19990, precio_anual: 199900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','servicios','taller','manuales','trazabilidad','configuracion'],                                                        familia: 'taller',       destacado: false },
+  { nombre: 'Taller Básico 5U',    precio_mes: 29990, precio_anual: 299900, usuarios: 'Hasta 5 usuarios',                modulos: ['ventas','compras','productos','servicios','taller','manuales','trazabilidad','configuracion'],                                                        familia: 'taller',       destacado: true  },
+  { nombre: 'Taller Multiusuario', precio_mes: 36990, precio_anual: 369900, usuarios: 'Usuarios ilimitados',             modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','trazabilidad','configuracion'],                              familia: 'taller',       destacado: false },
+  { nombre: 'Taller Pro',          precio_mes: 44990, precio_anual: 449900, usuarios: 'Multiusuario + informes',         modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','conciliaciones','trazabilidad','configuracion'],             familia: 'taller',       destacado: false },
+  { nombre: 'Taller Multi-tienda', precio_mes: 84990, precio_anual: 849900, usuarios: 'Multi-usuario · Multi-sucursal', modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','canal_b2b','manuales','conciliaciones','trazabilidad','configuracion'], familia: 'multi-tienda', destacado: false, addon: 'Incluye Canal B2B' },
 ]
 
 function clp(n: number) { return `$${n.toLocaleString('es-CL')}` }
@@ -319,14 +325,14 @@ function Modulos() {
     <section id="modulos" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Módulos</p>
-        <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>9 módulos de negocio.</h2>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>{MODULOS.length} módulos de negocio.</h2>
         <p style={{ fontSize: 17, color: C.ink, opacity: 0.6, marginBottom: 56, maxWidth: 560 }}>
           Activa los que tu empresa necesita hoy. Cada módulo es independiente — si no lo usas, no lo pagas.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-          {MODULOS.map(m => (
-            <ModuloCard key={m.key} m={m} />
+          {MODULOS.map((m, i) => (
+            <ModuloCard key={m.key} m={m} idx={i} />
           ))}
         </div>
       </div>
@@ -334,8 +340,11 @@ function Modulos() {
   )
 }
 
-function ModuloCard({ m }: { m: typeof MODULOS[0] }) {
+function ModuloCard({ m, idx }: { m: typeof MODULOS[0]; idx: number }) {
   const [hov, setHov] = useState(false)
+  const Icon = HERO_ICONS[m.key]
+  const iconColor = idx % 2 === 0 ? '#ffffff' : '#000000'
+
   return (
     <div
       onMouseEnter={() => setHov(true)}
@@ -343,19 +352,35 @@ function ModuloCard({ m }: { m: typeof MODULOS[0] }) {
       style={{
         padding: '20px 24px', borderRadius: 14,
         border: `2px solid ${hov ? C.signal : C.line}`,
-        backgroundColor: C.paper,
+        backgroundColor: hov ? '#fffbf8' : C.paper,
         display: 'flex', gap: 16, alignItems: 'flex-start',
-        transition: 'border-color 0.25s, transform 0.25s',
+        transition: 'all 0.25s ease',
         transform: hov ? 'translateY(-3px)' : 'none',
+        boxShadow: hov ? `0 8px 24px ${C.signal}18` : 'none',
       }}
     >
-      <div style={{ flexShrink: 0, paddingTop: 2 }}>
-        <Switch on={true} code={m.abbr} color="signal" size="md" />
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingTop: 2 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: '50%',
+          backgroundColor: C.signal,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'transform 0.25s',
+          transform: hov ? 'scale(1.12)' : 'scale(1)',
+          boxShadow: hov ? `0 4px 12px ${C.signal}44` : 'none',
+        }}>
+          {Icon && <Icon size={20} color={iconColor} strokeWidth={1.8} />}
+        </div>
+        <span style={{ fontFamily: FM, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', color: hov ? C.signal : C.line }}>{m.abbr}</span>
       </div>
-      <div>
+      <div style={{ flex: 1 }}>
         <span style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.line, display: 'block', marginBottom: 4 }}>{m.code}</span>
         <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{m.label}</h3>
-        <p style={{ fontSize: 13, color: C.ink, opacity: 0.55, lineHeight: 1.5 }}>{m.desc}</p>
+        <p style={{ fontSize: 13, color: C.ink, opacity: 0.55, lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
+        {hov && (
+          <p style={{ fontSize: 12, color: C.signal, lineHeight: 1.5, margin: '10px 0 0', fontWeight: 600, borderTop: `1px solid ${C.signal}33`, paddingTop: 8 }}>
+            ✦ {m.ventaja}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -416,9 +441,8 @@ function Planes() {
           {multi.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} full />)}
         </div>
 
-        <p style={{ fontSize: 12, color: C.ink, opacity: 0.35, textAlign: 'center', marginTop: 24 }}>
-          Precios en CLP · IVA no incluido
-        </p>
+        {/* Tabla comparativa */}
+        <TablaComparativa anual={anual} />
       </div>
     </section>
   )
@@ -466,11 +490,41 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
         <span style={{ fontSize: 12, color: C.ink, opacity: 0.45, marginLeft: 4 }}>{sufijo}</span>
       </p>
 
-      {/* Switches de módulos */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
-        {MODULOS.map(m => (
-          <Switch key={m.key} on={plan.modulos.includes(m.key)} code={m.abbr} color="mod" size="sm" />
-        ))}
+      {/* Lista vertical de módulos */}
+      <div style={{ marginBottom: 20 }}>
+        {MODULOS.map(m => {
+          const included = plan.modulos.includes(m.key)
+          const Icon = HERO_ICONS[m.key]
+          return (
+            <div key={m.key} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '7px 0',
+              borderBottom: `1px solid ${C.line}22`,
+              opacity: included ? 1 : 0.3,
+            }}>
+              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
+                <span style={{ color: included ? C.mod : C.line, fontWeight: 700, fontSize: 13, width: 14, textAlign: 'center' }}>
+                  {included ? '✓' : '—'}
+                </span>
+                {included && Icon && (
+                  <span style={{
+                    width: 22, height: 22, borderRadius: '50%',
+                    backgroundColor: C.signal,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    <Icon size={11} color="#fff" strokeWidth={2} />
+                  </span>
+                )}
+              </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: included ? 600 : 400, color: C.ink, margin: 0, lineHeight: 1.3 }}>{m.label}</p>
+                {included && (
+                  <p style={{ fontSize: 11, color: C.ink, opacity: 0.5, margin: '2px 0 0', lineHeight: 1.4 }}>{m.desc}</p>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <a href="https://app.kaltorpos.com/registro" style={{
@@ -485,6 +539,99 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
       >
         Comenzar gratis
       </a>
+    </div>
+  )
+}
+
+// ── Tabla comparativa de planes ───────────────────────────────────────────────
+function TablaComparativa({ anual }: { anual: boolean }) {
+  return (
+    <div style={{ marginTop: 72, paddingTop: 48, borderTop: `2px solid ${C.line}` }}>
+      <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Comparativa</p>
+      <h3 style={{ fontFamily: FD, fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 700, color: C.ink, marginBottom: 32 }}>Todos los planes, de un vistazo.</h3>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 780 }}>
+          <thead>
+            <tr style={{ borderBottom: `2px solid ${C.line}` }}>
+              <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600, color: C.ink, opacity: 0.45, minWidth: 140 }}>Módulo</th>
+              {PLANES.map(p => (
+                <th key={p.nombre} style={{
+                  textAlign: 'center', padding: '12px 6px',
+                  color: p.destacado ? C.signal : C.ink,
+                  borderLeft: `1px solid ${C.line}44`,
+                  minWidth: 100,
+                }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700 }}>{p.nombre}</p>
+                  <p style={{ margin: '2px 0 0', fontFamily: FM, fontSize: 10, fontWeight: 400, color: C.ink, opacity: 0.5 }}>
+                    {clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}/mes
+                  </p>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {MODULOS.map((m, i) => {
+              const Icon = HERO_ICONS[m.key]
+              return (
+                <tr key={m.key} style={{ backgroundColor: i % 2 === 0 ? '#fafafa' : '#fff' }}>
+                  <td style={{ padding: '9px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {Icon && (
+                        <span style={{
+                          width: 24, height: 24, borderRadius: '50%',
+                          backgroundColor: C.signal, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                          <Icon size={12} color="#fff" strokeWidth={2} />
+                        </span>
+                      )}
+                      <span style={{ fontWeight: 500, color: C.ink }}>{m.label}</span>
+                    </div>
+                  </td>
+                  {PLANES.map(p => (
+                    <td key={p.nombre} style={{ textAlign: 'center', padding: '9px 6px', borderLeft: `1px solid ${C.line}33` }}>
+                      {p.modulos.includes(m.key)
+                        ? <span style={{ color: C.mod, fontWeight: 700, fontSize: 15 }}>✓</span>
+                        : <span style={{ color: C.line, fontSize: 13 }}>—</span>}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+
+            {/* Fila usuarios */}
+            <tr style={{ backgroundColor: '#f5f5f5', borderTop: `1px solid ${C.line}` }}>
+              <td style={{ padding: '9px 12px', fontWeight: 600, color: C.ink }}>Usuarios</td>
+              {PLANES.map(p => (
+                <td key={p.nombre} style={{ textAlign: 'center', padding: '9px 6px', fontSize: 11, color: C.ink, opacity: 0.7, borderLeft: `1px solid ${C.line}33` }}>
+                  {p.usuarios}
+                </td>
+              ))}
+            </tr>
+
+            {/* Fila precio / CTA */}
+            <tr style={{ borderTop: `2px solid ${C.line}`, backgroundColor: '#fff' }}>
+              <td style={{ padding: '16px 12px', fontWeight: 700, color: C.ink }}>Precio/mes</td>
+              {PLANES.map(p => (
+                <td key={p.nombre} style={{ textAlign: 'center', padding: '16px 6px', borderLeft: `1px solid ${C.line}33` }}>
+                  <p style={{ margin: '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 14, color: p.destacado ? C.signal : C.ink }}>
+                    {clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}
+                  </p>
+                  <a href="https://app.kaltorpos.com/registro" style={{
+                    display: 'inline-block', padding: '5px 14px', borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: 'none',
+                    backgroundColor: p.destacado ? C.signal : 'transparent',
+                    color: p.destacado ? '#fff' : C.ink,
+                    border: p.destacado ? 'none' : `1.5px solid ${C.line}`,
+                  }}>
+                    Elegir
+                  </a>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style={{ fontSize: 11, color: C.ink, opacity: 0.35, marginTop: 16 }}>Precios en CLP · IVA no incluido</p>
     </div>
   )
 }
