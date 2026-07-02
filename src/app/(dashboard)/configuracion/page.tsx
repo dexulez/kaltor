@@ -65,6 +65,15 @@ export default async function ConfiguracionPage() {
           </div>
           <span className="ml-auto text-gray-300">→</span>
         </Link>
+        <Link href="/configuracion/facturacion"
+          className="flex items-center gap-3 bg-white rounded-xl border border-[#FF7A1A]/30 p-4 hover:border-[#FF7A1A] hover:bg-[#FF7A1A]/5 transition-colors">
+          <span className="text-2xl">💳</span>
+          <div>
+            <p className="font-semibold text-gray-800 text-sm">Facturación y suscripción</p>
+            <p className="text-xs text-gray-400">Plan, estado del cobro y método de pago Flow</p>
+          </div>
+          <span className="ml-auto text-gray-300">→</span>
+        </Link>
       </div>
     </div>
   )
