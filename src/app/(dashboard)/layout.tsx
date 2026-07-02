@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AppSidebar from '@/components/layout/AppSidebar'
 import MobileNav from '@/components/layout/MobileNav'
@@ -45,11 +45,12 @@ export default async function DashboardLayout({
   const mayusculasActivas = (config as { mayusculas_automaticas?: boolean } | null)?.mayusculas_automaticas === true
   const alertas = { compras: solicitudesPendientes ?? 0, pedidosB2B: pedidosB2BPendientes ?? 0 }
 
-  // Módulos activos según el plan de la tienda
+  // Módulos activos según el plan de la tienda (service role para evitar RLS)
   const storeId = (profile as { store_id?: string } | null)?.store_id
   let modulosDelPlan: Set<string> | null = null
   if (storeId) {
-    const { data: storeModules } = await supabase
+    const admin = createServiceClient()
+    const { data: storeModules } = await admin
       .from('store_modules')
       .select('module_key')
       .eq('store_id', storeId)
