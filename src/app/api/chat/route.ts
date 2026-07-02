@@ -1,15 +1,7 @@
-import { createAnthropic } from '@ai-sdk/anthropic'
+import { anthropic } from '@ai-sdk/anthropic'
 import { streamText } from 'ai'
 
 export const maxDuration = 30
-
-// Vercel AI Gateway → Anthropic
-// La clave AI_GATEWAY_API_KEY (vck_...) autentica con el gateway de Vercel,
-// que reenvía la request a Anthropic con observabilidad, caché y rate limiting.
-const gateway = createAnthropic({
-  baseURL: 'https://gateway.ai.vercel.app/v1/appmaretopteam/kaltor/anthropic',
-  apiKey: process.env.AI_GATEWAY_API_KEY ?? '',
-})
 
 const LANDING_SYSTEM = `Eres el asistente de ventas de Kaltor, sistema de gestión modular para negocios en Chile.
 Responde siempre en español, de forma concisa y amigable. Máximo 3 párrafos por respuesta.
@@ -77,7 +69,7 @@ export async function POST(req: Request) {
   const systemPrompt = context === 'app' ? APP_SYSTEM : LANDING_SYSTEM
 
   const result = streamText({
-    model: gateway('claude-haiku-4-5-20251001'),
+    model: anthropic('claude-haiku-4-5-20251001'),
     system: systemPrompt,
     messages,
     maxTokens: 512,
