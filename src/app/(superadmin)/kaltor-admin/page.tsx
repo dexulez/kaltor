@@ -4,25 +4,47 @@ import StoresTable, { StoreRow } from './_components/StoresTable'
 export const dynamic = 'force-dynamic'
 
 async function loadStores(admin: ReturnType<typeof createServiceClient>): Promise<StoreRow[]> {
-  // 1. Tiendas — columnas base que siempre existen
+  // ── 1. Tiendas (sin joins) ────────────────────────────────────────────────
   const { data: stores, error: storesErr } = await admin
     .from('stores')
-    .select('id, nombre, email, activo, created_at, trial_hasta, plan_id, plans(nombre, precio_mes)')
+    .select('id, nombre, email, activo, created_at, trial_hasta, plan_id, billing_status, flow_subscription_id, proximo_cobro_at')
     .order('created_at', { ascending: false })
 
-  if (storesErr || !stores || stores.length === 0) return []
-
-  // 2. Columnas de billing — opcionales (requieren supabase/kaltor_flow_billing.sql)
-  type BillingRow = { id: string; billing_status: string | null; flow_subscription_id: string | null; proximo_cobro_at: string | null }
-  const billingMap: Record<string, BillingRow> = {}
-  const { data: billingRows } = await admin
-    .from('stores')
-    .select('id, billing_status, flow_subscription_id, proximo_cobro_at')
-  if (billingRows) {
-    for (const b of billingRows as BillingRow[]) billingMap[b.id] = b
+  if (storesErr) {
+    // billing columns might not exist yet → fallback without them
+    console.error('[superadmin] stores query error:', storesErr.message)
+    const { data: base } = await admin
+      .from('stores')
+      .select('id, nombre, email, activo, created_at, trial_hasta, plan_id')
+      .order('created_at', { ascending: false })
+    if (!base || base.length === 0) return []
+    return buildRows(base.map(s => ({ ...s, billing_status: 'trial', flow_subscription_id: null, proximo_cobro_at: null })), admin)
   }
 
-  // 3. Conteo de usuarios por tienda
+  if (!stores || stores.length === 0) return []
+  return buildRows(stores, admin)
+}
+
+async function buildRows(
+  stores: Record<string, unknown>[],
+  admin: ReturnType<typeof createServiceClient>
+): Promise<StoreRow[]> {
+  // ── 2. Planes (query separada, sin depender de join) ─────────────────────
+  const planIds = [...new Set(stores.map(s => s.plan_id as string).filter(Boolean))]
+  const planMap: Record<string, { nombre: string; precio_mes: number }> = {}
+  if (planIds.length > 0) {
+    const { data: plans } = await admin
+      .from('plans')
+      .select('id, nombre, precio_mes')
+      .in('id', planIds)
+    if (plans) {
+      for (const p of plans as { id: string; nombre: string; precio_mes: number }[]) {
+        planMap[p.id] = { nombre: p.nombre, precio_mes: p.precio_mes }
+      }
+    }
+  }
+
+  // ── 3. Conteo de usuarios por tienda ─────────────────────────────────────
   const countMap: Record<string, number> = {}
   const { data: profiles } = await admin.from('user_profiles').select('store_id')
   if (profiles) {
@@ -31,30 +53,29 @@ async function loadStores(admin: ReturnType<typeof createServiceClient>): Promis
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (stores as any[]).map(s => ({
-    id:                   s.id,
-    nombre:               s.nombre,
-    email:                s.email,
-    activo:               s.activo,
-    created_at:           s.created_at,
-    trial_hasta:          s.trial_hasta ?? null,
-    billing_status:       billingMap[s.id]?.billing_status ?? 'trial',
-    flow_subscription_id: billingMap[s.id]?.flow_subscription_id ?? null,
-    proximo_cobro_at:     billingMap[s.id]?.proximo_cobro_at ?? null,
-    plans:                Array.isArray(s.plans) ? s.plans[0] ?? null : s.plans ?? null,
-    user_profiles:        [{ count: countMap[s.id] ?? 0 }],
-  })) as StoreRow[]
+  return stores.map(s => ({
+    id:                   s.id as string,
+    nombre:               s.nombre as string,
+    email:                s.email as string,
+    activo:               s.activo as boolean,
+    created_at:           s.created_at as string,
+    trial_hasta:          (s.trial_hasta as string | null) ?? null,
+    billing_status:       (s.billing_status as string | null) ?? 'trial',
+    flow_subscription_id: (s.flow_subscription_id as string | null) ?? null,
+    proximo_cobro_at:     (s.proximo_cobro_at as string | null) ?? null,
+    plans:                planMap[s.plan_id as string] ?? null,
+    user_profiles:        [{ count: countMap[s.id as string] ?? 0 }],
+  }))
 }
 
 export default async function KaltorAdminPage() {
-  const admin = createServiceClient()
+  const admin  = createServiceClient()
   const stores = await loadStores(admin)
 
-  const ahora = new Date()
+  const ahora        = new Date()
   const total        = stores.length
-  const enTrial      = stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && s.trial_hasta && new Date(s.trial_hasta) > ahora).length
-  const trialVencido = stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && s.trial_hasta && new Date(s.trial_hasta) <= ahora).length
+  const enTrial      = stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && !!s.trial_hasta && new Date(s.trial_hasta) > ahora).length
+  const trialVencido = stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && !!s.trial_hasta && new Date(s.trial_hasta) <= ahora).length
   const activas      = stores.filter(s => s.billing_status === 'active').length
   const sinPago      = stores.filter(s => ['past_due', 'cancelled', 'suspended'].includes(s.billing_status ?? '')).length
   const mrr          = stores.filter(s => s.billing_status === 'active').reduce((acc, s) => acc + (s.plans?.precio_mes ?? 0), 0)
@@ -83,7 +104,10 @@ export default async function KaltorAdminPage() {
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Todas las empresas</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          Todas las empresas
+          {total > 0 && <span className="ml-2 font-normal text-gray-400">({total})</span>}
+        </h2>
         <StoresTable stores={stores} />
       </div>
     </div>

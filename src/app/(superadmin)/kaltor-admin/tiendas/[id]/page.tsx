@@ -18,14 +18,14 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const admin = createServiceClient()
 
-  // Columnas base (siempre existen)
+  // ── Queries separadas (sin FK joins para evitar errores de schema cache) ──
   const [
-    { data: storeBase },
+    { data: storeBase, error: storeErr },
     { data: users },
     { data: plans },
   ] = await Promise.all([
     admin.from('stores')
-      .select('id, nombre, email, activo, created_at, trial_hasta, plan_id, plans(id, nombre, slug, precio_mes, max_usuarios)')
+      .select('id, nombre, email, activo, created_at, trial_hasta, plan_id, billing_status, flow_customer_id, flow_subscription_id, ultimo_pago_at, proximo_cobro_at')
       .eq('id', id)
       .single(),
     admin.from('user_profiles')
@@ -37,18 +37,14 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
       .order('precio_mes', { ascending: true }),
   ])
 
-  if (!storeBase) notFound()
+  if (storeErr || !storeBase) notFound()
 
-  // Columnas de billing opcionales
-  const { data: billingRow } = await admin
-    .from('stores')
-    .select('billing_status, flow_customer_id, flow_subscription_id, ultimo_pago_at, proximo_cobro_at')
-    .eq('id', id)
-    .single()
+  // Plan info (del arreglo plans ya cargado)
+  const planInfo = (plans ?? []).find((p: { id: string }) => p.id === storeBase.plan_id) ?? null
 
-  const store = { ...storeBase, ...(billingRow ?? {}) }
+  const store = { ...storeBase, plans: planInfo }
 
-  // Intentar cargar eventos de pago (requiere supabase/kaltor_flow_billing.sql)
+  // Eventos de pago (tabla opcional — requiere kaltor_flow_billing.sql)
   let flowEvents: Record<string, unknown>[] = []
   const { data: evData } = await admin
     .from('flow_events')
