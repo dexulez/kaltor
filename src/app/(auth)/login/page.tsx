@@ -33,7 +33,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#F5F6F4] p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -72,7 +72,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                 />
               </div>
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+              <Button type="submit" className="w-full bg-[#FF7A1A] hover:bg-[#E06010] text-white" disabled={loading}>
                 {loading ? 'Ingresando...' : 'Ingresar'}
               </Button>
             </form>
@@ -81,7 +81,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           ¿Nuevo en Kaltor?{' '}
-          <a href="/registro" className="text-blue-600 hover:underline font-medium">
+          <a href="/registro" className="text-[#FF7A1A] hover:underline font-medium">
             Crear cuenta gratis
           </a>
         </p>

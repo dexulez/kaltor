@@ -85,7 +85,7 @@ export default function RegistroPage() {
   const planSeleccionado = PLANES.find(p => p.slug === form.plan_slug)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4 py-10">
+    <div className="min-h-screen flex items-center justify-center bg-[#F5F6F4] p-4 py-10">
       <div className="w-full max-w-lg">
 
         {/* Logo */}
@@ -203,13 +203,13 @@ export default function RegistroPage() {
               </div>
 
               {/* Trial notice */}
-              <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-700">
+              <div className="bg-[#FF7A1A]/8 border border-[#FF7A1A]/20 rounded-lg px-4 py-3 text-sm text-[#C05010]">
                 Los primeros <strong>14 días son gratis</strong>. No se cobra nada hasta que el período de prueba termine.
               </div>
 
               <Button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-[#FF7A1A] hover:bg-[#E06010] text-white"
                 disabled={loading}
               >
                 {loading ? 'Creando cuenta...' : 'Crear cuenta gratis →'}
@@ -220,7 +220,7 @@ export default function RegistroPage() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           ¿Ya tienes cuenta?{' '}
-          <Link href="/login" className="text-blue-600 hover:underline font-medium">
+          <Link href="/login" className="text-[#FF7A1A] hover:underline font-medium">
             Iniciar sesión
           </Link>
         </p>

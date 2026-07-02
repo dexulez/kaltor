@@ -2,6 +2,27 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* ── Kaltor Brand Variables ──────────────────────────────────────────────── */
+:root {
+  --kaltor-signal:    #FF7A1A;
+  --kaltor-signal-dk: #E06010;
+  --kaltor-tinta:     #121B1F;
+  --kaltor-papel:     #F5F6F4;
+  --kaltor-navy:      #101B26;
+  --kaltor-mod:       #2FB673;
+  --kaltor-linea:     #C9CFC7;
+  /* UI palette */
+  --kaltor-fondo:     #0F1318;
+  --kaltor-surface:   #171D24;
+  --kaltor-border:    #2A3340;
+  --kaltor-text-1:    #E6E9ED;
+  --kaltor-text-2:    #8BA3B8;
+  --kaltor-success:   #2FB673;
+  --kaltor-warning:   #FFB020;
+  --kaltor-error:     #F04438;
+  --kaltor-info:      #3B82F6;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

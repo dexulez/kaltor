@@ -113,7 +113,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         onClick={() => setFlyout(null)}
         className={cn(
           'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative',
-          isActive ? 'bg-blue-700 text-white' : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+          isActive ? 'bg-[#FF7A1A]/20 text-[#FF7A1A]' : 'text-[#9BB5C8] hover:bg-[#171D24] hover:text-white'
         )}
       >
         <span className="text-base shrink-0">{item.icon}</span>
@@ -129,12 +129,12 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
 
   return (
     <aside className={cn(
-      'hidden md:flex flex-col bg-blue-900 text-white transition-all duration-300 shrink-0',
+      'hidden md:flex flex-col bg-[#0F1318] text-white transition-all duration-300 shrink-0',
       collapsed ? 'w-16' : 'w-72'
     )}>
       {/* Logo */}
       <div className={cn(
-        'flex items-center border-b border-blue-800',
+        'flex items-center border-b border-[#2A3340]',
         collapsed ? 'flex-col gap-2 px-1 py-3' : 'gap-3 px-4 py-4'
       )}>
         {logoUrl ? (
@@ -147,13 +147,13 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         {!collapsed && (
           <div className="overflow-hidden flex-1 min-w-0">
             <p className="font-bold text-sm leading-tight truncate">{nombreLocal ?? 'Kaltor'}</p>
-            <p className="text-blue-300 text-xs truncate">Gestión de taller</p>
+            <p className="text-[#7B9BAA] text-xs truncate">Gestión de taller</p>
           </div>
         )}
         <Button
           variant="ghost"
           size="sm"
-          className={cn('text-blue-300 hover:text-white hover:bg-blue-800 p-1 h-7 w-7 shrink-0', !collapsed && 'ml-auto')}
+          className={cn('text-[#7B9BAA] hover:text-white hover:bg-[#171D24] p-1 h-7 w-7 shrink-0', !collapsed && 'ml-auto')}
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? '→' : '←'}
@@ -192,7 +192,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
                   }}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                    grupoActivo ? 'text-white bg-blue-800/60' : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+                    grupoActivo ? 'text-white bg-[#171D24]' : 'text-[#9BB5C8] hover:bg-[#171D24] hover:text-white'
                   )}
                 >
                   <span className="text-lg shrink-0 relative">
@@ -211,21 +211,21 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
                     </span>
                   )}
                   {!collapsed && (
-                    <span className={cn('text-xs text-blue-400 transition-transform shrink-0', abierto && 'rotate-90')}>▸</span>
+                    <span className={cn('text-xs text-[#5A7B90] transition-transform shrink-0', abierto && 'rotate-90')}>▸</span>
                   )}
                 </button>
 
                 {/* Expandido en línea (sidebar ancho) */}
                 {!collapsed && abierto && (
-                  <ul className="mt-1 ml-4 pl-3 border-l border-blue-800 space-y-0.5">
+                  <ul className="mt-1 ml-4 pl-3 border-l border-[#2A3340] space-y-0.5">
                     {itemsDelGrupo.map(item => <li key={item.href}>{renderLink(item)}</li>)}
                   </ul>
                 )}
 
                 {/* Flyout (sidebar colapsado) */}
                 {collapsed && flyout === grupo.key && (
-                  <div className="absolute left-full top-0 ml-1 z-[100] bg-blue-900 border border-blue-700 rounded-xl shadow-2xl py-2 w-56">
-                    <p className="px-3 pb-1.5 text-xs font-semibold text-blue-400 uppercase tracking-wide">{grupo.label}</p>
+                  <div className="absolute left-full top-0 ml-1 z-[100] bg-[#0F1318] border border-[#2A3340] rounded-xl shadow-2xl py-2 w-56">
+                    <p className="px-3 pb-1.5 text-xs font-semibold text-[#5A7B90] uppercase tracking-wide">{grupo.label}</p>
                     <ul className="space-y-0.5 px-1">
                       {itemsDelGrupo.map(item => <li key={item.href}>{renderLink(item)}</li>)}
                     </ul>
@@ -245,31 +245,31 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
       )}
 
       {/* User info */}
-      <div className="border-t border-blue-800 p-3">
+      <div className="border-t border-[#2A3340] p-3">
         <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
           <Avatar className="h-8 w-8 shrink-0">
-            <AvatarFallback className="bg-blue-600 text-white text-xs font-bold">
+            <AvatarFallback className="bg-[#FF7A1A] text-white text-xs font-bold">
               {initials}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 overflow-hidden">
               <p className="text-sm font-medium truncate">{user?.nombre_completo ?? 'Usuario'}</p>
-              <p className="text-xs text-blue-300 truncate">{ROL_LABEL[roleName] ?? roleName}</p>
+              <p className="text-xs text-[#7B9BAA] truncate">{ROL_LABEL[roleName] ?? roleName}</p>
             </div>
           )}
         </div>
         {!collapsed && (
           <div className="flex gap-1 mt-2">
             <Link href="/perfil" className="flex-1">
-              <Button variant="ghost" size="sm" className="w-full text-blue-300 hover:text-white hover:bg-blue-800 text-xs">
+              <Button variant="ghost" size="sm" className="w-full text-[#7B9BAA] hover:text-white hover:bg-[#171D24] text-xs">
                 👤 Perfil
               </Button>
             </Link>
             <Button
               variant="ghost"
               size="sm"
-              className="flex-1 text-blue-300 hover:text-white hover:bg-blue-800 text-xs"
+              className="flex-1 text-[#7B9BAA] hover:text-white hover:bg-[#171D24] text-xs"
               onClick={handleLogout}
             >
               Salir

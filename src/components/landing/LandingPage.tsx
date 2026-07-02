@@ -5,11 +5,11 @@ import { useState, useEffect } from 'react'
 // ── Paleta ────────────────────────────────────────────────────────────────────
 const C = {
   paper:  '#F5F6F4',
-  ink:    '#12181F',
+  ink:    '#121B1F',
   line:   '#C9CFC7',
   signal: '#FF7A1A',
   mod:    '#2FB673',
-  navy:   '#101826',
+  navy:   '#101B26',
 }
 const FD = 'var(--font-display, "Space Grotesk", sans-serif)'
 const FM = 'var(--font-mono, "JetBrains Mono", monospace)'
