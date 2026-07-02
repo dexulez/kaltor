@@ -5,6 +5,7 @@ import MobileNav from '@/components/layout/MobileNav'
 import InactivityRedirect from '@/components/layout/InactivityRedirect'
 import RealtimeRefresh from '@/components/layout/RealtimeRefresh'
 import MayusculasListener from '@/components/layout/MayusculasListener'
+import ChatWidget from '@/components/chat/ChatWidget'
 import type { ModuloNegocio } from '@/lib/modulos'
 
 export default async function DashboardLayout({
@@ -71,6 +72,12 @@ export default async function DashboardLayout({
         {children}
       </main>
       <MobileNav user={profile} alertas={alertas} modulosDelPlan={modulosDelPlan} />
+      <ChatWidget
+        context="app"
+        bgColor="#0F1318"
+        welcomeMessage="¡Hola! Soy el asistente de Kaltor. Puedo ayudarte a usar cualquier módulo del sistema. ¿En qué te puedo ayudar?"
+        placeholder="¿Cómo hago una OT? ¿Cómo cierro caja?…"
+      />
     </div>
   )
 }

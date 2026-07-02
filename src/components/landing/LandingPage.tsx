@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck } from 'lucide-react'
+import ChatWidget from '@/components/chat/ChatWidget'
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
 
@@ -729,6 +730,11 @@ export default function LandingPage() {
       <Planes />
       <ComoFunciona />
       <Footer />
+      <ChatWidget
+        context="landing"
+        welcomeMessage="¡Hola! Soy el asistente de Kaltor 👋 ¿Te ayudo a elegir un plan o tienes alguna pregunta sobre los módulos?"
+        placeholder="Pregúntame sobre planes, módulos o precios…"
+      />
     </div>
   )
 }
