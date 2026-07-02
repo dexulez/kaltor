@@ -1,29 +1,39 @@
-export const MODULOS = [
-  { key: 'dashboard',     label: 'Dashboard',           icon: '📊', href: '/dashboard' },
-  { key: 'clientes',      label: 'Clientes',             icon: '👤', href: '/clientes' },
-  { key: 'reparaciones',  label: 'Reparaciones',         icon: '🔧', href: '/reparaciones' },
-  { key: 'inventario',    label: 'Inventario',           icon: '📦', href: '/inventario' },
-  { key: 'caja',          label: 'Caja',                 icon: '💰', href: '/caja' },
-  { key: 'compras',       label: 'Compras',              icon: '🏭', href: '/compras' },
-  { key: 'usuarios',      label: 'Usuarios',             icon: '👥', href: '/usuarios' },
-  { key: 'informes',      label: 'Informes',             icon: '📈', href: '/informes' },
-  { key: 'contabilidad',  label: 'Contabilidad',         icon: '🧾', href: '/contabilidad' },
-  { key: 'servicios',     label: 'Catálogo de Servicios',icon: '🔩', href: '/servicios' },
-  { key: 'manuales',      label: 'Manuales',             icon: '🧠', href: '/manuales' },
-  { key: 'configuracion', label: 'General',              icon: '⚙️', href: '/configuracion' },
-  { key: 'catalogo_b2b',  label: 'Catálogo B2B',         icon: '🛍️', href: '/catalogo-b2b' },
-  { key: 'pedidos_b2b',   label: 'Pedidos B2B',          icon: '📥', href: '/pedidos-b2b' },
-  { key: 'notificaciones',label: 'Notificaciones',       icon: '🔔', href: '/notificaciones' },
+// ── Los 9 módulos de negocio que gatean acceso por plan ──────────────────────
+// Estos son los keys que viven en store_modules / plan_modules.
+// dashboard y notificaciones no están aquí: son utilidades siempre presentes.
+export const MODULO_NEGOCIO_KEYS = [
+  'ventas', 'compras', 'productos', 'servicios', 'taller',
+  'informes', 'contabilidad', 'configuracion', 'canal_b2b',
 ] as const
+export type ModuloNegocio = typeof MODULO_NEGOCIO_KEYS[number]
+
+// ── Items de navegación ───────────────────────────────────────────────────────
+// `modulo` → módulo de negocio (store_modules) que gatea la visibilidad.
+// null    → siempre visible, no depende del plan (core).
+export const MODULOS = [
+  { key: 'dashboard',     label: 'Dashboard',            icon: '📊', href: '/dashboard',     modulo: null             },
+  { key: 'caja',          label: 'Caja / Ventas',        icon: '💰', href: '/caja',          modulo: 'ventas'         },
+  { key: 'clientes',      label: 'Clientes',             icon: '👤', href: '/clientes',      modulo: 'ventas'         },
+  { key: 'compras',       label: 'Compras',              icon: '🏭', href: '/compras',       modulo: 'compras'        },
+  { key: 'inventario',    label: 'Inventario',           icon: '📦', href: '/inventario',    modulo: 'productos'      },
+  { key: 'servicios',     label: 'Catálogo de Servicios',icon: '🔩', href: '/servicios',     modulo: 'servicios'      },
+  { key: 'reparaciones',  label: 'Reparaciones',         icon: '🔧', href: '/reparaciones',  modulo: 'taller'         },
+  { key: 'informes',      label: 'Informes',             icon: '📈', href: '/informes',      modulo: 'informes'       },
+  { key: 'contabilidad',  label: 'Contabilidad',         icon: '🧾', href: '/contabilidad',  modulo: 'contabilidad'   },
+  { key: 'catalogo_b2b',  label: 'Catálogo B2B',         icon: '🛍️', href: '/catalogo-b2b',  modulo: 'canal_b2b'      },
+  { key: 'pedidos_b2b',   label: 'Pedidos B2B',          icon: '📥', href: '/pedidos-b2b',   modulo: 'canal_b2b'      },
+  { key: 'manuales',      label: 'Manuales',             icon: '🧠', href: '/manuales',      modulo: null             },
+  { key: 'usuarios',      label: 'Usuarios',             icon: '👥', href: '/usuarios',      modulo: null             },
+  { key: 'configuracion', label: 'Configuración',        icon: '⚙️', href: '/configuracion', modulo: null             },
+  { key: 'notificaciones',label: 'Notificaciones',       icon: '🔔', href: '/notificaciones',modulo: null             },
+] as const satisfies ReadonlyArray<{
+  key: string; label: string; icon: string; href: string; modulo: ModuloNegocio | null
+}>
 
 export type ModuloKey = typeof MODULOS[number]['key']
 
 // ── Agrupación visual del sidebar ────────────────────────────────────────────
-// Solo afecta cómo se agrupan los enlaces ya visibles (según tieneAccesoModulo);
-// no reemplaza MODULOS ni la lógica de permisos. Cualquier módulo nuevo debe
-// agregarse a MODULOS y luego sumarse al grupo que corresponda aquí.
-// Los grupos con `standalone: true` se muestran como un enlace directo (sin
-// encabezado colapsable) cuando solo tienen un módulo visible.
+// Refleja los 9 módulos de negocio. Standalone = sin encabezado colapsable.
 export interface MenuGroup {
   key: string
   label: string
@@ -33,79 +43,80 @@ export interface MenuGroup {
 }
 
 export const MENU_GROUPS: MenuGroup[] = [
-  { key: 'ventas',        label: 'Ventas',        icon: '💰', modulos: ['caja', 'pedidos_b2b'] },
-  { key: 'compras',       label: 'Compras',       icon: '🏭', modulos: ['compras'], standalone: true },
-  { key: 'clientes',      label: 'Clientes',      icon: '👤', modulos: ['clientes'], standalone: true },
-  { key: 'productos',     label: 'Productos',     icon: '📦', modulos: ['inventario', 'catalogo_b2b'] },
-  { key: 'servicios',     label: 'Servicios',     icon: '🔩', modulos: ['servicios', 'reparaciones'] },
-  { key: 'informes',      label: 'Informes',      icon: '📈', modulos: ['informes'], standalone: true },
-  { key: 'contabilidad',  label: 'Contabilidad',  icon: '🧾', modulos: ['contabilidad'], standalone: true },
-  { key: 'configuracion', label: 'Configuración', icon: '⚙️', modulos: ['configuracion', 'usuarios', 'manuales', 'notificaciones'] },
+  { key: 'ventas',       label: 'Ventas',        icon: '💰', modulos: ['caja', 'clientes'] },
+  { key: 'compras',      label: 'Compras',       icon: '🏭', modulos: ['compras'], standalone: true },
+  { key: 'productos',    label: 'Productos',     icon: '📦', modulos: ['inventario'], standalone: true },
+  { key: 'taller',       label: 'Taller',        icon: '🔧', modulos: ['reparaciones', 'servicios'] },
+  { key: 'canal_b2b',    label: 'Canal B2B',     icon: '🛍️', modulos: ['catalogo_b2b', 'pedidos_b2b'] },
+  { key: 'informes',     label: 'Informes',      icon: '📈', modulos: ['informes'], standalone: true },
+  { key: 'contabilidad', label: 'Contabilidad',  icon: '🧾', modulos: ['contabilidad'], standalone: true },
+  { key: 'configuracion',label: 'Configuración', icon: '⚙️', modulos: ['configuracion', 'usuarios', 'manuales', 'notificaciones'] },
 ]
 
-// ── Sub-permisos por módulo ────────────────────────────────────────────────────
+// ── Sub-permisos por módulo ───────────────────────────────────────────────────
 export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: string; desc: string }[]>> = {
   clientes: [
-    { key: 'clientes.crear',    label: 'Crear clientes',  desc: 'Registrar nuevos clientes' },
-    { key: 'clientes.editar',   label: 'Editar clientes', desc: 'Modificar los datos de un cliente existente' },
+    { key: 'clientes.crear',    label: 'Crear clientes',    desc: 'Registrar nuevos clientes' },
+    { key: 'clientes.editar',   label: 'Editar clientes',   desc: 'Modificar los datos de un cliente existente' },
     { key: 'clientes.eliminar', label: 'Eliminar clientes', desc: 'Dar de baja a un cliente (no borra su historial de OTs/ventas)' },
   ],
   reparaciones: [
-    { key: 'reparaciones.ver_todas',      label: 'Ver todas las OTs',       desc: 'Sin esto, el técnico solo ve sus OTs asignadas y las disponibles' },
-    { key: 'reparaciones.adjudicar',      label: 'Adjudicarse OTs',         desc: 'Tomar OTs sin técnico asignado' },
-    { key: 'reparaciones.crear',          label: 'Crear nuevas OTs',        desc: 'Registrar órdenes de trabajo nuevas' },
-    { key: 'reparaciones.cobrar',         label: 'Cobrar OTs desde taller', desc: 'Acceder al botón "Cobrar en caja" en cada OT' },
-    { key: 'reparaciones.descuento',      label: 'Aplicar descuentos',      desc: 'Modificar el precio final de una OT con un descuento' },
-    { key: 'reparaciones.eliminar',       label: 'Eliminar OTs',            desc: 'Borrar una orden de trabajo' },
-    { key: 'reparaciones.ver_costos',     label: 'Ver costo de repuestos',  desc: 'Ver el precio de costo de los repuestos usados en una OT' },
-    { key: 'reparaciones.cambiar_tecnico',label: 'Reasignar técnico',       desc: 'Cambiar el técnico asignado a una OT' },
+    { key: 'reparaciones.ver_todas',       label: 'Ver todas las OTs',       desc: 'Sin esto, el técnico solo ve sus OTs asignadas y las disponibles' },
+    { key: 'reparaciones.adjudicar',       label: 'Adjudicarse OTs',         desc: 'Tomar OTs sin técnico asignado' },
+    { key: 'reparaciones.crear',           label: 'Crear nuevas OTs',        desc: 'Registrar órdenes de trabajo nuevas' },
+    { key: 'reparaciones.cobrar',          label: 'Cobrar OTs desde taller', desc: 'Acceder al botón "Cobrar en caja" en cada OT' },
+    { key: 'reparaciones.descuento',       label: 'Aplicar descuentos',      desc: 'Modificar el precio final de una OT con un descuento' },
+    { key: 'reparaciones.eliminar',        label: 'Eliminar OTs',            desc: 'Borrar una orden de trabajo' },
+    { key: 'reparaciones.ver_costos',      label: 'Ver costo de repuestos',  desc: 'Ver el precio de costo de los repuestos usados en una OT' },
+    { key: 'reparaciones.cambiar_tecnico', label: 'Reasignar técnico',       desc: 'Cambiar el técnico asignado a una OT' },
   ],
   inventario: [
     { key: 'inventario.editar',        label: 'Crear/editar productos',  desc: 'Agregar y modificar productos del inventario' },
     { key: 'inventario.ajustar_stock', label: 'Ajustar stock',           desc: 'Toma de inventario y ajustes manuales de cantidad' },
     { key: 'inventario.eliminar',      label: 'Eliminar productos',      desc: 'Borrar un producto del inventario' },
     { key: 'inventario.ver_costos',    label: 'Ver costo y margen',      desc: 'Ver el precio de costo y el margen de cada producto' },
-    { key: 'inventario.carga_masiva', label: 'Carga masiva',            desc: 'Importar productos desde un archivo' },
-    { key: 'inventario.categorias',   label: 'Gestionar categorías',    desc: 'Crear y editar categorías de productos' },
+    { key: 'inventario.carga_masiva',  label: 'Carga masiva',            desc: 'Importar productos desde un archivo' },
+    { key: 'inventario.categorias',    label: 'Gestionar categorías',    desc: 'Crear y editar categorías de productos' },
   ],
   caja: [
-    { key: 'caja.ver_historial',         label: 'Ver historial completo',       desc: 'Ver todas las ventas del período, no solo las propias' },
-    { key: 'caja.anular',                label: 'Anular ventas',                desc: 'Marcar ventas como anuladas' },
-    { key: 'caja.ver_resumen_sesion',    label: 'Ver resumen de sesión',        desc: 'Ver totales, IVA, PPM y desglose por método de pago' },
-    { key: 'caja.ver_comisiones',        label: 'Ver mis comisiones del día',   desc: 'Mostrar panel de comisiones generadas en la sesión' },
-    { key: 'caja.crear_producto_rapido', label: 'Crear producto rápido',        desc: 'Agregar un producto nuevo directo desde el punto de venta' },
-    { key: 'caja.aplicar_descuento',     label: 'Aplicar descuentos',           desc: 'Modificar el total de una venta con un descuento' },
-    { key: 'caja.gestionar_sesion',      label: 'Abrir/cerrar caja',            desc: 'Iniciar y cerrar la sesión de caja del día (arqueo)' },
+    { key: 'caja.ver_historial',         label: 'Ver historial completo',     desc: 'Ver todas las ventas del período, no solo las propias' },
+    { key: 'caja.anular',                label: 'Anular ventas',              desc: 'Marcar ventas como anuladas' },
+    { key: 'caja.ver_resumen_sesion',    label: 'Ver resumen de sesión',      desc: 'Ver totales, IVA, PPM y desglose por método de pago' },
+    { key: 'caja.ver_comisiones',        label: 'Ver mis comisiones del día', desc: 'Mostrar panel de comisiones generadas en la sesión' },
+    { key: 'caja.crear_producto_rapido', label: 'Crear producto rápido',      desc: 'Agregar un producto nuevo directo desde el punto de venta' },
+    { key: 'caja.aplicar_descuento',     label: 'Aplicar descuentos',         desc: 'Modificar el total de una venta con un descuento' },
+    { key: 'caja.gestionar_sesion',      label: 'Abrir/cerrar caja',          desc: 'Iniciar y cerrar la sesión de caja del día (arqueo)' },
   ],
   compras: [
-    { key: 'compras.crear',       label: 'Crear órdenes de compra', desc: 'Registrar nuevas OCs a proveedores' },
-    { key: 'compras.recibir',     label: 'Recibir mercancía',        desc: 'Confirmar recepción y actualizar stock' },
-    { key: 'compras.editar',      label: 'Editar órdenes de compra', desc: 'Modificar una OC ya creada' },
-    { key: 'compras.pagar',       label: 'Pagar / abonar',           desc: 'Registrar pagos de una OC o abonos a un proveedor' },
-    { key: 'compras.cancelar',    label: 'Cancelar/eliminar OCs',    desc: 'Cancelar o eliminar una orden de compra' },
-    { key: 'compras.proveedores', label: 'Gestionar proveedores',    desc: 'Crear y editar fichas de proveedores' },
+    { key: 'compras.crear',       label: 'Crear órdenes de compra',  desc: 'Registrar nuevas OCs a proveedores' },
+    { key: 'compras.recibir',     label: 'Recibir mercancía',         desc: 'Confirmar recepción y actualizar stock' },
+    { key: 'compras.editar',      label: 'Editar órdenes de compra',  desc: 'Modificar una OC ya creada' },
+    { key: 'compras.pagar',       label: 'Pagar / abonar',            desc: 'Registrar pagos de una OC o abonos a un proveedor' },
+    { key: 'compras.cancelar',    label: 'Cancelar/eliminar OCs',     desc: 'Cancelar o eliminar una orden de compra' },
+    { key: 'compras.proveedores', label: 'Gestionar proveedores',     desc: 'Crear y editar fichas de proveedores' },
   ],
   usuarios: [
-    { key: 'usuarios.crear',           label: 'Invitar usuarios',        desc: 'Enviar invitaciones a nuevos usuarios del sistema' },
-    { key: 'usuarios.editar',          label: 'Editar usuarios',         desc: 'Modificar datos y rol de un usuario existente' },
-    { key: 'usuarios.editar_permisos', label: 'Editar permisos finos',   desc: 'Tocar el detalle de accesos/sub-permisos de otro usuario' },
-    { key: 'usuarios.eliminar',        label: 'Eliminar usuarios',       desc: 'Eliminar o desactivar la cuenta de un usuario' },
+    { key: 'usuarios.crear',           label: 'Invitar usuarios',      desc: 'Enviar invitaciones a nuevos usuarios del sistema' },
+    { key: 'usuarios.editar',          label: 'Editar usuarios',       desc: 'Modificar datos y rol de un usuario existente' },
+    { key: 'usuarios.editar_permisos', label: 'Editar permisos finos', desc: 'Tocar el detalle de accesos/sub-permisos de otro usuario' },
+    { key: 'usuarios.eliminar',        label: 'Eliminar usuarios',     desc: 'Eliminar o desactivar la cuenta de un usuario' },
   ],
   informes: [
-    { key: 'informes.solo_propios',     label: 'Solo mis datos',                  desc: 'El usuario solo ve su rendimiento personal, no el global' },
-    { key: 'informes.ver_ventas',       label: 'Ver pestaña Ventas',              desc: '' },
-    { key: 'informes.ver_rentabilidad', label: 'Ver pestaña Rentabilidad',        desc: '' },
-    { key: 'informes.exportar',         label: 'Exportar a Excel/PDF',            desc: 'Botones de exportación en cada informe' },
-    { key: 'informes.personalizado',    label: 'Crear reporte a medida',          desc: 'Acceso al constructor de reportes personalizados' },
+    { key: 'informes.solo_propios',     label: 'Solo mis datos',              desc: 'El usuario solo ve su rendimiento personal, no el global' },
+    { key: 'informes.ver_ventas',       label: 'Ver pestaña Ventas',          desc: '' },
+    { key: 'informes.ver_rentabilidad', label: 'Ver pestaña Rentabilidad',    desc: '' },
+    { key: 'informes.exportar',         label: 'Exportar a Excel/PDF',        desc: 'Botones de exportación en cada informe' },
+    { key: 'informes.personalizado',    label: 'Crear reporte a medida',      desc: 'Acceso al constructor de reportes personalizados' },
   ],
 }
 
-// ── Acceso a módulo por defecto según rol ────────────────────────────────────
+// ── Acceso a módulos por rol (items de menú) ──────────────────────────────────
+// Controla qué items de navegación puede ver cada rol, independientemente del plan.
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
-  administrador:     ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'usuarios', 'informes', 'contabilidad', 'servicios', 'manuales', 'configuracion', 'pedidos_b2b', 'notificaciones'],
+  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones'],
   tecnico:           ['dashboard', 'reparaciones', 'inventario', 'servicios', 'manuales', 'informes', 'notificaciones'],
-  vendedor:          ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'servicios', 'informes', 'pedidos_b2b', 'notificaciones'],
-  supervisor_ventas: ['dashboard', 'clientes', 'reparaciones', 'inventario', 'caja', 'compras', 'servicios', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones'],
+  vendedor:          ['dashboard', 'caja', 'clientes', 'reparaciones', 'inventario', 'servicios', 'informes', 'pedidos_b2b', 'notificaciones'],
+  supervisor_ventas: ['dashboard', 'caja', 'clientes', 'compras', 'inventario', 'servicios', 'reparaciones', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones'],
   comprador_externo: ['catalogo_b2b', 'pedidos_b2b'],
 }
 
@@ -167,6 +178,9 @@ export function getDefaultPermisos(rolNombre: string): Record<string, boolean> {
   return { ...modPerms, ...(SUB_DEFAULT[rolNombre] ?? {}) }
 }
 
+// ── Verificar acceso a un item de menú por rol ───────────────────────────────
+// El filtro de plan (store_modules) se aplica por separado en AppSidebar/MobileNav
+// comparando m.modulo con el Set<ModuloNegocio> activo del plan.
 export function tieneAccesoModulo(
   modulo: ModuloKey,
   rolNombre: string,
@@ -177,7 +191,6 @@ export function tieneAccesoModulo(
   return MODULOS_ROL_DEFAULT[rolNombre]?.includes(modulo) ?? false
 }
 
-// Verificar sub-permiso específico
 export function tieneSubPermiso(
   key: string,
   rolNombre: string,

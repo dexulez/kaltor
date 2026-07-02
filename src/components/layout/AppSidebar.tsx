@@ -9,7 +9,7 @@ import { UserProfile } from '@/types'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { useEffect, useRef, useState } from 'react'
-import { MODULOS, MENU_GROUPS, ModuloKey, tieneAccesoModulo } from '@/lib/modulos'
+import { MODULOS, MENU_GROUPS, ModuloKey, ModuloNegocio, tieneAccesoModulo } from '@/lib/modulos'
 import NotificacionesBell from '@/components/layout/NotificacionesBell'
 
 const ROL_LABEL: Record<string, string> = {
@@ -26,9 +26,6 @@ const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
   '/compras': 'compras',
   '/pedidos-b2b': 'pedidosB2B',
 }
-
-// Módulos que siempre se muestran sin importar el plan
-const MODULOS_CORE = new Set<string>(['dashboard', 'configuracion', 'notificaciones'])
 
 type Modulo = typeof MODULOS[number]
 
@@ -52,7 +49,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
   logoUrl?: string | null
   nombreLocal?: string
   alertas?: Alertas
-  modulosDelPlan?: Set<string> | null
+  modulosDelPlan?: Set<ModuloNegocio> | null
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -68,8 +65,9 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
 
   const visibleItems = MODULOS.filter(m => {
     if (!tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)) return false
-    // El administrador siempre ve todos los módulos que su rol permite
-    if (roleName !== 'administrador' && modulosDelPlan && !MODULOS_CORE.has(m.key) && !modulosDelPlan.has(m.key)) return false
+    // m.modulo === null → core, siempre visible
+    // administrador bypasea el filtro de plan
+    if (roleName !== 'administrador' && modulosDelPlan && m.modulo !== null && !modulosDelPlan.has(m.modulo as ModuloNegocio)) return false
     return true
   })
   const visibleKeys = new Set(visibleItems.map(m => m.key))

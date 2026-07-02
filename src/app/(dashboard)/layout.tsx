@@ -5,6 +5,7 @@ import MobileNav from '@/components/layout/MobileNav'
 import InactivityRedirect from '@/components/layout/InactivityRedirect'
 import RealtimeRefresh from '@/components/layout/RealtimeRefresh'
 import MayusculasListener from '@/components/layout/MayusculasListener'
+import type { ModuloNegocio } from '@/lib/modulos'
 
 export default async function DashboardLayout({
   children,
@@ -47,7 +48,7 @@ export default async function DashboardLayout({
 
   // Módulos activos según el plan de la tienda (service role para evitar RLS)
   const storeId = (profile as { store_id?: string } | null)?.store_id
-  let modulosDelPlan: Set<string> | null = null
+  let modulosDelPlan: Set<ModuloNegocio> | null = null
   if (storeId) {
     const admin = createServiceClient()
     const { data: storeModules } = await admin
@@ -56,7 +57,7 @@ export default async function DashboardLayout({
       .eq('store_id', storeId)
       .eq('activo', true)
     if (storeModules && storeModules.length > 0) {
-      modulosDelPlan = new Set(storeModules.map((m: { module_key: string }) => m.module_key))
+      modulosDelPlan = new Set(storeModules.map((m: { module_key: string }) => m.module_key as ModuloNegocio))
     }
   }
 

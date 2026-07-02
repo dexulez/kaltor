@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { MODULOS, MENU_GROUPS, ModuloKey, tieneAccesoModulo } from '@/lib/modulos'
+import { MODULOS, MENU_GROUPS, ModuloKey, ModuloNegocio, tieneAccesoModulo } from '@/lib/modulos'
 import { UserProfile } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -37,8 +37,6 @@ const SHORT_LABEL: Record<string, string> = {
 // Módulos que siempre van en la barra inferior (los más usados)
 const BARRA_KEYS = ['dashboard', 'reparaciones', 'caja', 'inventario']
 
-// Módulos core que siempre se muestran sin importar el plan
-const MODULOS_CORE = new Set<string>(['dashboard', 'configuracion', 'notificaciones'])
 
 const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
   '/compras': 'compras',
@@ -47,7 +45,7 @@ const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
 
 interface Alertas { compras: number; pedidosB2B: number }
 
-export default function MobileNav({ user, alertas, modulosDelPlan }: { user: UserProfile | null; alertas?: Alertas; modulosDelPlan?: Set<string> | null }) {
+export default function MobileNav({ user, alertas, modulosDelPlan }: { user: UserProfile | null; alertas?: Alertas; modulosDelPlan?: Set<ModuloNegocio> | null }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -63,7 +61,7 @@ export default function MobileNav({ user, alertas, modulosDelPlan }: { user: Use
 
   const visibles = MODULOS.filter(m => {
     if (!tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)) return false
-    if (roleName !== 'administrador' && modulosDelPlan && !MODULOS_CORE.has(m.key) && !modulosDelPlan.has(m.key)) return false
+    if (roleName !== 'administrador' && modulosDelPlan && m.modulo !== null && !modulosDelPlan.has(m.modulo as ModuloNegocio)) return false
     return true
   })
 
