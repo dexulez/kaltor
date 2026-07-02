@@ -466,60 +466,64 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        padding: '22px 24px', borderRadius: 16,
+        padding: '24px', borderRadius: 16,
         border: `2px solid ${plan.destacado ? C.signal : hov ? C.signal : C.line}`,
         backgroundColor: plan.destacado ? '#FFF7F2' : '#fff',
         transition: 'border-color 0.25s, transform 0.25s',
         transform: hov ? 'translateY(-3px)' : 'none',
         width: full ? '100%' : undefined,
         boxSizing: 'border-box',
+        display: 'flex', flexDirection: 'column',
       }}
     >
-      {plan.destacado && (
-        <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.signal, marginBottom: 8 }}>⬥ Más elegido</p>
-      )}
-      {plan.addon && (
-        <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.mod, marginBottom: 8 }}>⬥ {plan.addon}</p>
+      {/* Badges */}
+      {(plan.destacado || plan.addon) && (
+        <div style={{ marginBottom: 8 }}>
+          {plan.destacado && <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.signal, margin: 0 }}>⬥ Más elegido</p>}
+          {plan.addon    && <p style={{ fontFamily: FM, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.mod,    margin: 0 }}>⬥ {plan.addon}</p>}
+        </div>
       )}
 
-      <h3 style={{ fontFamily: FD, fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 4 }}>{plan.nombre}</h3>
-      <p style={{ fontSize: 12, color: C.ink, opacity: 0.5, marginBottom: 16 }}>{plan.usuarios}</p>
+      {/* Título centrado */}
+      <h3 style={{ fontFamily: FD, fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 4, textAlign: 'center' }}>{plan.nombre}</h3>
+      <p style={{ fontSize: 12, color: C.ink, opacity: 0.5, marginBottom: 16, textAlign: 'center' }}>{plan.usuarios}</p>
 
-      <p style={{ marginBottom: 20 }}>
-        <span style={{ fontFamily: FM, fontSize: 28, fontWeight: 700, color: C.ink }}>{clp(precio)}</span>
+      {/* Precio */}
+      <p style={{ marginBottom: 24, textAlign: 'center' }}>
+        <span style={{ fontFamily: FM, fontSize: 26, fontWeight: 700, color: C.ink }}>{clp(precio)}</span>
         <span style={{ fontSize: 12, color: C.ink, opacity: 0.45, marginLeft: 4 }}>{sufijo}</span>
       </p>
 
-      {/* Lista vertical de módulos */}
-      <div style={{ marginBottom: 20 }}>
+      {/* Módulos en 2 columnas — ocupa el espacio disponible */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 10px', marginBottom: 24, alignContent: 'start' }}>
         {MODULOS.map(m => {
           const included = plan.modulos.includes(m.key)
           const Icon = HERO_ICONS[m.key]
           return (
             <div key={m.key} style={{
-              display: 'flex', alignItems: 'flex-start', gap: 10,
-              padding: '7px 0',
-              borderBottom: `1px solid ${C.line}22`,
-              opacity: included ? 1 : 0.3,
+              display: 'flex', alignItems: 'flex-start', gap: 5,
+              padding: '5px 0',
+              borderBottom: `1px solid ${C.line}1A`,
+              opacity: included ? 1 : 0.28,
             }}>
-              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
-                <span style={{ color: included ? C.mod : C.line, fontWeight: 700, fontSize: 13, width: 14, textAlign: 'center' }}>
+              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, paddingTop: 1 }}>
+                <span style={{ color: included ? C.mod : C.line, fontWeight: 700, fontSize: 11, width: 11 }}>
                   {included ? '✓' : '—'}
                 </span>
                 {included && Icon && (
                   <span style={{
-                    width: 22, height: 22, borderRadius: '50%',
+                    width: 18, height: 18, borderRadius: '50%',
                     backgroundColor: C.signal,
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   }}>
-                    <Icon size={11} color="#fff" strokeWidth={2} />
+                    <Icon size={9} color="#fff" strokeWidth={2.2} />
                   </span>
                 )}
               </div>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: included ? 600 : 400, color: C.ink, margin: 0, lineHeight: 1.3 }}>{m.label}</p>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: included ? 600 : 400, color: C.ink, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.label}</p>
                 {included && (
-                  <p style={{ fontSize: 11, color: C.ink, opacity: 0.5, margin: '2px 0 0', lineHeight: 1.4 }}>{m.desc}</p>
+                  <p style={{ fontSize: 10, color: C.ink, opacity: 0.45, margin: '1px 0 0', lineHeight: 1.35 }}>{m.desc}</p>
                 )}
               </div>
             </div>
@@ -527,8 +531,9 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
         })}
       </div>
 
+      {/* Botón siempre al final */}
       <a href="https://app.kaltorpos.com/registro" style={{
-        display: 'block', textAlign: 'center', padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 600,
+        display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8, fontSize: 13, fontWeight: 600,
         textDecoration: 'none', transition: 'all 0.2s',
         backgroundColor: plan.destacado ? C.signal : 'transparent',
         color: plan.destacado ? '#fff' : C.ink,
