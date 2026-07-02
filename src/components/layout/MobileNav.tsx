@@ -37,6 +37,9 @@ const SHORT_LABEL: Record<string, string> = {
 // Módulos que siempre van en la barra inferior (los más usados)
 const BARRA_KEYS = ['dashboard', 'reparaciones', 'caja', 'inventario']
 
+// Módulos core que siempre se muestran sin importar el plan
+const MODULOS_CORE = new Set<string>(['dashboard', 'configuracion', 'notificaciones'])
+
 const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
   '/compras': 'compras',
   '/pedidos-b2b': 'pedidosB2B',
@@ -44,7 +47,7 @@ const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
 
 interface Alertas { compras: number; pedidosB2B: number }
 
-export default function MobileNav({ user, alertas }: { user: UserProfile | null; alertas?: Alertas }) {
+export default function MobileNav({ user, alertas, modulosDelPlan }: { user: UserProfile | null; alertas?: Alertas; modulosDelPlan?: Set<string> | null }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -58,9 +61,11 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
     router.refresh()
   }
 
-  const visibles = MODULOS.filter(m =>
-    tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)
-  )
+  const visibles = MODULOS.filter(m => {
+    if (!tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)) return false
+    if (modulosDelPlan && !MODULOS_CORE.has(m.key) && !modulosDelPlan.has(m.key)) return false
+    return true
+  })
 
   // Barra inferior: módulos prioritarios que el usuario puede ver
   const barraItems = visibles.filter(m => BARRA_KEYS.includes(m.key))
@@ -235,7 +240,7 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
       )}
 
       {/* ── Barra inferior ─────────────────────────────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-blue-900 border-t border-blue-800">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-1px_4px_rgba(0,0,0,0.06)]">
         <div className="flex items-stretch h-16">
           {barraItems.map(item => {
             const isActive = pathname === item.href ||
@@ -246,7 +251,7 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
                 href={item.href}
                 className={cn(
                   'flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors',
-                  isActive ? 'text-white bg-blue-700' : 'text-blue-300 hover:text-white'
+                  isActive ? 'text-[#FF7A1A]' : 'text-gray-400 hover:text-gray-700'
                 )}
               >
                 <span className="text-xl leading-none">{item.icon}</span>
@@ -263,10 +268,9 @@ export default function MobileNav({ user, alertas }: { user: UserProfile | null;
               onClick={() => setDrawerOpen(v => !v)}
               className={cn(
                 'flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors',
-                (drawerOpen || drawerActivo) ? 'text-white bg-blue-700' : 'text-blue-300 hover:text-white'
+                (drawerOpen || drawerActivo) ? 'text-[#FF7A1A]' : 'text-gray-400 hover:text-gray-700'
               )}
             >
-              {/* 3 puntos animados cuando hay módulo activo en el drawer */}
               <span className="text-xl leading-none relative">
                 •••
                 {drawerActivo && (

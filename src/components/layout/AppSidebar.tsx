@@ -27,6 +27,9 @@ const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
   '/pedidos-b2b': 'pedidosB2B',
 }
 
+// Módulos que siempre se muestran sin importar el plan
+const MODULOS_CORE = new Set<string>(['dashboard', 'configuracion', 'notificaciones'])
+
 type Modulo = typeof MODULOS[number]
 
 function esActivo(pathname: string, href: string) {
@@ -44,11 +47,12 @@ function grupoQueContiene(pathname: string): string | null {
   return null
 }
 
-export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
+export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulosDelPlan }: {
   user: UserProfile | null
   logoUrl?: string | null
   nombreLocal?: string
   alertas?: Alertas
+  modulosDelPlan?: Set<string> | null
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -62,20 +66,20 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
   const [flyout, setFlyout] = useState<string | null>(null)
   const roleName = user?.roles?.nombre ?? ''
 
-  const visibleItems = MODULOS.filter(m =>
-    tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)
-  )
+  const visibleItems = MODULOS.filter(m => {
+    if (!tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)) return false
+    if (modulosDelPlan && !MODULOS_CORE.has(m.key) && !modulosDelPlan.has(m.key)) return false
+    return true
+  })
   const visibleKeys = new Set(visibleItems.map(m => m.key))
   const dashboardItem = visibleItems.find(m => m.key === 'dashboard')
 
-  // Al cambiar de ruta, asegurar que el grupo correspondiente quede abierto
   useEffect(() => {
     const activo = grupoQueContiene(pathname)
     if (activo) setGruposAbiertos(prev => prev[activo] ? prev : { ...prev, [activo]: true })
     setFlyout(null)
   }, [pathname])
 
-  // Cerrar el flyout (modo colapsado) al hacer click fuera del sidebar
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (navRef.current && !navRef.current.contains(e.target as Node)) setFlyout(null)
@@ -113,7 +117,9 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         onClick={() => setFlyout(null)}
         className={cn(
           'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative',
-          isActive ? 'bg-[#FF7A1A]/20 text-[#FF7A1A]' : 'text-[#9BB5C8] hover:bg-[#171D24] hover:text-white'
+          isActive
+            ? 'bg-[#FF7A1A]/10 text-[#FF7A1A]'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
         )}
       >
         <span className="text-base shrink-0">{item.icon}</span>
@@ -129,12 +135,12 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
 
   return (
     <aside className={cn(
-      'hidden md:flex flex-col bg-[#0F1318] text-white transition-all duration-300 shrink-0',
+      'hidden md:flex flex-col bg-white border-r border-gray-200 transition-all duration-300 shrink-0',
       collapsed ? 'w-16' : 'w-72'
     )}>
       {/* Logo */}
       <div className={cn(
-        'flex items-center border-b border-[#2A3340]',
+        'flex items-center border-b border-gray-200',
         collapsed ? 'flex-col gap-2 px-1 py-3' : 'gap-3 px-4 py-4'
       )}>
         {logoUrl ? (
@@ -146,14 +152,14 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
         )}
         {!collapsed && (
           <div className="overflow-hidden flex-1 min-w-0">
-            <p className="font-bold text-sm leading-tight truncate">{nombreLocal ?? 'Kaltor'}</p>
-            <p className="text-[#7B9BAA] text-xs truncate">Gestión de taller</p>
+            <p className="font-bold text-sm leading-tight truncate text-gray-900">{nombreLocal ?? 'Kaltor'}</p>
+            <p className="text-gray-400 text-xs truncate">Gestión de taller</p>
           </div>
         )}
         <Button
           variant="ghost"
           size="sm"
-          className={cn('text-[#7B9BAA] hover:text-white hover:bg-[#171D24] p-1 h-7 w-7 shrink-0', !collapsed && 'ml-auto')}
+          className={cn('text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1 h-7 w-7 shrink-0', !collapsed && 'ml-auto')}
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? '→' : '←'}
@@ -171,7 +177,6 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
               .map(k => visibleItems.find(m => m.key === k)!)
             if (itemsDelGrupo.length === 0) return null
 
-            // Grupos "standalone" con un solo módulo visible: enlace directo, sin header colapsable
             if (grupo.standalone && itemsDelGrupo.length === 1) {
               return <li key={grupo.key}>{renderLink(itemsDelGrupo[0])}</li>
             }
@@ -192,7 +197,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
                   }}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                    grupoActivo ? 'text-white bg-[#171D24]' : 'text-[#9BB5C8] hover:bg-[#171D24] hover:text-white'
+                    grupoActivo ? 'text-gray-900 bg-gray-100' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   )}
                 >
                   <span className="text-lg shrink-0 relative">
@@ -211,21 +216,21 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
                     </span>
                   )}
                   {!collapsed && (
-                    <span className={cn('text-xs text-[#5A7B90] transition-transform shrink-0', abierto && 'rotate-90')}>▸</span>
+                    <span className={cn('text-xs text-gray-400 transition-transform shrink-0', abierto && 'rotate-90')}>▸</span>
                   )}
                 </button>
 
                 {/* Expandido en línea (sidebar ancho) */}
                 {!collapsed && abierto && (
-                  <ul className="mt-1 ml-4 pl-3 border-l border-[#2A3340] space-y-0.5">
+                  <ul className="mt-1 ml-4 pl-3 border-l border-gray-200 space-y-0.5">
                     {itemsDelGrupo.map(item => <li key={item.href}>{renderLink(item)}</li>)}
                   </ul>
                 )}
 
                 {/* Flyout (sidebar colapsado) */}
                 {collapsed && flyout === grupo.key && (
-                  <div className="absolute left-full top-0 ml-1 z-[100] bg-[#0F1318] border border-[#2A3340] rounded-xl shadow-2xl py-2 w-56">
-                    <p className="px-3 pb-1.5 text-xs font-semibold text-[#5A7B90] uppercase tracking-wide">{grupo.label}</p>
+                  <div className="absolute left-full top-0 ml-1 z-[100] bg-white border border-gray-200 rounded-xl shadow-2xl py-2 w-56">
+                    <p className="px-3 pb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{grupo.label}</p>
                     <ul className="space-y-0.5 px-1">
                       {itemsDelGrupo.map(item => <li key={item.href}>{renderLink(item)}</li>)}
                     </ul>
@@ -245,7 +250,7 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
       )}
 
       {/* User info */}
-      <div className="border-t border-[#2A3340] p-3">
+      <div className="border-t border-gray-200 p-3">
         <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
           <Avatar className="h-8 w-8 shrink-0">
             <AvatarFallback className="bg-[#FF7A1A] text-white text-xs font-bold">
@@ -254,22 +259,22 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas }: {
           </Avatar>
           {!collapsed && (
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.nombre_completo ?? 'Usuario'}</p>
-              <p className="text-xs text-[#7B9BAA] truncate">{ROL_LABEL[roleName] ?? roleName}</p>
+              <p className="text-sm font-medium truncate text-gray-900">{user?.nombre_completo ?? 'Usuario'}</p>
+              <p className="text-xs text-gray-400 truncate">{ROL_LABEL[roleName] ?? roleName}</p>
             </div>
           )}
         </div>
         {!collapsed && (
           <div className="flex gap-1 mt-2">
             <Link href="/perfil" className="flex-1">
-              <Button variant="ghost" size="sm" className="w-full text-[#7B9BAA] hover:text-white hover:bg-[#171D24] text-xs">
+              <Button variant="ghost" size="sm" className="w-full text-gray-500 hover:text-gray-800 hover:bg-gray-100 text-xs">
                 👤 Perfil
               </Button>
             </Link>
             <Button
               variant="ghost"
               size="sm"
-              className="flex-1 text-[#7B9BAA] hover:text-white hover:bg-[#171D24] text-xs"
+              className="flex-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 text-xs"
               onClick={handleLogout}
             >
               Salir

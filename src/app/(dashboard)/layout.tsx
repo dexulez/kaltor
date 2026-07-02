@@ -45,16 +45,30 @@ export default async function DashboardLayout({
   const mayusculasActivas = (config as { mayusculas_automaticas?: boolean } | null)?.mayusculas_automaticas === true
   const alertas = { compras: solicitudesPendientes ?? 0, pedidosB2B: pedidosB2BPendientes ?? 0 }
 
+  // Módulos activos según el plan de la tienda
+  const storeId = (profile as { store_id?: string } | null)?.store_id
+  let modulosDelPlan: Set<string> | null = null
+  if (storeId) {
+    const { data: storeModules } = await supabase
+      .from('store_modules')
+      .select('module_key')
+      .eq('store_id', storeId)
+      .eq('activo', true)
+    if (storeModules && storeModules.length > 0) {
+      modulosDelPlan = new Set(storeModules.map((m: { module_key: string }) => m.module_key))
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <InactivityRedirect />
       <RealtimeRefresh />
       <MayusculasListener activo={mayusculasActivas} />
-      <AppSidebar user={profile} logoUrl={logoUrl} nombreLocal={nombreLocal} alertas={alertas} />
+      <AppSidebar user={profile} logoUrl={logoUrl} nombreLocal={nombreLocal} alertas={alertas} modulosDelPlan={modulosDelPlan} />
       <main className="flex-1 overflow-auto pb-16 md:pb-0">
         {children}
       </main>
-      <MobileNav user={profile} alertas={alertas} />
+      <MobileNav user={profile} alertas={alertas} modulosDelPlan={modulosDelPlan} />
     </div>
   )
 }
