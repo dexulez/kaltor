@@ -50,7 +50,7 @@ export default function MobileNav({ user, alertas, modulosDelPlan }: { user: Use
   const router = useRouter()
   const supabase = createClient()
   const rolesRaw = user?.roles as unknown as { nombre?: string } | { nombre?: string }[] | null
-  const roleName = (Array.isArray(rolesRaw) ? rolesRaw[0]?.nombre : rolesRaw?.nombre) ?? ''
+  const roleName = ((Array.isArray(rolesRaw) ? rolesRaw[0]?.nombre : rolesRaw?.nombre) ?? '').toLowerCase()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   async function handleLogout() {

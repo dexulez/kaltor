@@ -19,7 +19,7 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase.from('user_profiles').select('*, roles(*)').eq('id', user.id).single()
   const rolesRel = (profile as { roles?: { nombre?: string } | { nombre?: string }[] | null } | null)?.roles
-  const roleName = (Array.isArray(rolesRel) ? rolesRel[0]?.nombre : rolesRel?.nombre) ?? ''
+  const roleName = ((Array.isArray(rolesRel) ? rolesRel[0]?.nombre : rolesRel?.nombre) ?? '').toLowerCase()
   const esComprador = roleName === 'comprador_externo'
   const pedidosB2BVistoAt = (profile as { pedidos_b2b_visto_at?: string | null } | null)?.pedidos_b2b_visto_at ?? null
 
