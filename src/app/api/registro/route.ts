@@ -88,7 +88,10 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Crear perfil del administrador
-  const { error: profileErr } = await admin.from('user_profiles').insert({
+  // Usamos upsert porque el trigger handle_new_user ya inserta una fila parcial
+  // en user_profiles cuando se crea el usuario en Auth. El upsert la sobreescribe
+  // con todos los datos correctos (store_id, rol, comisiones, etc.)
+  const { error: profileErr } = await admin.from('user_profiles').upsert({
     id:                    userId,
     nombre_completo:       nombre_usuario.trim(),
     email:                 email.toLowerCase().trim(),
@@ -103,7 +106,7 @@ export async function POST(req: NextRequest) {
     comision_camara:       0,
     comision_conector:     0,
     comision_otro:         0,
-  })
+  }, { onConflict: 'id' })
 
   if (profileErr) {
     await admin.from('stores').delete().eq('id', store.id)
