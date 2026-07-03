@@ -426,7 +426,7 @@ function Planes() {
 
         {/* Familia básico */}
         <FamiliaLabel label="Familia básico" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginBottom: 40 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 460px))', gap: 14, marginBottom: 40, justifyContent: 'center' }}>
           {basic.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} />)}
         </div>
 
@@ -438,7 +438,7 @@ function Planes() {
 
         {/* Multi-tienda */}
         <FamiliaLabel label="Multi-sucursal" />
-        <div>
+        <div style={{ maxWidth: '50%', margin: '0 auto' }}>
           {multi.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} full />)}
         </div>
 
