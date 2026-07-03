@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import StoreActions from './_components/StoreActions'
+import StoreModuleToggles from './_components/StoreModuleToggles'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
     { data: storeBase, error: storeErr },
     { data: users },
     { data: plans },
+    { data: storeMods },
   ] = await Promise.all([
     admin.from('stores')
       .select('id, nombre, email, activo, created_at, trial_hasta, plan_id, billing_status, flow_customer_id, flow_subscription_id, ultimo_pago_at, proximo_cobro_at')
@@ -35,6 +37,9 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
     admin.from('plans')
       .select('id, nombre, slug, precio_mes')
       .order('precio_mes', { ascending: true }),
+    admin.from('store_modules')
+      .select('module_key, activo')
+      .eq('store_id', id),
   ])
 
   if (storeErr || !storeBase) notFound()
@@ -59,6 +64,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
   const billingStatus: string = s.billing_status ?? 'trial'
   const trialHasta: string | null = s.trial_hasta ?? null
   const plan = s.plans ?? null
+
+  const activeModules = (storeMods ?? [])
+    .filter((m: { module_key: string; activo: boolean }) => m.activo)
+    .map((m: { module_key: string; activo: boolean }) => m.module_key)
 
   const effectiveStatus = billingStatus === 'trial' && trialHasta && new Date(trialHasta) <= new Date()
     ? 'vencido'
@@ -210,49 +219,14 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
             </div>
           )}
 
-          {/* Módulos activos */}
-          <StoreModules storeId={id} admin={admin} />
+          {/* Módulos — interruptores activables/desactivables */}
+          <StoreModuleToggles storeId={id} activeModules={activeModules} />
         </div>
       </div>
     </div>
   )
 }
 
-async function StoreModules({
-  storeId,
-  admin,
-}: {
-  storeId: string
-  admin: ReturnType<typeof createServiceClient>
-}) {
-  const { data: mods } = await admin
-    .from('store_modules')
-    .select('module_key, activo')
-    .eq('store_id', storeId)
-    .eq('activo', true)
-    .order('module_key')
-
-  if (!mods || mods.length === 0) return null
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-      <h2 className="font-semibold text-gray-800 mb-3">
-        Módulos activos
-        <span className="ml-2 text-sm font-normal text-gray-400">({mods.length})</span>
-      </h2>
-      <div className="flex flex-wrap gap-1.5">
-        {mods.map(m => (
-          <span
-            key={m.module_key}
-            className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full font-medium"
-          >
-            {m.module_key}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 function Field({ label, value }: { label: string; value: string }) {
   return (

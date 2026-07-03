@@ -99,6 +99,18 @@ export async function PATCH(
         break
       }
 
+      case 'toggle_module': {
+        const { module_key, activo } = body
+        if (!module_key || typeof activo !== 'boolean') {
+          return NextResponse.json({ error: 'module_key y activo requeridos' }, { status: 400 })
+        }
+        const { error } = await admin
+          .from('store_modules')
+          .upsert({ store_id: storeId, module_key, activo }, { onConflict: 'store_id,module_key' })
+        if (error) throw error
+        break
+      }
+
       default:
         return NextResponse.json({ error: `Acción desconocida: ${action}` }, { status: 400 })
     }
