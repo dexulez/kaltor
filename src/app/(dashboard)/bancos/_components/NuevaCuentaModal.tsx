@@ -31,6 +31,7 @@ export default function NuevaCuentaModal({ storeId }: { storeId: string }) {
     const { error } = await supabase.from('cuentas_bancarias').insert({
       store_id:      storeId,
       nombre:        form.nombre.trim(),
+      titular:       form.nombre.trim(),
       banco:         form.banco,
       tipo_cuenta:   form.tipo_cuenta,
       numero:        form.numero.trim() || null,
