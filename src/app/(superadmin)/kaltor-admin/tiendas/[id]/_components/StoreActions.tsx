@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-type Plan = { id: string; nombre: string; precio_mes: number }
+type Plan = { id: string; nombre: string; precio_mensual: number }
 
 const BILLING_OPTS = [
   { value: 'trial',     label: 'En trial' },
@@ -91,7 +91,7 @@ export default function StoreActions({
             <option value="">Selecciona plan...</option>
             {plans.map(p => (
               <option key={p.id} value={p.id}>
-                {p.nombre} — ${p.precio_mes.toLocaleString('es-CL')}/mes
+                {p.nombre} — ${p.precio_mensual.toLocaleString('es-CL')}/mes
               </option>
             ))}
           </select>

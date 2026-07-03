@@ -35,8 +35,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
       .eq('store_id', id)
       .order('created_at', { ascending: true }),
     admin.from('plans')
-      .select('id, nombre, slug, precio_mes')
-      .order('precio_mes', { ascending: true }),
+      .select('id, nombre, slug, precio_mensual')
+      .order('precio_mensual', { ascending: true }),
     admin.from('store_modules')
       .select('module_key, activo')
       .eq('store_id', id),
@@ -111,7 +111,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
               <Field label="Plan actual" value={plan?.nombre ?? '—'} />
               <Field
                 label="Precio del plan"
-                value={plan?.precio_mes ? `$${plan.precio_mes.toLocaleString('es-CL')}/mes + IVA` : '—'}
+                value={plan?.precio_mensual ? `$${plan.precio_mensual.toLocaleString('es-CL')}/mes + IVA` : '—'}
               />
               <Field
                 label="Trial hasta"
@@ -185,7 +185,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
             currentPlanId={s.plan_id ?? null}
             billingStatus={billingStatus}
             activo={s.activo}
-            plans={(plans ?? []) as { id: string; nombre: string; precio_mes: number }[]}
+            plans={(plans ?? []) as { id: string; nombre: string; precio_mensual: number }[]}
           />
 
           {/* Eventos de pago */}

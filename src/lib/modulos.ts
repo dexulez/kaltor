@@ -21,6 +21,7 @@ export const MODULOS = [
   { key: 'reparaciones',  label: 'Reparaciones',         icon: '🔧', href: '/reparaciones',  modulo: 'taller'         },
   { key: 'informes',      label: 'Informes',             icon: '📈', href: '/informes',      modulo: 'informes'       },
   { key: 'contabilidad',  label: 'Contabilidad',         icon: '🧾', href: '/contabilidad',  modulo: 'contabilidad'   },
+  { key: 'bancos',        label: 'Bancos',               icon: '🏦', href: '/bancos',         modulo: 'contabilidad'   },
   { key: 'catalogo_b2b',  label: 'Catálogo B2B',         icon: '🛍️', href: '/catalogo-b2b',  modulo: 'canal_b2b'      },
   { key: 'pedidos_b2b',   label: 'Pedidos B2B',          icon: '📥', href: '/pedidos-b2b',   modulo: 'canal_b2b'      },
   { key: 'manuales',      label: 'Manuales',             icon: '🧠', href: '/manuales',      modulo: null             },
@@ -50,7 +51,7 @@ export const MENU_GROUPS: MenuGroup[] = [
   { key: 'taller',       label: 'Taller',        icon: '🔧', modulos: ['reparaciones', 'servicios'] },
   { key: 'canal_b2b',    label: 'Canal B2B',     icon: '🛍️', modulos: ['catalogo_b2b', 'pedidos_b2b'] },
   { key: 'informes',     label: 'Informes',      icon: '📈', modulos: ['informes'], standalone: true },
-  { key: 'contabilidad', label: 'Contabilidad',  icon: '🧾', modulos: ['contabilidad'], standalone: true },
+  { key: 'contabilidad', label: 'Contabilidad',  icon: '🧾', modulos: ['contabilidad', 'bancos'] },
   { key: 'configuracion',label: 'Configuración', icon: '⚙️', modulos: ['configuracion', 'usuarios', 'manuales', 'notificaciones'] },
 ]
 
@@ -114,7 +115,7 @@ export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: strin
 // ── Acceso a módulos por rol (items de menú) ──────────────────────────────────
 // Controla qué items de navegación puede ver cada rol, independientemente del plan.
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
-  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones'],
+  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'bancos', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones'],
   tecnico:           ['dashboard', 'reparaciones', 'inventario', 'servicios', 'manuales', 'informes', 'notificaciones'],
   vendedor:          ['dashboard', 'caja', 'clientes', 'reparaciones', 'inventario', 'servicios', 'informes', 'pedidos_b2b', 'notificaciones'],
   supervisor_ventas: ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones'],

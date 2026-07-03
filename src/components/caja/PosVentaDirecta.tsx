@@ -28,6 +28,20 @@ interface ItemServicioOT {
   precio: number
 }
 
+interface OTDetalle {
+  id: string
+  numero_ot: string
+  estado: string
+  created_at: string
+  falla_reportada: string | null
+  diagnostico: string | null
+  notas: string | null
+  precio_servicio: number | null
+  presupuesto_estimado: number | null
+  customers: { nombre: string; telefono: string | null; rut: string | null } | null
+  equipment: { tipo_equipo: string | null; marca: string; modelo: string; numero_serie: string | null; imei: string | null } | null
+}
+
 interface OTListaItem {
   id: string
   numero_ot: string
@@ -104,6 +118,8 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
   const [venderSinStock, setVenderSinStock] = useState(false)
   const [productosExtra2, setProductosExtra2] = useState<Product[]>([]) // sin stock cargados
   // Descuento
+  const [otDetalle, setOtDetalle] = useState<OTDetalle | null>(null)
+  const [otDetalleLoading, setOtDetalleLoading] = useState(false)
   const [descuentoInput, setDescuentoInput] = useState('')
   const [tipoDescuento, setTipoDescuento] = useState<'monto' | 'pct'>('monto')
   // Cobro mixto
@@ -274,6 +290,18 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
   })()
 
   function quitarOT(id: string) { setServiciosOT(s => s.filter(ot => ot.id !== id)) }
+
+  async function abrirDetalleOT(otId: string) {
+    setOtDetalle(null)
+    setOtDetalleLoading(true)
+    const { data } = await supabase
+      .from('repair_orders')
+      .select('id, numero_ot, estado, created_at, falla_reportada, diagnostico, notas, precio_servicio, presupuesto_estimado, customers(nombre, telefono, rut), equipment(tipo_equipo, marca, modelo, numero_serie, imei)')
+      .eq('id', otId)
+      .single()
+    setOtDetalleLoading(false)
+    if (data) setOtDetalle(data as unknown as OTDetalle)
+  }
 
   async function handleQRScan(value: string) {
     setShowScanner(false)
@@ -723,6 +751,110 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
       </div>
     )}
 
+    {/* ── Popup detalle OT ────────────────────────────────────────── */}
+    {(otDetalle || otDetalleLoading) && (
+      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setOtDetalle(null)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white">
+            <div>
+              <p className="font-bold text-gray-900 text-lg">
+                {otDetalleLoading ? 'Cargando...' : otDetalle?.numero_ot}
+              </p>
+              {otDetalle && (
+                <span className="text-xs font-semibold bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                  {otDetalle.estado.replace(/_/g, ' ')}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setOtDetalle(null)}
+              className="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-lg"
+            >
+              ✕
+            </button>
+          </div>
+
+          {otDetalleLoading ? (
+            <div className="py-12 text-center text-gray-400 text-sm">Cargando datos de la OT...</div>
+          ) : otDetalle ? (
+            <div className="p-5 space-y-4">
+              {/* Fecha */}
+              <p className="text-xs text-gray-400">
+                Creada el {new Date(otDetalle.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+
+              {/* Cliente */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Cliente</p>
+                <p className="font-semibold text-gray-900">{otDetalle.customers?.nombre ?? '—'}</p>
+                {otDetalle.customers?.telefono && (
+                  <p className="text-sm text-gray-600 mt-0.5">📞 {otDetalle.customers.telefono}</p>
+                )}
+                {otDetalle.customers?.rut && (
+                  <p className="text-sm text-gray-500 mt-0.5">RUT: {otDetalle.customers.rut}</p>
+                )}
+              </div>
+
+              {/* Equipo */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Equipo</p>
+                <p className="font-semibold text-gray-900">
+                  {[labelTipoEquipo(otDetalle.equipment?.tipo_equipo), otDetalle.equipment?.marca, otDetalle.equipment?.modelo]
+                    .filter(Boolean).join(' ')}
+                </p>
+                {otDetalle.equipment?.numero_serie && (
+                  <p className="text-xs text-gray-500 mt-1 font-mono">S/N: {otDetalle.equipment.numero_serie}</p>
+                )}
+                {otDetalle.equipment?.imei && (
+                  <p className="text-xs text-gray-500 mt-0.5 font-mono">IMEI: {otDetalle.equipment.imei}</p>
+                )}
+              </div>
+
+              {/* Falla reportada */}
+              {otDetalle.falla_reportada && (
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problema reportado</p>
+                  <p className="text-sm text-gray-700 bg-red-50 rounded-xl p-3">{otDetalle.falla_reportada}</p>
+                </div>
+              )}
+
+              {/* Diagnóstico */}
+              {otDetalle.diagnostico && (
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Diagnóstico técnico</p>
+                  <p className="text-sm text-gray-700 bg-blue-50 rounded-xl p-3">{otDetalle.diagnostico}</p>
+                </div>
+              )}
+
+              {/* Notas */}
+              {otDetalle.notas && (
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Notas adicionales</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{otDetalle.notas}</p>
+                </div>
+              )}
+
+              {/* Precio */}
+              <div className="border-t border-gray-100 pt-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400">Presupuesto estimado</p>
+                  <p className="font-semibold text-gray-700">
+                    {otDetalle.presupuesto_estimado ? `$${otDetalle.presupuesto_estimado.toLocaleString('es-CL')}` : '—'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-400">Precio acordado</p>
+                  <p className="font-bold text-lg text-orange-700">
+                    {otDetalle.precio_servicio ? `$${otDetalle.precio_servicio.toLocaleString('es-CL')}` : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    )}
+
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Buscador de productos */}
       <div className="lg:col-span-3 space-y-3">
@@ -860,8 +992,16 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
                 {serviciosOT.map(ot => (
                   <tr key={ot.id}>
                     <td className="px-4 py-3">
-                      <p className="font-mono font-semibold text-gray-900">{ot.numero_ot}</p>
-                      <p className="text-xs text-gray-500">{ot.cliente_nombre} · {ot.equipo}</p>
+                      <button
+                        type="button"
+                        onClick={() => abrirDetalleOT(ot.id)}
+                        className="text-left hover:underline group"
+                      >
+                        <p className="font-mono font-semibold text-gray-900 group-hover:text-orange-700 transition-colors">
+                          {ot.numero_ot} <span className="text-gray-300 text-xs">▶</span>
+                        </p>
+                        <p className="text-xs text-gray-500">{ot.cliente_nombre} · {ot.equipo}</p>
+                      </button>
                     </td>
                     <td className="px-3 py-2">
                       <input
