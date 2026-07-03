@@ -495,22 +495,18 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
         <span style={{ fontSize: 14, color: C.ink, opacity: 0.45, marginLeft: 4 }}>{sufijo}</span>
       </p>
 
-      {/* Módulos en 2 columnas — sin descripción, solo nombre */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 10px', marginBottom: 24, alignContent: 'start' }}>
-        {MODULOS.map(m => {
-          const included = plan.modulos.includes(m.key)
+      {/* Módulos en 2 columnas — solo los incluidos en el plan */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', marginBottom: 24, alignContent: 'start' }}>
+        {MODULOS.filter(m => plan.modulos.includes(m.key)).map(m => {
           const Icon = HERO_ICONS[m.key]
           return (
             <div key={m.key} style={{
-              display: 'flex', alignItems: 'center', gap: 5,
+              display: 'flex', alignItems: 'center', gap: 6,
               padding: '6px 0',
               borderBottom: `1px solid ${C.line}1A`,
-              opacity: included ? 1 : 0.28,
             }}>
-              <span style={{ color: included ? C.mod : C.line, fontWeight: 700, fontSize: 13, width: 13, flexShrink: 0 }}>
-                {included ? '✓' : '—'}
-              </span>
-              {included && Icon && (
+              <span style={{ color: C.mod, fontWeight: 700, fontSize: 13, width: 13, flexShrink: 0 }}>✓</span>
+              {Icon && (
                 <span style={{
                   width: 18, height: 18, borderRadius: '50%',
                   backgroundColor: C.signal,
@@ -519,7 +515,7 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
                   <Icon size={9} color="#fff" strokeWidth={2.2} />
                 </span>
               )}
-              <p style={{ fontSize: 13, fontWeight: included ? 600 : 400, color: C.ink, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.label}</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: C.ink, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.label}</p>
             </div>
           )
         })}
