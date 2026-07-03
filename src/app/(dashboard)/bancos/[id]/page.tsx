@@ -30,7 +30,7 @@ export default async function CuentaBancariaPage({
 
   const { data: cuenta, error } = await supabase
     .from('cuentas_bancarias')
-    .select('id, nombre, banco, tipo, numero, saldo_inicial, activo, created_at')
+    .select('id, nombre, banco, tipo_cuenta, numero, saldo_inicial, activa, created_at')
     .eq('id', id)
     .eq('store_id', storeId)
     .single()
@@ -52,19 +52,17 @@ export default async function CuentaBancariaPage({
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Link href="/bancos" className="text-gray-400 hover:text-gray-700 text-sm transition-colors">
           ← Bancos
         </Link>
         <span className="text-gray-300">/</span>
-        <h1 className="text-xl font-bold text-gray-900">{cuenta.nombre}</h1>
+        <h1 className="text-xl font-bold text-gray-900">{cuenta.nombre ?? cuenta.banco}</h1>
       </div>
 
-      {/* Resumen de la cuenta */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="sm:col-span-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-5 text-white">
-          <p className="text-sm text-blue-200">{TIPO_LABEL[cuenta.tipo] ?? cuenta.tipo} · {cuenta.banco}</p>
+          <p className="text-sm text-blue-200">{TIPO_LABEL[cuenta.tipo_cuenta] ?? cuenta.tipo_cuenta} · {cuenta.banco}</p>
           {cuenta.numero && <p className="text-xs text-blue-300 font-mono">···· {cuenta.numero.slice(-4)}</p>}
           <p className="text-3xl font-bold mt-2">${saldoActual.toLocaleString('es-CL')}</p>
           <p className="text-xs text-blue-200 mt-1">Saldo actual</p>
@@ -89,7 +87,6 @@ export default async function CuentaBancariaPage({
         </div>
       )}
 
-      {/* Gestión de movimientos */}
       <MovimientosManager
         cuentaId={id}
         storeId={storeId!}

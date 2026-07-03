@@ -24,12 +24,11 @@ export default async function BancosPage() {
 
   const { data: cuentas } = await supabase
     .from('cuentas_bancarias')
-    .select('id, nombre, banco, tipo, numero, saldo_inicial, activo')
+    .select('id, nombre, banco, tipo_cuenta, numero, saldo_inicial, activa')
     .eq('store_id', storeId)
-    .eq('activo', true)
+    .eq('activa', true)
     .order('created_at', { ascending: true })
 
-  // Saldo calculado por cuenta: saldo_inicial + abonos - cargos
   const { data: movimientos } = await supabase
     .from('movimientos_bancarios')
     .select('cuenta_id, tipo, monto, conciliado')
@@ -37,9 +36,9 @@ export default async function BancosPage() {
 
   function calcularSaldo(cuentaId: string, saldoInicial: number) {
     const movs = (movimientos ?? []).filter((m: { cuenta_id: string }) => m.cuenta_id === cuentaId)
-    const totalAbonos = movs.filter((m: { tipo: string }) => m.tipo === 'abono').reduce((s: number, m: { monto: number }) => s + m.monto, 0)
-    const totalCargos = movs.filter((m: { tipo: string }) => m.tipo === 'cargo').reduce((s: number, m: { monto: number }) => s + m.monto, 0)
-    return saldoInicial + totalAbonos - totalCargos
+    const abonos = movs.filter((m: { tipo: string }) => m.tipo === 'abono').reduce((s: number, m: { monto: number }) => s + m.monto, 0)
+    const cargos  = movs.filter((m: { tipo: string }) => m.tipo === 'cargo').reduce((s: number, m: { monto: number }) => s + m.monto, 0)
+    return saldoInicial + abonos - cargos
   }
 
   function pendientesConciliacion(cuentaId: string) {
@@ -61,10 +60,10 @@ export default async function BancosPage() {
       {/* Saldo total */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-5 text-white">
         <p className="text-sm font-medium text-blue-200">Saldo total en bancos</p>
-        <p className="text-3xl font-bold mt-1">
-          ${saldoTotal.toLocaleString('es-CL')}
+        <p className="text-3xl font-bold mt-1">${saldoTotal.toLocaleString('es-CL')}</p>
+        <p className="text-xs text-blue-200 mt-1">
+          {(cuentas ?? []).length} cuenta{(cuentas ?? []).length !== 1 ? 's' : ''} activa{(cuentas ?? []).length !== 1 ? 's' : ''}
         </p>
-        <p className="text-xs text-blue-200 mt-1">{(cuentas ?? []).length} cuenta{(cuentas ?? []).length !== 1 ? 's' : ''} activa{(cuentas ?? []).length !== 1 ? 's' : ''}</p>
       </div>
 
       {/* Lista de cuentas */}
@@ -87,11 +86,13 @@ export default async function BancosPage() {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <p className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{cuenta.nombre}</p>
+                    <p className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors">
+                      {cuenta.nombre ?? cuenta.banco}
+                    </p>
                     <p className="text-sm text-gray-500">{cuenta.banco}</p>
                   </div>
                   <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                    {TIPO_LABEL[cuenta.tipo] ?? cuenta.tipo}
+                    {TIPO_LABEL[cuenta.tipo_cuenta] ?? cuenta.tipo_cuenta}
                   </span>
                 </div>
                 {cuenta.numero && (

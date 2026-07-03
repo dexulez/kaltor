@@ -18,7 +18,7 @@ export default function NuevaCuentaModal({ storeId }: { storeId: string }) {
   const [form, setForm] = useState({
     nombre: '',
     banco: 'BancoEstado',
-    tipo: 'corriente',
+    tipo_cuenta: 'corriente',
     numero: '',
     saldo_inicial: '',
   })
@@ -32,15 +32,16 @@ export default function NuevaCuentaModal({ storeId }: { storeId: string }) {
       store_id:      storeId,
       nombre:        form.nombre.trim(),
       banco:         form.banco,
-      tipo:          form.tipo,
+      tipo_cuenta:   form.tipo_cuenta,
       numero:        form.numero.trim() || null,
       saldo_inicial: parseInt(form.saldo_inicial) || 0,
+      activa:        true,
     })
     setSaving(false)
     if (error) { toast.error('Error: ' + error.message); return }
     toast.success('Cuenta creada correctamente')
     setOpen(false)
-    setForm({ nombre: '', banco: 'BancoEstado', tipo: 'corriente', numero: '', saldo_inicial: '' })
+    setForm({ nombre: '', banco: 'BancoEstado', tipo_cuenta: 'corriente', numero: '', saldo_inicial: '' })
     router.refresh()
   }
 
@@ -84,8 +85,8 @@ export default function NuevaCuentaModal({ storeId }: { storeId: string }) {
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-1">Tipo</label>
                   <select
-                    value={form.tipo}
-                    onChange={e => set('tipo', e.target.value)}
+                    value={form.tipo_cuenta}
+                    onChange={e => set('tipo_cuenta', e.target.value)}
                     className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   >
                     <option value="corriente">Cta. Corriente</option>
