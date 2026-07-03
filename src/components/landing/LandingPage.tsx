@@ -733,37 +733,37 @@ function VentajasKaltor() {
     {
       Icon: Eye,
       titulo: 'Sabes exactamente dónde estás',
-      texto: 'Sin control operas con suposiciones. Con Kaltor, con certeza. Cada peso ingresado, cada gasto registrado, todo en tiempo real y sin esfuerzo.',
+      texto: 'Cada peso ingresado, cada gasto registrado. Todo visible en tiempo real.',
       accent: C.signal,
     },
     {
       Icon: Users,
       titulo: 'Tu competencia ya tomó la decisión',
-      texto: 'Los negocios que crecen no lo hacen por suerte — tienen orden, datos y visibilidad. Los que no, adivinan. ¿De qué lado quieres estar?',
+      texto: 'Los que crecen tienen orden y datos. Los que no, adivinan. ¿De qué lado estás?',
       accent: C.mod,
     },
     {
       Icon: AlertTriangle,
       titulo: 'El desorden silencioso cuesta caro',
-      texto: 'Los problemas financieros no aparecen de golpe. Se acumulan en registros olvidados, gastos sin detectar e ingresos mal calculados. Cuando los ves, ya es tarde.',
+      texto: 'Registros olvidados, gastos sin detectar. Cuando los ves, ya es tarde.',
       accent: '#e8604c',
     },
     {
       Icon: Zap,
       titulo: 'Operativo desde el primer minuto',
-      texto: 'Sin capacitaciones largas ni manuales de 80 páginas. Cualquier persona de tu equipo empieza a usarlo hoy, sin ser experto en nada.',
+      texto: 'Sin capacitaciones ni manuales. Tu equipo empieza a usarlo hoy.',
       accent: C.signal,
     },
     {
       Icon: SlidersHorizontal,
       titulo: 'Pagas solo lo que usas',
-      texto: 'Sin módulos que no necesitas. Sin licencias infladas. Eliges exactamente lo que tu negocio requiere — y escalas cuando tú lo decides, no cuando te lo imponen.',
+      texto: 'Sin módulos que no necesitas. Escalas cuando tú decides, no cuando te lo imponen.',
       accent: C.mod,
     },
     {
       Icon: Globe,
       titulo: 'Tu negocio no para. Tu sistema tampoco.',
-      texto: 'Desde el celular, la tablet o el computador. En el local, en la casa o en la calle. Tu operación siempre disponible, siempre sincronizada.',
+      texto: 'Celular, tablet o computador. Siempre disponible, siempre sincronizado.',
       accent: C.signal,
     },
   ]
@@ -806,10 +806,10 @@ function VentajasKaltor() {
               }}>
                 <Icon size={20} color={accent} strokeWidth={1.8} />
               </div>
-              <h3 style={{ fontFamily: FD, fontSize: 17, fontWeight: 700, color: C.paper, marginBottom: 10, lineHeight: 1.3 }}>
+              <h3 style={{ fontFamily: FD, fontSize: 20, fontWeight: 700, color: C.paper, marginBottom: 12, lineHeight: 1.3 }}>
                 {titulo}
               </h3>
-              <p style={{ fontSize: 14, lineHeight: 1.7, color: C.paper, opacity: 0.55, margin: 0 }}>
+              <p style={{ fontSize: 16, lineHeight: 1.65, color: C.paper, opacity: 0.6, margin: 0 }}>
                 {texto}
               </p>
             </div>
