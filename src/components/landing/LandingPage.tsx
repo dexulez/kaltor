@@ -274,8 +274,8 @@ function Hero() {
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduced) { setLit(9); return }
-    if (lit >= 9) return
+    if (reduced) { setLit(12); return }
+    if (lit >= 12) return
     const t = setTimeout(() => setLit(l => l + 1), 130)
     return () => clearTimeout(t)
   }, [lit])
