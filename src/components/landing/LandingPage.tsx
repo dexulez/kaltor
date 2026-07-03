@@ -923,9 +923,9 @@ export default function LandingPage() {
       `}</style>
       <Nav />
       <Hero />
+      <VentajasKaltor />
       <Modulos />
       <MisionVision />
-      <VentajasKaltor />
       <Planes />
       <ComoFunciona />
       <Footer />
