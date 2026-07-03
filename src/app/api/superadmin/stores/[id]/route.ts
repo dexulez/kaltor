@@ -104,6 +104,11 @@ export async function PATCH(
         if (!module_key || typeof activo !== 'boolean') {
           return NextResponse.json({ error: 'module_key y activo requeridos' }, { status: 400 })
         }
+        // Garantizar que el key exista en modules (FK) antes del upsert
+        await admin.from('modules').upsert(
+          { key: module_key, nombre: module_key },
+          { onConflict: 'key' }
+        )
         const { error } = await admin
           .from('store_modules')
           .upsert({ store_id: storeId, module_key, activo }, { onConflict: 'store_id,module_key' })
@@ -117,7 +122,9 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error interno'
+    const msg = err instanceof Error
+      ? err.message
+      : (err as { message?: string })?.message ?? 'Error interno'
     console.error('[superadmin/stores]', action, msg)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
