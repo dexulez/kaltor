@@ -3,7 +3,7 @@
 // dashboard y notificaciones no están aquí: son utilidades siempre presentes.
 export const MODULO_NEGOCIO_KEYS = [
   'ventas', 'compras', 'productos', 'servicios', 'taller',
-  'informes', 'contabilidad', 'configuracion', 'canal_b2b',
+  'informes', 'contabilidad', 'configuracion', 'canal_b2b', 'trazabilidad',
 ] as const
 export type ModuloNegocio = typeof MODULO_NEGOCIO_KEYS[number]
 
@@ -28,6 +28,7 @@ export const MODULOS = [
   { key: 'usuarios',      label: 'Usuarios',             icon: '👥', href: '/usuarios',      modulo: null             },
   { key: 'configuracion', label: 'Configuración',        icon: '⚙️', href: '/configuracion', modulo: null             },
   { key: 'notificaciones',label: 'Notificaciones',       icon: '🔔', href: '/notificaciones',modulo: null             },
+  { key: 'trazabilidad',  label: 'Trazabilidad',         icon: '🔍', href: '/trazabilidad',   modulo: 'trazabilidad'   },
 ] as const satisfies ReadonlyArray<{
   key: string; label: string; icon: string; href: string; modulo: ModuloNegocio | null
 }>
@@ -52,7 +53,8 @@ export const MENU_GROUPS: MenuGroup[] = [
   { key: 'canal_b2b',    label: 'Canal B2B',     icon: '🛍️', modulos: ['catalogo_b2b', 'pedidos_b2b'] },
   { key: 'informes',     label: 'Informes',      icon: '📈', modulos: ['informes'], standalone: true },
   { key: 'contabilidad', label: 'Contabilidad',  icon: '🧾', modulos: ['contabilidad', 'bancos'] },
-  { key: 'configuracion',label: 'Configuración', icon: '⚙️', modulos: ['configuracion', 'usuarios', 'manuales', 'notificaciones'] },
+  { key: 'configuracion',  label: 'Configuración', icon: '⚙️', modulos: ['configuracion', 'usuarios', 'manuales', 'notificaciones'] },
+  { key: 'trazabilidad',  label: 'Trazabilidad',  icon: '🔍', modulos: ['trazabilidad'], standalone: true },
 ]
 
 // ── Sub-permisos por módulo ───────────────────────────────────────────────────
@@ -115,10 +117,10 @@ export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: strin
 // ── Acceso a módulos por rol (items de menú) ──────────────────────────────────
 // Controla qué items de navegación puede ver cada rol, independientemente del plan.
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
-  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'bancos', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones'],
+  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'bancos', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones', 'trazabilidad'],
   tecnico:           ['dashboard', 'reparaciones', 'inventario', 'servicios', 'manuales', 'informes', 'notificaciones'],
   vendedor:          ['dashboard', 'caja', 'clientes', 'reparaciones', 'inventario', 'servicios', 'informes', 'pedidos_b2b', 'notificaciones'],
-  supervisor_ventas: ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones'],
+  supervisor_ventas: ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones', 'trazabilidad'],
   comprador_externo: ['catalogo_b2b', 'pedidos_b2b'],
 }
 
