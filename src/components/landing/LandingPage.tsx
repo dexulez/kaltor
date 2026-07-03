@@ -426,7 +426,7 @@ function Planes() {
 
         {/* Familia básico */}
         <FamiliaLabel label="Familia básico" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 460px))', gap: 14, marginBottom: 40, justifyContent: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 368px))', gap: 14, marginBottom: 40, justifyContent: 'center' }}>
           {basic.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} />)}
         </div>
 
@@ -496,7 +496,7 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
       </p>
 
       {/* Módulos en 2 columnas — solo los incluidos en el plan */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', marginBottom: 24, alignContent: 'start', minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, max-content)', gap: '2px 20px', marginBottom: 24, alignContent: 'start', justifyContent: 'center', overflow: 'hidden' }}>
         {MODULOS.filter(m => plan.modulos.includes(m.key)).map(m => {
           const Icon = HERO_ICONS[m.key]
           return (
