@@ -30,7 +30,7 @@ export default async function CuentaBancariaPage({
 
   const { data: cuenta, error } = await supabase
     .from('cuentas_bancarias')
-    .select('id, nombre, banco, tipo_cuenta, numero, saldo_inicial, activa, created_at')
+    .select('id, nombre, banco, tipo_cuenta, numero, saldo_inicial, activa, pos_marca, pos_terminal_id, created_at')
     .eq('id', id)
     .eq('store_id', storeId)
     .single()
@@ -52,20 +52,36 @@ export default async function CuentaBancariaPage({
 
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Link href="/bancos" className="text-gray-400 hover:text-gray-700 text-sm transition-colors">
           ← Bancos
         </Link>
         <span className="text-gray-300">/</span>
         <h1 className="text-xl font-bold text-gray-900">{cuenta.nombre ?? cuenta.banco}</h1>
+        {cuenta.pos_marca && (
+          <span className="text-xs font-semibold bg-green-100 text-green-700 px-2.5 py-1 rounded-full flex items-center gap-1">
+            💳 POS {cuenta.pos_marca}
+            {cuenta.pos_terminal_id && <span className="font-mono">· {cuenta.pos_terminal_id}</span>}
+          </span>
+        )}
       </div>
 
+      {/* Resumen */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="sm:col-span-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-5 text-white">
-          <p className="text-sm text-blue-200">{TIPO_LABEL[cuenta.tipo_cuenta] ?? cuenta.tipo_cuenta} · {cuenta.banco}</p>
+          <p className="text-sm text-blue-200">
+            {TIPO_LABEL[cuenta.tipo_cuenta] ?? cuenta.tipo_cuenta} · {cuenta.banco}
+          </p>
           {cuenta.numero && <p className="text-xs text-blue-300 font-mono">···· {cuenta.numero.slice(-4)}</p>}
           <p className="text-3xl font-bold mt-2">${saldoActual.toLocaleString('es-CL')}</p>
           <p className="text-xs text-blue-200 mt-1">Saldo actual</p>
+          {cuenta.pos_marca && (
+            <p className="text-xs text-blue-300 mt-2 flex items-center gap-1">
+              💳 POS {cuenta.pos_marca} vinculado
+              {cuenta.pos_terminal_id && ` · Terminal ${cuenta.pos_terminal_id}`}
+            </p>
+          )}
         </div>
 
         <div className="bg-green-50 border border-green-200 rounded-2xl p-5">

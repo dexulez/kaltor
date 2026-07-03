@@ -24,7 +24,7 @@ export default async function BancosPage() {
 
   const { data: cuentas } = await supabase
     .from('cuentas_bancarias')
-    .select('id, nombre, banco, tipo_cuenta, numero, saldo_inicial, activa')
+    .select('id, nombre, banco, tipo_cuenta, numero, saldo_inicial, activa, pos_marca, pos_terminal_id')
     .eq('store_id', storeId)
     .eq('activa', true)
     .order('created_at', { ascending: true })
@@ -42,7 +42,9 @@ export default async function BancosPage() {
   }
 
   function pendientesConciliacion(cuentaId: string) {
-    return (movimientos ?? []).filter((m: { cuenta_id: string; conciliado: boolean }) => m.cuenta_id === cuentaId && !m.conciliado).length
+    return (movimientos ?? []).filter((m: { cuenta_id: string; conciliado: boolean }) =>
+      m.cuenta_id === cuentaId && !m.conciliado
+    ).length
   }
 
   const saldoTotal = (cuentas ?? []).reduce((s, c) => s + calcularSaldo(c.id, c.saldo_inicial ?? 0), 0)
@@ -84,20 +86,34 @@ export default async function BancosPage() {
                 href={`/bancos/${cuenta.id}`}
                 className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-blue-300 transition-all group"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors truncate">
                       {cuenta.nombre ?? cuenta.banco}
                     </p>
                     <p className="text-sm text-gray-500">{cuenta.banco}</p>
                   </div>
-                  <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full shrink-0 ml-2">
                     {TIPO_LABEL[cuenta.tipo_cuenta] ?? cuenta.tipo_cuenta}
                   </span>
                 </div>
+
                 {cuenta.numero && (
-                  <p className="text-xs text-gray-400 font-mono mb-3">···· {cuenta.numero.slice(-4)}</p>
+                  <p className="text-xs text-gray-400 font-mono mb-2">···· {cuenta.numero.slice(-4)}</p>
                 )}
+
+                {/* Badge POS */}
+                {cuenta.pos_marca && (
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      💳 POS {cuenta.pos_marca}
+                      {cuenta.pos_terminal_id && (
+                        <span className="font-mono text-green-600">· {cuenta.pos_terminal_id}</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+
                 <div className="border-t border-gray-100 pt-3">
                   <p className="text-xs text-gray-500 mb-0.5">Saldo disponible</p>
                   <p className={`text-2xl font-bold ${saldo >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
