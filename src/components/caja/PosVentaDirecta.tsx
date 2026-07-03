@@ -33,13 +33,19 @@ interface OTDetalle {
   numero_ot: string
   estado: string
   created_at: string
-  falla_reportada: string | null
-  diagnostico: string | null
-  notas: string | null
+  diagnostico_tecnico: string | null
   precio_servicio: number | null
   presupuesto_estimado: number | null
   customers: { nombre: string; telefono: string | null; rut: string | null } | null
-  equipment: { tipo_equipo: string | null; marca: string; modelo: string; numero_serie: string | null; imei: string | null } | null
+  equipment: {
+    tipo_equipo: string | null
+    marca: string
+    modelo: string
+    numero_serie: string | null
+    imei: string | null
+    falla_reportada: string | null
+    observaciones: string | null
+  } | null
 }
 
 interface OTListaItem {
@@ -120,6 +126,7 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
   // Descuento
   const [otDetalle, setOtDetalle] = useState<OTDetalle | null>(null)
   const [otDetalleLoading, setOtDetalleLoading] = useState(false)
+  const [otDetalleOpen, setOtDetalleOpen] = useState(false)
   const [descuentoInput, setDescuentoInput] = useState('')
   const [tipoDescuento, setTipoDescuento] = useState<'monto' | 'pct'>('monto')
   // Cobro mixto
@@ -294,9 +301,10 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
   async function abrirDetalleOT(otId: string) {
     setOtDetalle(null)
     setOtDetalleLoading(true)
+    setOtDetalleOpen(true)
     const { data } = await supabase
       .from('repair_orders')
-      .select('id, numero_ot, estado, created_at, falla_reportada, diagnostico, notas, precio_servicio, presupuesto_estimado, customers(nombre, telefono, rut), equipment(tipo_equipo, marca, modelo, numero_serie, imei)')
+      .select('id, numero_ot, estado, created_at, diagnostico_tecnico, precio_servicio, presupuesto_estimado, customers(nombre, telefono, rut), equipment(tipo_equipo, marca, modelo, numero_serie, imei, falla_reportada, observaciones)')
       .eq('id', otId)
       .single()
     setOtDetalleLoading(false)
@@ -752,8 +760,8 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
     )}
 
     {/* ── Popup detalle OT ────────────────────────────────────────── */}
-    {(otDetalle || otDetalleLoading) && (
-      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setOtDetalle(null)}>
+    {otDetalleOpen && (
+      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => { setOtDetalleOpen(false); setOtDetalle(null) }}>
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white">
             <div>
@@ -767,7 +775,7 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
               )}
             </div>
             <button
-              onClick={() => setOtDetalle(null)}
+              onClick={() => { setOtDetalleOpen(false); setOtDetalle(null) }}
               className="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-lg"
             >
               ✕
@@ -776,7 +784,9 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
 
           {otDetalleLoading ? (
             <div className="py-12 text-center text-gray-400 text-sm">Cargando datos de la OT...</div>
-          ) : otDetalle ? (
+          ) : !otDetalle ? (
+            <div className="py-12 text-center text-red-400 text-sm">No se pudieron cargar los datos</div>
+          ) : (
             <div className="p-5 space-y-4">
               {/* Fecha */}
               <p className="text-xs text-gray-400">
@@ -810,27 +820,27 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
                 )}
               </div>
 
-              {/* Falla reportada */}
-              {otDetalle.falla_reportada && (
+              {/* Falla reportada (viene del equipo) */}
+              {otDetalle.equipment?.falla_reportada && (
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Problema reportado</p>
-                  <p className="text-sm text-gray-700 bg-red-50 rounded-xl p-3">{otDetalle.falla_reportada}</p>
+                  <p className="text-sm text-gray-700 bg-red-50 border border-red-100 rounded-xl p-3">{otDetalle.equipment.falla_reportada}</p>
                 </div>
               )}
 
-              {/* Diagnóstico */}
-              {otDetalle.diagnostico && (
+              {/* Observaciones del equipo */}
+              {otDetalle.equipment?.observaciones && (
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Estado del equipo</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{otDetalle.equipment.observaciones}</p>
+                </div>
+              )}
+
+              {/* Diagnóstico técnico */}
+              {otDetalle.diagnostico_tecnico && (
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Diagnóstico técnico</p>
-                  <p className="text-sm text-gray-700 bg-blue-50 rounded-xl p-3">{otDetalle.diagnostico}</p>
-                </div>
-              )}
-
-              {/* Notas */}
-              {otDetalle.notas && (
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Notas adicionales</p>
-                  <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{otDetalle.notas}</p>
+                  <p className="text-sm text-gray-700 bg-blue-50 border border-blue-100 rounded-xl p-3">{otDetalle.diagnostico_tecnico}</p>
                 </div>
               )}
 
@@ -850,7 +860,7 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
                 </div>
               </div>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     )}
