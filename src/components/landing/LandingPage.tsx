@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck } from 'lucide-react'
+import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp } from 'lucide-react'
 import ChatWidget from '@/components/chat/ChatWidget'
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
@@ -663,8 +663,10 @@ function MisionVision() {
                 width: 36, height: 36, borderRadius: '50%',
                 backgroundColor: C.signal,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, flexShrink: 0,
-              }}>🎯</span>
+                flexShrink: 0,
+              }}>
+                <Target size={18} color="#fff" strokeWidth={2} />
+              </span>
               <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, margin: 0 }}>Misión</p>
             </div>
             <h3 style={{ fontFamily: FD, fontSize: 22, fontWeight: 700, color: C.paper, marginBottom: 16, lineHeight: 1.3 }}>
@@ -688,17 +690,19 @@ function MisionVision() {
                 width: 36, height: 36, borderRadius: '50%',
                 backgroundColor: C.mod,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, flexShrink: 0,
-              }}>🌱</span>
+                flexShrink: 0,
+              }}>
+                <TrendingUp size={18} color="#fff" strokeWidth={2} />
+              </span>
               <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.mod, margin: 0 }}>Visión</p>
             </div>
             <h3 style={{ fontFamily: FD, fontSize: 22, fontWeight: 700, color: C.paper, marginBottom: 16, lineHeight: 1.3 }}>
               Ningún negocio opera a ciegas.
             </h3>
             <p style={{ fontSize: 16, lineHeight: 1.7, color: C.paper, opacity: 0.65, margin: 0 }}>
-              Que cada emprendedor — desde el técnico que repara celulares hasta el local con tres sucursales —
-              tome decisiones con datos reales. Un negocio que sabe cuánto gana, cuánto gasta y qué tan efectivo es,
-              dura más y crece mejor.
+              Que cualquier negocio tome decisiones con datos reales, sin importar su tamaño o rubro.
+              Con información clara y ordenada, los emprendedores crecen con más seguridad,
+              reducen sus pérdidas y construyen algo que dura.
             </p>
           </div>
 
