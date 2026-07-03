@@ -633,6 +633,96 @@ function TablaComparativa({ anual }: { anual: boolean }) {
   )
 }
 
+// ── Misión y Visión ───────────────────────────────────────────────────────────
+function MisionVision() {
+  return (
+    <section style={{ padding: '96px 48px', backgroundColor: C.navy, color: C.paper }}>
+      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+
+        {/* Frase central */}
+        <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 24, textAlign: 'center' }}>
+          Por qué existe Kaltor
+        </p>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4.5vw, 52px)', fontWeight: 700, lineHeight: 1.2, color: C.paper, textAlign: 'center', marginBottom: 64 }}>
+          Saber exactamente cuánto ganas,<br />
+          cuánto gastas y <span style={{ color: C.signal }}>qué tan efectivo eres.</span>
+        </h2>
+
+        {/* Misión + Visión */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 2 }}>
+
+          {/* Misión */}
+          <div style={{
+            padding: '40px 48px',
+            borderRadius: '20px 0 0 20px',
+            backgroundColor: '#ffffff08',
+            borderRight: `1px solid #ffffff12`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <span style={{
+                width: 36, height: 36, borderRadius: '50%',
+                backgroundColor: C.signal,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, flexShrink: 0,
+              }}>🎯</span>
+              <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, margin: 0 }}>Misión</p>
+            </div>
+            <h3 style={{ fontFamily: FD, fontSize: 22, fontWeight: 700, color: C.paper, marginBottom: 16, lineHeight: 1.3 }}>
+              Orden real para tu emprendimiento.
+            </h3>
+            <p style={{ fontSize: 16, lineHeight: 1.7, color: C.paper, opacity: 0.65, margin: 0 }}>
+              Entregamos a cada emprendedor una herramienta simple para controlar su negocio sin complicaciones —
+              sin hojas de cálculo desordenadas, sin números perdidos, sin adivinar si el mes fue bueno o malo.
+              Solo claridad: lo que entra, lo que sale y lo que queda.
+            </p>
+          </div>
+
+          {/* Visión */}
+          <div style={{
+            padding: '40px 48px',
+            borderRadius: '0 20px 20px 0',
+            backgroundColor: '#ffffff05',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <span style={{
+                width: 36, height: 36, borderRadius: '50%',
+                backgroundColor: C.mod,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, flexShrink: 0,
+              }}>🌱</span>
+              <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.mod, margin: 0 }}>Visión</p>
+            </div>
+            <h3 style={{ fontFamily: FD, fontSize: 22, fontWeight: 700, color: C.paper, marginBottom: 16, lineHeight: 1.3 }}>
+              Ningún negocio opera a ciegas.
+            </h3>
+            <p style={{ fontSize: 16, lineHeight: 1.7, color: C.paper, opacity: 0.65, margin: 0 }}>
+              Que cada emprendedor — desde el técnico que repara celulares hasta el local con tres sucursales —
+              tome decisiones con datos reales. Un negocio que sabe cuánto gana, cuánto gasta y qué tan efectivo es,
+              dura más y crece mejor.
+            </p>
+          </div>
+
+        </div>
+
+        {/* Línea divisoria + cifra de impacto */}
+        <div style={{ marginTop: 64, paddingTop: 48, borderTop: '1px solid #ffffff12', display: 'flex', justifyContent: 'center', gap: 64, flexWrap: 'wrap', textAlign: 'center' }}>
+          {[
+            { valor: '12', label: 'módulos de negocio' },
+            { valor: '7',  label: 'planes disponibles' },
+            { valor: '1',  label: 'objetivo: tu control total' },
+          ].map(item => (
+            <div key={item.label}>
+              <p style={{ fontFamily: FD, fontSize: 48, fontWeight: 700, color: C.signal, margin: 0, lineHeight: 1 }}>{item.valor}</p>
+              <p style={{ fontSize: 14, color: C.paper, opacity: 0.45, marginTop: 6 }}>{item.label}</p>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </section>
+  )
+}
+
 // ── Cómo funciona ─────────────────────────────────────────────────────────────
 function ComoFunciona() {
   const pasos = [
@@ -718,6 +808,7 @@ export default function LandingPage() {
       <Nav />
       <Hero />
       <Modulos />
+      <MisionVision />
       <Planes />
       <ComoFunciona />
       <Footer />
