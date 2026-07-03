@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp } from 'lucide-react'
+import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users } from 'lucide-react'
 import ChatWidget from '@/components/chat/ChatWidget'
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
@@ -727,6 +727,118 @@ function MisionVision() {
   )
 }
 
+// ── Ventajas / Por qué usar Kaltor ───────────────────────────────────────────
+function VentajasKaltor() {
+  const items = [
+    {
+      Icon: Eye,
+      titulo: 'Sabes exactamente dónde estás',
+      texto: 'Sin control operas con suposiciones. Con Kaltor, con certeza. Cada peso ingresado, cada gasto registrado, todo en tiempo real y sin esfuerzo.',
+      accent: C.signal,
+    },
+    {
+      Icon: Users,
+      titulo: 'Tu competencia ya tomó la decisión',
+      texto: 'Los negocios que crecen no lo hacen por suerte — tienen orden, datos y visibilidad. Los que no, adivinan. ¿De qué lado quieres estar?',
+      accent: C.mod,
+    },
+    {
+      Icon: AlertTriangle,
+      titulo: 'El desorden silencioso cuesta caro',
+      texto: 'Los problemas financieros no aparecen de golpe. Se acumulan en registros olvidados, gastos sin detectar e ingresos mal calculados. Cuando los ves, ya es tarde.',
+      accent: '#e8604c',
+    },
+    {
+      Icon: Zap,
+      titulo: 'Operativo desde el primer minuto',
+      texto: 'Sin capacitaciones largas ni manuales de 80 páginas. Cualquier persona de tu equipo empieza a usarlo hoy, sin ser experto en nada.',
+      accent: C.signal,
+    },
+    {
+      Icon: SlidersHorizontal,
+      titulo: 'Pagas solo lo que usas',
+      texto: 'Sin módulos que no necesitas. Sin licencias infladas. Eliges exactamente lo que tu negocio requiere — y escalas cuando tú lo decides, no cuando te lo imponen.',
+      accent: C.mod,
+    },
+    {
+      Icon: Globe,
+      titulo: 'Tu negocio no para. Tu sistema tampoco.',
+      texto: 'Desde el celular, la tablet o el computador. En el local, en la casa o en la calle. Tu operación siempre disponible, siempre sincronizada.',
+      accent: C.signal,
+    },
+  ]
+
+  return (
+    <section style={{ padding: '96px 48px', backgroundColor: '#080F16' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+
+        {/* Cabecera */}
+        <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto 72px' }}>
+          <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#e8604c', marginBottom: 20 }}>
+            Sin excusas
+          </p>
+          <h2 style={{ fontFamily: FD, fontSize: 'clamp(30px, 4.5vw, 52px)', fontWeight: 700, lineHeight: 1.2, color: C.paper, marginBottom: 24 }}>
+            El desorden te está costando dinero<br />
+            <span style={{ color: C.signal }}>ahora mismo.</span>
+          </h2>
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: C.paper, opacity: 0.55 }}>
+            Cada día sin claridad es un día de decisiones mal tomadas, gastos sin detectar
+            y oportunidades que se van. Kaltor no es una opción — es la diferencia entre
+            saber y adivinar.
+          </p>
+        </div>
+
+        {/* Grid de ventajas */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 16, marginBottom: 72 }}>
+          {items.map(({ Icon, titulo, texto, accent }) => (
+            <div key={titulo} style={{
+              padding: '32px 28px',
+              borderRadius: 16,
+              backgroundColor: '#ffffff06',
+              border: '1px solid #ffffff0D',
+            }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                backgroundColor: `${accent}20`,
+                border: `1px solid ${accent}40`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                marginBottom: 20,
+              }}>
+                <Icon size={20} color={accent} strokeWidth={1.8} />
+              </div>
+              <h3 style={{ fontFamily: FD, fontSize: 17, fontWeight: 700, color: C.paper, marginBottom: 10, lineHeight: 1.3 }}>
+                {titulo}
+              </h3>
+              <p style={{ fontSize: 14, lineHeight: 1.7, color: C.paper, opacity: 0.55, margin: 0 }}>
+                {texto}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA final */}
+        <div style={{ textAlign: 'center', padding: '48px', borderRadius: 20, backgroundColor: '#ffffff06', border: '1px solid #ffffff0D' }}>
+          <p style={{ fontFamily: FD, fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 700, color: C.paper, marginBottom: 10 }}>
+            ¿Cuánto más vas a operar a ciegas?
+          </p>
+          <p style={{ fontSize: 16, color: C.paper, opacity: 0.5, marginBottom: 32 }}>
+            Empieza gratis hoy. Sin tarjeta de crédito. Sin compromisos.
+          </p>
+          <a href="https://app.kaltorpos.com/registro" style={{
+            display: 'inline-block', padding: '16px 40px', borderRadius: 12,
+            backgroundColor: C.signal, color: '#fff',
+            fontWeight: 700, fontSize: 16, textDecoration: 'none',
+            boxShadow: `0 0 32px ${C.signal}55`,
+          }}>
+            Comenzar gratis →
+          </a>
+        </div>
+
+      </div>
+    </section>
+  )
+}
+
 // ── Cómo funciona ─────────────────────────────────────────────────────────────
 function ComoFunciona() {
   const pasos = [
@@ -813,6 +925,7 @@ export default function LandingPage() {
       <Hero />
       <Modulos />
       <MisionVision />
+      <VentajasKaltor />
       <Planes />
       <ComoFunciona />
       <Footer />
