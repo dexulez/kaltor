@@ -496,26 +496,28 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
       </p>
 
       {/* Módulos en 2 columnas — solo los incluidos en el plan */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', marginBottom: 24, alignContent: 'start' }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', marginBottom: 24, alignContent: 'start', minWidth: 0, overflow: 'hidden' }}>
         {MODULOS.filter(m => plan.modulos.includes(m.key)).map(m => {
           const Icon = HERO_ICONS[m.key]
           return (
             <div key={m.key} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
+              display: 'flex', alignItems: 'center', gap: 5,
               padding: '6px 0',
               borderBottom: `1px solid ${C.line}1A`,
+              minWidth: 0,
+              overflow: 'hidden',
             }}>
-              <span style={{ color: C.mod, fontWeight: 700, fontSize: 13, width: 13, flexShrink: 0 }}>✓</span>
+              <span style={{ color: C.mod, fontWeight: 700, fontSize: 12, flexShrink: 0 }}>✓</span>
               {Icon && (
                 <span style={{
-                  width: 18, height: 18, borderRadius: '50%',
+                  width: 16, height: 16, borderRadius: '50%',
                   backgroundColor: C.signal,
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                  <Icon size={9} color="#fff" strokeWidth={2.2} />
+                  <Icon size={8} color="#fff" strokeWidth={2.2} />
                 </span>
               )}
-              <p style={{ fontSize: 12, fontWeight: 600, color: C.ink, margin: 0, lineHeight: 1.25 }}>{m.label}</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: C.ink, margin: 0, lineHeight: 1.25, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</p>
             </div>
           )
         })}
