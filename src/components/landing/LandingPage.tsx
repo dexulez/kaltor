@@ -515,7 +515,7 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
                   <Icon size={9} color="#fff" strokeWidth={2.2} />
                 </span>
               )}
-              <p style={{ fontSize: 13, fontWeight: 600, color: C.ink, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.label}</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: C.ink, margin: 0, lineHeight: 1.25 }}>{m.label}</p>
             </div>
           )
         })}
