@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react'
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, X, Send, Bot, Loader2 } from 'lucide-react'
+import { MessageCircle, X, Send, Bot, Loader2, EyeOff } from 'lucide-react'
 
 interface Props {
   context: 'landing' | 'app'
@@ -11,6 +11,9 @@ interface Props {
   welcomeMessage?: string
   placeholder?: string
 }
+
+const BUBBLE_SIZE = 56
+const MARGIN = 24
 
 export default function ChatWidget({
   context,
@@ -21,8 +24,103 @@ export default function ChatWidget({
 }: Props) {
   const [open, setOpen] = useState(false)
   const [hasNew, setHasNew] = useState(false)
+  const [hidden, setHidden] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [hoverBtn, setHoverBtn] = useState(false)
+  const [pos, setPos] = useState({ x: 0, y: 0 }) // top-left del botón
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dragInfo = useRef({ dragging: false, moved: false, startX: 0, startY: 0, baseX: 0, baseY: 0 })
+
+  const posKey = `chatWidgetPos_${context}`
+  const hiddenKey = `chatWidgetHidden_${context}`
+
+  // Cargar posición y estado oculto guardados
+  useEffect(() => {
+    const defaultX = window.innerWidth - MARGIN - BUBBLE_SIZE
+    const defaultY = window.innerHeight - MARGIN - BUBBLE_SIZE
+    try {
+      const savedPos = localStorage.getItem(posKey)
+      if (savedPos) {
+        const p = JSON.parse(savedPos)
+        setPos({
+          x: Math.min(Math.max(p.x, 0), window.innerWidth - BUBBLE_SIZE),
+          y: Math.min(Math.max(p.y, 0), window.innerHeight - BUBBLE_SIZE),
+        })
+      } else {
+        setPos({ x: defaultX, y: defaultY })
+      }
+      setHidden(localStorage.getItem(hiddenKey) === '1')
+    } catch {
+      setPos({ x: defaultX, y: defaultY })
+    }
+    setReady(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Mantener el botón dentro de la pantalla si cambia el tamaño de ventana
+  useEffect(() => {
+    const onResize = () => {
+      setPos(p => clamp(p.x, p.y))
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const clamp = (x: number, y: number) => ({
+    x: Math.min(Math.max(x, 0), window.innerWidth - BUBBLE_SIZE),
+    y: Math.min(Math.max(y, 0), window.innerHeight - BUBBLE_SIZE),
+  })
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    dragInfo.current = {
+      dragging: true,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: pos.x,
+      baseY: pos.y,
+    }
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const d = dragInfo.current
+    if (!d.dragging) return
+    const dx = e.clientX - d.startX
+    const dy = e.clientY - d.startY
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) d.moved = true
+    if (d.moved) {
+      setPos(clamp(d.baseX + dx, d.baseY + dy))
+    }
+  }
+
+  const handlePointerUp = () => {
+    const d = dragInfo.current
+    if (d.dragging) {
+      d.dragging = false
+      if (d.moved) {
+        setPos(p => {
+          try { localStorage.setItem(posKey, JSON.stringify(p)) } catch {}
+          return p
+        })
+      } else {
+        setOpen(o => !o)
+      }
+    }
+  }
+
+  const hideWidget = () => {
+    setHidden(true)
+    setOpen(false)
+    try { localStorage.setItem(hiddenKey, '1') } catch {}
+  }
+
+  const showWidget = () => {
+    setHidden(false)
+    try { localStorage.removeItem(hiddenKey) } catch {}
+  }
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: '/api/chat',
@@ -50,12 +148,49 @@ export default function ChatWidget({
     }
   }, [open])
 
+  if (!ready) return null
+
+  // Panel se abre hacia el lado del botón que quede dentro de la pantalla
+  const panelWidth = 360
+  const openLeft = pos.x > window.innerWidth / 2
+  const openUp = pos.y > window.innerHeight / 2
+  const panelHorizontal = openLeft
+    ? { right: Math.max(8, window.innerWidth - (pos.x + BUBBLE_SIZE)) }
+    : { left: Math.min(Math.max(8, pos.x), window.innerWidth - panelWidth - 8) }
+  const panelVertical = openUp
+    ? { bottom: Math.max(8, window.innerHeight - pos.y + 12) }
+    : { top: Math.max(8, pos.y + BUBBLE_SIZE + 12) }
+
+  if (hidden) {
+    return (
+      <button
+        onClick={showWidget}
+        title="Mostrar asistente"
+        style={{
+          position: 'fixed', bottom: 16, right: 16, zIndex: 1000,
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '8px 12px', borderRadius: 999,
+          border: 'none', cursor: 'pointer',
+          backgroundColor: bgColor, color: '#fff',
+          opacity: 0.7, fontSize: 12,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+          transition: 'opacity 0.2s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+        onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+      >
+        <Bot size={14} />
+        Asistente
+      </button>
+    )
+  }
+
   return (
     <>
       {/* Panel de chat */}
       {open && (
         <div style={{
-          position: 'fixed', bottom: 88, right: 24, zIndex: 1000,
+          position: 'fixed', ...panelHorizontal, ...panelVertical, zIndex: 1000,
           width: 360, maxWidth: 'calc(100vw - 48px)',
           backgroundColor: '#fff',
           borderRadius: 20,
@@ -190,35 +325,61 @@ export default function ChatWidget({
         </div>
       )}
 
-      {/* Botón flotante */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 1000,
-          width: 56, height: 56, borderRadius: '50%',
-          backgroundColor: open ? bgColor : accentColor,
-          border: 'none', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.22)',
-          transition: 'all 0.25s ease',
-          transform: open ? 'scale(0.92)' : 'scale(1)',
-        }}
-        onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.transform = 'scale(1.08)' }}
-        onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
+      {/* Botón flotante (arrastrable) */}
+      <div
+        style={{ position: 'fixed', left: pos.x, top: pos.y, zIndex: 1000, touchAction: 'none' }}
+        onMouseEnter={() => setHoverBtn(true)}
+        onMouseLeave={() => setHoverBtn(false)}
       >
-        {open
-          ? <X size={22} color="#fff" />
-          : <MessageCircle size={22} color="#fff" />
-        }
-        {hasNew && !open && (
-          <span style={{
-            position: 'absolute', top: 4, right: 4,
-            width: 10, height: 10, borderRadius: '50%',
-            backgroundColor: '#22c55e',
-            border: '2px solid #fff',
-          }} />
+        <button
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          title="Arrastra para mover · clic para abrir"
+          style={{
+            width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: '50%',
+            backgroundColor: open ? bgColor : accentColor,
+            border: 'none', cursor: 'grab',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.22)',
+            transition: 'background-color 0.25s ease, transform 0.25s ease',
+            transform: open ? 'scale(0.92)' : 'scale(1)',
+            touchAction: 'none',
+          }}
+        >
+          {open
+            ? <X size={22} color="#fff" />
+            : <MessageCircle size={22} color="#fff" />
+          }
+          {hasNew && !open && (
+            <span style={{
+              position: 'absolute', top: 4, right: 4,
+              width: 10, height: 10, borderRadius: '50%',
+              backgroundColor: '#22c55e',
+              border: '2px solid #fff',
+            }} />
+          )}
+        </button>
+
+        {/* Botón para ocultar el asistente */}
+        {hoverBtn && !open && (
+          <button
+            onClick={hideWidget}
+            title="Ocultar asistente"
+            style={{
+              position: 'absolute', top: -6, left: -6,
+              width: 22, height: 22, borderRadius: '50%',
+              backgroundColor: '#4b5563', border: '2px solid #fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', padding: 0,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+            }}
+          >
+            <EyeOff size={11} color="#fff" />
+          </button>
         )}
-      </button>
+      </div>
 
       <style>{`
         @keyframes chatIn {
