@@ -6,6 +6,7 @@ import BotonVolver from '@/components/shared/BotonVolver'
 import { Button } from '@/components/ui/button'
 import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
 import AgregarFotosOT from '@/components/reparaciones/AgregarFotosOT'
+import EliminarFotoOT from '@/components/reparaciones/EliminarFotoOT'
 import AgregarComentarioOT from '@/components/reparaciones/AgregarComentarioOT'
 import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
 import RepuestosOT from '@/components/reparaciones/RepuestosOT'
@@ -423,10 +424,13 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
                     {h.user_profiles?.nombre_completo && ` · ${h.user_profiles.nombre_completo}`}
                   </p>
                   {h.foto_url && (
-                    <a href={h.foto_url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={h.foto_url} alt="Foto estado" className="h-24 rounded-lg border object-cover hover:opacity-90 transition-opacity" />
-                    </a>
+                    <div className="relative mt-2 inline-block">
+                      <a href={h.foto_url} target="_blank" rel="noopener noreferrer" className="block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={h.foto_url} alt="Foto estado" className="h-24 rounded-lg border object-cover hover:opacity-90 transition-opacity" />
+                      </a>
+                      <EliminarFotoOT otId={otDetalle.id} historialId={h.id} />
+                    </div>
                   )}
                 </div>
               </div>
