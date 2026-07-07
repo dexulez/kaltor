@@ -69,6 +69,8 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     mostrar_stock_b2b: (config as Record<string, unknown>).mostrar_stock_b2b !== false,
     terminos_condiciones: config.terminos_condiciones ?? TC_DEFAULT,
     costo_insumos_promedio: String(config.costo_insumos_promedio ?? 0),
+    asistente_ia_activo: (config as Record<string, unknown>).asistente_ia_activo !== false,
+    asistente_ia_posicion: ((config as Record<string, unknown>).asistente_ia_posicion === 'izquierda' ? 'izquierda' : 'derecha') as 'izquierda' | 'derecha',
   })
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -173,13 +175,15 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
       mostrar_stock_b2b: form.mostrar_stock_b2b,
       terminos_condiciones: form.terminos_condiciones.trim() || null,
       costo_insumos_promedio: parseInt(form.costo_insumos_promedio) || 0,
+      asistente_ia_activo: form.asistente_ia_activo,
+      asistente_ia_posicion: form.asistente_ia_posicion,
     }
 
     let { error } = await supabase.from('system_config').update(payload).eq('id', config.id)
 
     // Columnas agregadas en migraciones posteriores: si todavía no existen en
     // la base de datos, reintentar sin ellas en vez de fallar el guardado completo.
-    const COLUMNAS_OPCIONALES = ['mostrar_tecnico_pdf', 'mayusculas_automaticas', 'mostrar_stock_b2b']
+    const COLUMNAS_OPCIONALES = ['mostrar_tecnico_pdf', 'mayusculas_automaticas', 'mostrar_stock_b2b', 'asistente_ia_activo', 'asistente_ia_posicion']
     while (error && COLUMNAS_OPCIONALES.some(c => error!.message.includes(c))) {
       const columna = COLUMNAS_OPCIONALES.find(c => error!.message.includes(c))!
       delete payload[columna]
@@ -326,6 +330,36 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
         <p className="text-xs text-gray-400 ml-6">
           Si lo desactivas, los compradores ya no verán &quot;Stock: X&quot; ni &quot;Sin stock&quot; en el catálogo.
         </p>
+      </div>
+
+      {/* Asistente de IA */}
+      <div className="bg-white rounded-xl border p-5 space-y-3">
+        <h2 className="font-semibold text-gray-800">Asistente de IA</h2>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={form.asistente_ia_activo} onChange={e => set('asistente_ia_activo', e.target.checked)} />
+          Mostrar el globo del asistente de IA en el sistema
+        </label>
+        <p className="text-xs text-gray-400 ml-6">
+          Si lo desactivas, el globo no aparecerá para ningún usuario del sistema.
+        </p>
+        <div className={form.asistente_ia_activo ? '' : 'opacity-50 pointer-events-none'}>
+          <Label>Posición por defecto</Label>
+          <div className="flex items-center gap-1 mt-1.5">
+            {(['izquierda', 'derecha'] as const).map(p => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => set('asistente_ia_posicion', p)}
+                className={`px-3 py-1.5 text-xs font-medium rounded border capitalize transition-colors ${form.asistente_ia_posicion === p ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-1.5">
+            Cada usuario puede además arrastrar el globo a la posición que prefiera; esto solo define dónde aparece la primera vez.
+          </p>
+        </div>
       </div>
 
       {/* Términos y condiciones */}

@@ -10,6 +10,8 @@ interface Props {
   bgColor?: string
   welcomeMessage?: string
   placeholder?: string
+  enabled?: boolean
+  side?: 'izquierda' | 'derecha'
 }
 
 const BUBBLE_SIZE = 56
@@ -21,6 +23,8 @@ export default function ChatWidget({
   bgColor = '#101B26',
   welcomeMessage = '¡Hola! ¿En qué puedo ayudarte?',
   placeholder = 'Escribe tu pregunta…',
+  enabled = true,
+  side = 'derecha',
 }: Props) {
   const [open, setOpen] = useState(false)
   const [hasNew, setHasNew] = useState(false)
@@ -37,7 +41,7 @@ export default function ChatWidget({
 
   // Cargar posición y estado oculto guardados
   useEffect(() => {
-    const defaultX = window.innerWidth - MARGIN - BUBBLE_SIZE
+    const defaultX = side === 'izquierda' ? MARGIN : window.innerWidth - MARGIN - BUBBLE_SIZE
     const defaultY = window.innerHeight - MARGIN - BUBBLE_SIZE
     try {
       const savedPos = localStorage.getItem(posKey)
@@ -148,6 +152,7 @@ export default function ChatWidget({
     }
   }, [open])
 
+  if (!enabled) return null
   if (!ready) return null
 
   // Panel se abre hacia el lado del botón que quede dentro de la pantalla

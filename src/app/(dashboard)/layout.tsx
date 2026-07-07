@@ -45,6 +45,10 @@ export default async function DashboardLayout({
   const logoUrl = (config as { logo_url?: string | null } | null)?.logo_url ?? null
   const nombreLocal = (config as { nombre_local?: string } | null)?.nombre_local ?? 'Kaltor'
   const mayusculasActivas = (config as { mayusculas_automaticas?: boolean } | null)?.mayusculas_automaticas === true
+  const asistenteIaActivo = (config as { asistente_ia_activo?: boolean } | null)?.asistente_ia_activo !== false
+  const asistenteIaPosicion = ((config as { asistente_ia_posicion?: string } | null)?.asistente_ia_posicion === 'izquierda')
+    ? 'izquierda' as const
+    : 'derecha' as const
   const alertas = { compras: solicitudesPendientes ?? 0, pedidosB2B: pedidosB2BPendientes ?? 0 }
 
   // Módulos activos según el plan de la tienda (service role para evitar RLS)
@@ -77,6 +81,8 @@ export default async function DashboardLayout({
         bgColor="#0F1318"
         welcomeMessage="¡Hola! Soy el asistente de Kaltor. Puedo ayudarte a usar cualquier módulo del sistema. ¿En qué te puedo ayudar?"
         placeholder="¿Cómo hago una OT? ¿Cómo cierro caja?…"
+        enabled={asistenteIaActivo}
+        side={asistenteIaPosicion}
       />
     </div>
   )
