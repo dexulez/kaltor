@@ -112,6 +112,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   }, [otInternaUrl])
   const cliente = ot.customers
   const equipo = ot.equipment
+  const telLlamar = cliente?.telefono ? cliente.telefono.replace(/[^\d+]/g, '') : ''
   const fechaHoraRecibido = new Date(ot.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const fechaEntregaStr = ot.fecha_estimada_entrega
     ? new Date(ot.fecha_estimada_entrega + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -663,6 +664,16 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         >
           📲 Enviar seguimiento
         </button>
+
+        {/* Llamar — solo en móvil, abre el marcador directo */}
+        {telLlamar && (
+          <a
+            href={`tel:${telLlamar}`}
+            className="sm:hidden flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+          >
+            📞 Llamar
+          </a>
+        )}
 
         {/* Modal bottom-sheet — visible en cualquier tamaño de pantalla */}
         {showShareMenu && (
