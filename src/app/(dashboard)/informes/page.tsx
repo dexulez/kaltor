@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { formatCLP, calcularPrecioSinIva, calcularIva } from '@/lib/calculations'
 import { Suspense, type ReactNode } from 'react'
@@ -12,7 +12,23 @@ import {
 import ExportButtons from '@/components/informes/ExportButtons'
 import ImprimirInformeTecnico from '@/components/informes/ImprimirInformeTecnico'
 import AuditoriaLog from '@/components/informes/AuditoriaLog'
-import { tieneSubPermiso } from '@/lib/modulos'
+import { tieneSubPermiso, type ModuloNegocio } from '@/lib/modulos'
+
+// Módulo requerido para cada pestaña de Informes (null = siempre disponible)
+const MODULO_POR_TAB: Record<string, ModuloNegocio | null> = {
+  resumen: null,
+  ventas: 'ventas',
+  taller: 'taller',
+  clientes: null,
+  inventario: null,
+  rentabilidad: 'taller',
+  servicios: 'servicios',
+  compras: 'compras',
+  gastos: null,
+  auditoria: null,
+  equilibrio: null,
+  movimientos: 'contabilidad',
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -117,7 +133,7 @@ function KpiCardComp({ label, value, sub, colorIdx = 0, prev, prevLabel, href }:
 
 // ── Tab: Resumen General ──────────────────────────────────────────────────────
 
-async function TabResumen({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
+async function TabResumen({ desde, hasta, puedeExportar, tieneTaller }: { desde: string; hasta: string; puedeExportar: boolean; tieneTaller: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -203,7 +219,7 @@ async function TabResumen({ desde, hasta, puedeExportar }: { desde: string; hast
     { label: 'Ventas brutas',      actual: ventaActTotal, prev: ventaPrevTotal, fmt: 'clp' as const },
     { label: 'Utilidad estimada',  actual: utilidadEst,   prev: utilidadPrev,   fmt: 'clp' as const },
     { label: 'Gastos',             actual: gastosActTotal, prev: gastosPrevTotal, fmt: 'clp' as const },
-    { label: 'OTs recibidas',      actual: reps.length,   prev: 0, fmt: 'num' as const },
+    ...(tieneTaller ? [{ label: 'OTs recibidas', actual: reps.length, prev: 0, fmt: 'num' as const }] : []),
   ]
   const comparativaRows = comparativaData.map(row => {
     const v = variacion(row.actual, row.prev)
@@ -219,8 +235,7 @@ async function TabResumen({ desde, hasta, puedeExportar }: { desde: string; hast
     ['Utilidad estimada', formatCLP(utilidadEst)],
     ['Gastos del período', formatCLP(gastosActTotal)],
     ['Balance estimado', formatCLP(utilidadEst - gastosActTotal)],
-    ['OTs recibidas', reps.length],
-    ['Tasa de éxito', tasaP !== null ? `${tasaP}%` : '—'],
+    ...(tieneTaller ? [['OTs recibidas', reps.length], ['Tasa de éxito', tasaP !== null ? `${tasaP}%` : '—']] : []),
     ['Clientes nuevos', (clientesNuevos ?? []).length],
     ['Stock crítico', (stockCrit ?? []).length],
   ]
@@ -269,32 +284,38 @@ async function TabResumen({ desde, hasta, puedeExportar }: { desde: string; hast
 
       {/* KPIs operacionales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="OTs recibidas" value={`${reps.length}`} sub={`${entregadasP} entregadas`} colorIdx={0} href={tabHref('taller')} />
-        <KpiCard label="Tasa de éxito" value={tasaP !== null ? `${tasaP}%` : '—'} sub={`${exitosasP} de ${conResult.length} con resultado`} colorIdx={tasaP !== null && tasaP >= 80 ? 1 : tasaP !== null && tasaP >= 60 ? 2 : 4} href={tabHref('taller')} />
+        {tieneTaller && (
+          <>
+            <KpiCard label="OTs recibidas" value={`${reps.length}`} sub={`${entregadasP} entregadas`} colorIdx={0} href={tabHref('taller')} />
+            <KpiCard label="Tasa de éxito" value={tasaP !== null ? `${tasaP}%` : '—'} sub={`${exitosasP} de ${conResult.length} con resultado`} colorIdx={tasaP !== null && tasaP >= 80 ? 1 : tasaP !== null && tasaP >= 60 ? 2 : 4} href={tabHref('taller')} />
+          </>
+        )}
         <KpiCard label="Clientes nuevos" value={`${(clientesNuevos ?? []).length}`} sub="registrados en el período" colorIdx={5} href={tabHref('clientes')} />
         <KpiCard label="Stock crítico" value={`${(stockCrit ?? []).length}`} sub="productos con stock ≤ 5" colorIdx={4} href={tabHref('inventario')} />
       </div>
 
       {/* Estado actual del taller */}
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="bg-gray-50 border-b px-4 py-3">
-          <h2 className="font-semibold text-gray-800 text-sm">Estado actual del taller (tiempo real)</h2>
+      {tieneTaller && (
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="bg-gray-50 border-b px-4 py-3">
+            <h2 className="font-semibold text-gray-800 text-sm">Estado actual del taller (tiempo real)</h2>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0">
+            {[
+              { label: 'OTs en proceso', value: activasAhora.length - listasAhora, icon: '🔧', color: 'text-blue-700', href: '/reparaciones' },
+              { label: 'Listas para cobrar', value: listasAhora, icon: '✅', color: 'text-green-700', href: '/reparaciones?vista=por_cobrar' },
+              { label: 'Fuera de plazo', value: fueraPlazoAhora, icon: '⏰', color: fueraPlazoAhora > 0 ? 'text-red-600' : 'text-gray-400', href: '/reparaciones?vista=fuera_plazo' },
+              { label: 'Total activas', value: activasAhora.length, icon: '📋', color: 'text-gray-700', href: '/reparaciones' },
+            ].map((item, i) => (
+              <Link key={i} href={item.href} className="px-5 py-4 text-center hover:bg-gray-50 transition-colors">
+                <p className="text-2xl mb-1">{item.icon}</p>
+                <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
+                <p className="text-xs text-gray-500 mt-1">{item.label}</p>
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0">
-          {[
-            { label: 'OTs en proceso', value: activasAhora.length - listasAhora, icon: '🔧', color: 'text-blue-700', href: '/reparaciones' },
-            { label: 'Listas para cobrar', value: listasAhora, icon: '✅', color: 'text-green-700', href: '/reparaciones?vista=por_cobrar' },
-            { label: 'Fuera de plazo', value: fueraPlazoAhora, icon: '⏰', color: fueraPlazoAhora > 0 ? 'text-red-600' : 'text-gray-400', href: '/reparaciones?vista=fuera_plazo' },
-            { label: 'Total activas', value: activasAhora.length, icon: '📋', color: 'text-gray-700', href: '/reparaciones' },
-          ].map((item, i) => (
-            <Link key={i} href={item.href} className="px-5 py-4 text-center hover:bg-gray-50 transition-colors">
-              <p className="text-2xl mb-1">{item.icon}</p>
-              <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
-              <p className="text-xs text-gray-500 mt-1">{item.label}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Tendencia de ventas */}
       {areaVentas.length > 1 && (
@@ -341,7 +362,7 @@ async function TabResumen({ desde, hasta, puedeExportar }: { desde: string; hast
 
 // ── Tab: Ventas ───────────────────────────────────────────────────────────────
 
-async function TabVentas({ desde, hasta, puedeExportar }: { desde: string; hasta: string; puedeExportar: boolean }) {
+async function TabVentas({ desde, hasta, puedeExportar, tieneTaller }: { desde: string; hasta: string; puedeExportar: boolean; tieneTaller: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -536,9 +557,11 @@ async function TabVentas({ desde, hasta, puedeExportar }: { desde: string; hasta
           subtitulo={`Período: ${desde} a ${hasta}`}
           secciones={[
             { titulo: 'Resumen', headers: ['Métrica', 'Valor'], rows: resumenVentasRows },
-            { titulo: 'Taller vs Venta directa', headers: ['Canal', 'Transacc.', 'Bruto', 'Neto', 'IVA', 'PPM', 'Costo', 'Com. banco', 'Utilidad real'], rows: tallerVsDirectaData.map(r => [r.label, r.count, formatCLP(r.bruto), formatCLP(r.neto), formatCLP(r.iva), formatCLP(r.ppm), formatCLP(r.costo), formatCLP(r.banco), formatCLP(r.util)]) },
-            { titulo: 'Por método de pago', headers: ['Método', 'Taller', 'Venta directa', 'Total'], rows: [...metodoCanalOrdenado.map(([m, v]) => [METODO_LABEL[m] ?? m, formatCLP(v.taller), formatCLP(v.directa), formatCLP(v.taller + v.directa)]), ['TOTAL', formatCLP(totRep), formatCLP(totDir), formatCLP(totalBruto)]] },
-            { titulo: 'Por tipo de documento', headers: ['Tipo', 'Taller', 'Venta directa', 'Total'], rows: [...docCanalOrdenado.map(([d, v]) => [DOC_LABEL[d] ?? d, formatCLP(v.taller), formatCLP(v.directa), formatCLP(v.taller + v.directa)]), ['TOTAL', formatCLP(totRep), formatCLP(totDir), formatCLP(totalBruto)]] },
+            ...(tieneTaller ? [
+              { titulo: 'Taller vs Venta directa', headers: ['Canal', 'Transacc.', 'Bruto', 'Neto', 'IVA', 'PPM', 'Costo', 'Com. banco', 'Utilidad real'], rows: tallerVsDirectaData.map(r => [r.label, r.count, formatCLP(r.bruto), formatCLP(r.neto), formatCLP(r.iva), formatCLP(r.ppm), formatCLP(r.costo), formatCLP(r.banco), formatCLP(r.util)]) },
+              { titulo: 'Por método de pago', headers: ['Método', 'Taller', 'Venta directa', 'Total'], rows: [...metodoCanalOrdenado.map(([m, v]) => [METODO_LABEL[m] ?? m, formatCLP(v.taller), formatCLP(v.directa), formatCLP(v.taller + v.directa)]), ['TOTAL', formatCLP(totRep), formatCLP(totDir), formatCLP(totalBruto)]] },
+              { titulo: 'Por tipo de documento', headers: ['Tipo', 'Taller', 'Venta directa', 'Total'], rows: [...docCanalOrdenado.map(([d, v]) => [DOC_LABEL[d] ?? d, formatCLP(v.taller), formatCLP(v.directa), formatCLP(v.taller + v.directa)]), ['TOTAL', formatCLP(totRep), formatCLP(totDir), formatCLP(totalBruto)]] },
+            ] : []),
             { titulo: 'Top productos', headers: ['Producto', 'Unidades', 'Total'], rows: topProdRows },
             { titulo: 'Utilidad real por día', headers: ['Día', 'Bruto', 'Costo', 'Com. banco', 'Utilidad real'], rows: porDiaCostosOrdenado.map(([dia, r]) => [dia, formatCLP(r.bruto), formatCLP(r.costo), formatCLP(r.banco), formatCLP(r.util)]) },
             { titulo: 'Detalle por operación', headers: ['Fecha', 'Tipo', 'N° Venta', 'Cliente', 'Cobrado', 'Costo piezas', 'Envío', 'Com. banco', 'Utilidad'], rows: detalleOperacionesData.map(d => [d.fecha, d.tipo, d.numero, d.cliente, formatCLP(d.bruto), d.pieza > 0 ? formatCLP(d.pieza) : '—', d.envio > 0 ? formatCLP(d.envio) : '—', d.banco > 0 ? formatCLP(d.banco) : '—', formatCLP(d.util)]) },
@@ -582,125 +605,129 @@ async function TabVentas({ desde, hasta, puedeExportar }: { desde: string; hasta
           No incluye comisiones de técnicos ni gastos operacionales (ver Rentabilidad y Gastos).
         </p>
       </div>
-      {/* Taller vs Venta Directa — con costos reales */}
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="bg-gray-50 border-b px-4 py-3">
-          <h2 className="font-semibold text-gray-800 text-sm">🔧 Taller (reparaciones) vs 🛒 Venta directa — costos reales</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Taller descuenta repuestos · Venta directa descuenta costo del producto · Ambos descuentan comisión bancaria y PPM</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                {['Canal', 'Transacc.', 'Bruto', 'Neto (sin IVA)', 'IVA 19%', 'PPM 3%', 'Costo (rep./prod.)', 'Com. banco', 'Utilidad real'].map((h, i) => (
-                  <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {tallerVsDirectaData.map((row, i) => (
-                <tr key={i} className={i === 2 ? 'bg-gray-50 font-semibold border-t-2 border-gray-300' : 'hover:bg-gray-50'}>
-                  <td className="px-3 py-2.5">{row.icono} {row.label}</td>
-                  <td className="px-3 py-2.5 text-right">{row.count}</td>
-                  <td className="px-3 py-2.5 text-right font-medium text-gray-900">{formatCLP(row.bruto)}</td>
-                  <td className="px-3 py-2.5 text-right text-blue-700">{formatCLP(row.neto)}</td>
-                  <td className="px-3 py-2.5 text-right text-red-500">{formatCLP(row.iva)}</td>
-                  <td className="px-3 py-2.5 text-right text-orange-500">{formatCLP(row.ppm)}</td>
-                  <td className="px-3 py-2.5 text-right text-red-600 font-medium">{formatCLP(row.costo)}</td>
-                  <td className="px-3 py-2.5 text-right text-orange-600">{formatCLP(row.banco)}</td>
-                  <td className={`px-3 py-2.5 text-right font-bold text-base ${row.util >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCLP(row.util)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-4 py-2.5 border-t bg-amber-50 text-xs text-amber-800">
-          <strong>Utilidad real</strong> = Neto − PPM − Costo (repuestos/productos) − Comisión bancaria.
-          No incluye comisiones de técnicos (ver Rentabilidad) ni gastos operacionales.
-        </div>
-      </div>
-
-      {/* Desglose por método de pago × canal */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <div className="bg-gray-50 border-b px-4 py-3">
-            <h2 className="font-semibold text-gray-800 text-sm">💳 Por método de pago</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  {['Método', 'Taller (N)', 'Venta directa (N)', 'Total'].map((h, i) => (
-                    <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {metodoCanalOrdenado.map(([m, v]) => (
-                  <tr key={m} className="hover:bg-gray-50">
-                    <td className="px-3 py-2">{METODO_LABEL[m] ?? m}</td>
-                    <td className="px-3 py-2 text-right">
-                      <span className="font-medium">{formatCLP(v.taller)}</span>
-                      {v.tallerN > 0 && <span className="text-xs text-gray-400 ml-1">({v.tallerN})</span>}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <span className="font-medium">{formatCLP(v.directa)}</span>
-                      {v.directaN > 0 && <span className="text-xs text-gray-400 ml-1">({v.directaN})</span>}
-                    </td>
-                    <td className="px-3 py-2 text-right font-bold text-blue-700">{formatCLP(v.taller + v.directa)}</td>
+      {tieneTaller && (
+        <>
+          {/* Taller vs Venta Directa — con costos reales */}
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <div className="bg-gray-50 border-b px-4 py-3">
+              <h2 className="font-semibold text-gray-800 text-sm">🔧 Taller (reparaciones) vs 🛒 Venta directa — costos reales</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Taller descuenta repuestos · Venta directa descuenta costo del producto · Ambos descuentan comisión bancaria y PPM</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    {['Canal', 'Transacc.', 'Bruto', 'Neto (sin IVA)', 'IVA 19%', 'PPM 3%', 'Costo (rep./prod.)', 'Com. banco', 'Utilidad real'].map((h, i) => (
+                      <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-                <tr className="bg-gray-50 font-semibold border-t-2">
-                  <td className="px-3 py-2">TOTAL</td>
-                  <td className="px-3 py-2 text-right">{formatCLP(totRep)}</td>
-                  <td className="px-3 py-2 text-right">{formatCLP(totDir)}</td>
-                  <td className="px-3 py-2 text-right text-blue-700">{formatCLP(totalBruto)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Desglose por tipo de documento × canal */}
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <div className="bg-gray-50 border-b px-4 py-3">
-            <h2 className="font-semibold text-gray-800 text-sm">🧾 Por tipo de documento</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  {['Tipo', 'Taller (N)', 'Venta directa (N)', 'Total'].map((h, i) => (
-                    <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                </thead>
+                <tbody className="divide-y">
+                  {tallerVsDirectaData.map((row, i) => (
+                    <tr key={i} className={i === 2 ? 'bg-gray-50 font-semibold border-t-2 border-gray-300' : 'hover:bg-gray-50'}>
+                      <td className="px-3 py-2.5">{row.icono} {row.label}</td>
+                      <td className="px-3 py-2.5 text-right">{row.count}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-gray-900">{formatCLP(row.bruto)}</td>
+                      <td className="px-3 py-2.5 text-right text-blue-700">{formatCLP(row.neto)}</td>
+                      <td className="px-3 py-2.5 text-right text-red-500">{formatCLP(row.iva)}</td>
+                      <td className="px-3 py-2.5 text-right text-orange-500">{formatCLP(row.ppm)}</td>
+                      <td className="px-3 py-2.5 text-right text-red-600 font-medium">{formatCLP(row.costo)}</td>
+                      <td className="px-3 py-2.5 text-right text-orange-600">{formatCLP(row.banco)}</td>
+                      <td className={`px-3 py-2.5 text-right font-bold text-base ${row.util >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCLP(row.util)}</td>
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {docCanalOrdenado.map(([d, v]) => (
-                  <tr key={d} className="hover:bg-gray-50">
-                    <td className="px-3 py-2">{DOC_LABEL[d] ?? d}</td>
-                    <td className="px-3 py-2 text-right">
-                      <span className="font-medium">{formatCLP(v.taller)}</span>
-                      {v.tallerN > 0 && <span className="text-xs text-gray-400 ml-1">({v.tallerN})</span>}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <span className="font-medium">{formatCLP(v.directa)}</span>
-                      {v.directaN > 0 && <span className="text-xs text-gray-400 ml-1">({v.directaN})</span>}
-                    </td>
-                    <td className="px-3 py-2 text-right font-bold text-blue-700">{formatCLP(v.taller + v.directa)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-gray-50 font-semibold border-t-2">
-                  <td className="px-3 py-2">TOTAL</td>
-                  <td className="px-3 py-2 text-right">{formatCLP(totRep)}</td>
-                  <td className="px-3 py-2 text-right">{formatCLP(totDir)}</td>
-                  <td className="px-3 py-2 text-right text-blue-700">{formatCLP(totalBruto)}</td>
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-2.5 border-t bg-amber-50 text-xs text-amber-800">
+              <strong>Utilidad real</strong> = Neto − PPM − Costo (repuestos/productos) − Comisión bancaria.
+              No incluye comisiones de técnicos (ver Rentabilidad) ni gastos operacionales.
+            </div>
           </div>
-        </div>
-      </div>
+
+          {/* Desglose por método de pago × canal */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="bg-white rounded-xl border overflow-hidden">
+              <div className="bg-gray-50 border-b px-4 py-3">
+                <h2 className="font-semibold text-gray-800 text-sm">💳 Por método de pago</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      {['Método', 'Taller (N)', 'Venta directa (N)', 'Total'].map((h, i) => (
+                        <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {metodoCanalOrdenado.map(([m, v]) => (
+                      <tr key={m} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">{METODO_LABEL[m] ?? m}</td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="font-medium">{formatCLP(v.taller)}</span>
+                          {v.tallerN > 0 && <span className="text-xs text-gray-400 ml-1">({v.tallerN})</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="font-medium">{formatCLP(v.directa)}</span>
+                          {v.directaN > 0 && <span className="text-xs text-gray-400 ml-1">({v.directaN})</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-blue-700">{formatCLP(v.taller + v.directa)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-50 font-semibold border-t-2">
+                      <td className="px-3 py-2">TOTAL</td>
+                      <td className="px-3 py-2 text-right">{formatCLP(totRep)}</td>
+                      <td className="px-3 py-2 text-right">{formatCLP(totDir)}</td>
+                      <td className="px-3 py-2 text-right text-blue-700">{formatCLP(totalBruto)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Desglose por tipo de documento × canal */}
+            <div className="bg-white rounded-xl border overflow-hidden">
+              <div className="bg-gray-50 border-b px-4 py-3">
+                <h2 className="font-semibold text-gray-800 text-sm">🧾 Por tipo de documento</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      {['Tipo', 'Taller (N)', 'Venta directa (N)', 'Total'].map((h, i) => (
+                        <th key={i} className={`px-3 py-2 text-xs text-gray-500 font-medium ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {docCanalOrdenado.map(([d, v]) => (
+                      <tr key={d} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">{DOC_LABEL[d] ?? d}</td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="font-medium">{formatCLP(v.taller)}</span>
+                          {v.tallerN > 0 && <span className="text-xs text-gray-400 ml-1">({v.tallerN})</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="font-medium">{formatCLP(v.directa)}</span>
+                          {v.directaN > 0 && <span className="text-xs text-gray-400 ml-1">({v.directaN})</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-blue-700">{formatCLP(v.taller + v.directa)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-50 font-semibold border-t-2">
+                      <td className="px-3 py-2">TOTAL</td>
+                      <td className="px-3 py-2 text-right">{formatCLP(totRep)}</td>
+                      <td className="px-3 py-2 text-right">{formatCLP(totDir)}</td>
+                      <td className="px-3 py-2 text-right text-blue-700">{formatCLP(totalBruto)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
@@ -2724,7 +2751,7 @@ export default async function InformesPage({
   const { data: { user } } = await supabaseAuth.auth.getUser()
   const { data: profileAuth } = await supabaseAuth
     .from('user_profiles')
-    .select('permisos_modulos, roles(nombre)')
+    .select('permisos_modulos, store_id, roles(nombre)')
     .eq('id', user!.id)
     .single()
   const rolesAuth = profileAuth?.roles as { nombre?: string } | { nombre?: string }[] | null | undefined
@@ -2738,9 +2765,34 @@ export default async function InformesPage({
   const puedeExportar     = tieneSubPermiso('informes.exportar', rolAuth, permisosAuth)
   const puedePersonalizado = tieneSubPermiso('informes.personalizado', rolAuth, permisosAuth)
 
-  // Tab por defecto según permisos
-  const defaultTab = rolAuth === 'administrador' ? 'resumen' : verVentas ? 'ventas' : verRentab ? 'rentabilidad' : 'inventario'
-  const tab = params.tab ?? defaultTab
+  // Módulos activos según el plan de la tienda (service role para evitar RLS)
+  const storeId = (profileAuth as { store_id?: string } | null)?.store_id
+  const admin = createServiceClient()
+  let modulosDelPlan: Set<ModuloNegocio> | null = null
+  if (storeId) {
+    const { data: storeModules } = await admin
+      .from('store_modules')
+      .select('module_key')
+      .eq('store_id', storeId)
+      .eq('activo', true)
+    if (storeModules && storeModules.length > 0) {
+      modulosDelPlan = new Set(storeModules.map((m: { module_key: string }) => m.module_key as ModuloNegocio))
+    }
+  }
+  const tieneModulo = (m: ModuloNegocio) => !modulosDelPlan || modulosDelPlan.has(m)
+  const tabDisponible = (t: string) => {
+    const modulo = MODULO_POR_TAB[t]
+    return modulo === null || modulo === undefined || tieneModulo(modulo)
+  }
+  const tieneTaller = tieneModulo('taller')
+
+  // Tab por defecto según permisos, con fallback si el plan no incluye ese módulo
+  const candidatosTab = rolAuth === 'administrador'
+    ? ['resumen', 'ventas', 'rentabilidad', 'inventario']
+    : [verVentas && 'ventas', verRentab && 'rentabilidad', 'inventario'].filter((t): t is string => !!t)
+  const defaultTab = candidatosTab.find(tabDisponible) ?? 'inventario'
+  const tabPedido = params.tab ?? defaultTab
+  const tab = tabDisponible(tabPedido) ? tabPedido : defaultTab
 
   return (
     <div className="p-6 space-y-5">
@@ -2761,27 +2813,28 @@ export default async function InformesPage({
 
       <div className="bg-white rounded-xl border p-4">
         <Suspense>
-          <FiltroFechas currentTab={tab} desde={desde} hasta={hasta} />
+          <FiltroFechas currentTab={tab} desde={desde} hasta={hasta} tabsOcultas={Object.keys(MODULO_POR_TAB).filter(t => !tabDisponible(t))} />
         </Suspense>
       </div>
 
       <Suspense fallback={<div className="text-center py-16 text-gray-400 text-sm">Cargando datos...</div>}>
-        {tab === 'resumen'      && <TabResumen       desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
-        {tab === 'ventas'       && verVentas  && <TabVentas       desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
-        {tab === 'taller'       && <TabTaller        desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'resumen'      && <TabResumen       desde={desde} hasta={hasta} puedeExportar={puedeExportar} tieneTaller={tieneTaller} />}
+        {tab === 'ventas'       && verVentas  && tabDisponible('ventas') && <TabVentas       desde={desde} hasta={hasta} puedeExportar={puedeExportar} tieneTaller={tieneTaller} />}
+        {tab === 'taller'       && tabDisponible('taller') && <TabTaller        desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'inventario'   && <TabInventario    desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
-        {tab === 'rentabilidad' && verRentab  && <TabRentabilidad  desde={desde} hasta={hasta} soloUserId={soloUserId} puedeExportar={puedeExportar} />}
-        {tab === 'servicios'    && <TabServicios desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
-        {tab === 'compras'      && <TabCompras   desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'rentabilidad' && verRentab  && tabDisponible('rentabilidad') && <TabRentabilidad  desde={desde} hasta={hasta} soloUserId={soloUserId} puedeExportar={puedeExportar} />}
+        {tab === 'servicios'    && tabDisponible('servicios') && <TabServicios desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'compras'      && tabDisponible('compras') && <TabCompras   desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'gastos'       && <TabGastos    desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'auditoria'    && rolAuth === 'administrador' && <TabAuditoria desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'equilibrio'   && <TabEquilibrio desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'clientes'     && <TabClientes   desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
-        {tab === 'movimientos'  && rolAuth === 'administrador' && <TabMovimientos desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
+        {tab === 'movimientos'  && rolAuth === 'administrador' && tabDisponible('movimientos') && <TabMovimientos desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'movimientos'  && rolAuth !== 'administrador' && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Movimientos.</div>}
         {/* Mensajes de acceso restringido */}
         {tab === 'ventas'       && !verVentas  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Ventas.</div>}
         {tab === 'rentabilidad' && !verRentab  && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">No tienes acceso a la pestaña Rentabilidad.</div>}
+        {!tabDisponible(tab) && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center text-yellow-700">Esta pestaña no está disponible en tu plan actual.</div>}
       </Suspense>
     </div>
   )

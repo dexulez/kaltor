@@ -1,4 +1,4 @@
-﻿import { createClient } from '@/lib/supabase/server'
+﻿import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { formatCLP } from '@/lib/calculations'
@@ -6,6 +6,7 @@ import GastoRapidoModal from '@/components/dashboard/GastoRapidoModal'
 import QRScannerOT from '@/components/dashboard/QRScannerOT'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
 import { ESTADO_COLOR, ESTADO_LABEL } from '@/lib/ot-estados'
+import type { ModuloNegocio } from '@/lib/modulos'
 
 const TZ = 'America/Santiago'
 
@@ -33,10 +34,29 @@ export default async function DashboardPage() {
 
   // Compradores externos no tienen un dashboard administrativo — van directo al catálogo.
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profileRol } = await supabase.from('user_profiles').select('roles(nombre)').eq('id', user!.id).single()
+  const { data: profileRol } = await supabase.from('user_profiles').select('store_id, roles(nombre)').eq('id', user!.id).single()
   const rolesRel = profileRol?.roles as { nombre?: string } | { nombre?: string }[] | null | undefined
   const rolActual = (Array.isArray(rolesRel) ? rolesRel[0]?.nombre : rolesRel?.nombre) ?? ''
   if (rolActual === 'comprador_externo') redirect('/catalogo-b2b')
+
+  // Módulos activos según el plan de la tienda (service role para evitar RLS)
+  const storeId = (profileRol as { store_id?: string } | null)?.store_id
+  const admin = createServiceClient()
+  let modulosDelPlan: Set<ModuloNegocio> | null = null
+  if (storeId) {
+    const { data: storeModules } = await admin
+      .from('store_modules')
+      .select('module_key')
+      .eq('store_id', storeId)
+      .eq('activo', true)
+    if (storeModules && storeModules.length > 0) {
+      modulosDelPlan = new Set(storeModules.map((m: { module_key: string }) => m.module_key as ModuloNegocio))
+    }
+  }
+  const tieneModulo = (m: ModuloNegocio) => !modulosDelPlan || modulosDelPlan.has(m)
+  const tieneTaller = tieneModulo('taller')
+  const tieneCompras = tieneModulo('compras')
+  const tieneVentas = tieneModulo('ventas')
 
   const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
   const hoyStart = `${hoy}T00:00:00`
@@ -175,23 +195,29 @@ export default async function DashboardPage() {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/reparaciones/nueva">
-            <button className="flex items-center gap-1.5 bg-[#FF7A1A] hover:bg-[#E56900] text-white text-sm px-3 py-2 rounded-xl font-medium transition-colors">
-              📋 Nueva OT
-            </button>
-          </Link>
-          <Link href="/caja/venta-directa">
-            <button className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm px-3 py-2 rounded-xl font-medium transition-colors">
-              🛒 Venta directa
-            </button>
-          </Link>
-          <QRScannerOT />
+          {tieneTaller && (
+            <Link href="/reparaciones/nueva">
+              <button className="flex items-center gap-1.5 bg-[#FF7A1A] hover:bg-[#E56900] text-white text-sm px-3 py-2 rounded-xl font-medium transition-colors">
+                📋 Nueva OT
+              </button>
+            </Link>
+          )}
+          {tieneVentas && (
+            <Link href="/caja/venta-directa">
+              <button className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm px-3 py-2 rounded-xl font-medium transition-colors">
+                🛒 Venta directa
+              </button>
+            </Link>
+          )}
+          {tieneTaller && <QRScannerOT />}
           <GastoRapidoModal />
-          <Link href="/compras/orden/nueva">
-            <button className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm px-3 py-2 rounded-xl font-medium transition-colors">
-              📦 Nueva OC
-            </button>
-          </Link>
+          {tieneCompras && (
+            <Link href="/compras/orden/nueva">
+              <button className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm px-3 py-2 rounded-xl font-medium transition-colors">
+                📦 Nueva OC
+              </button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -215,22 +241,26 @@ export default async function DashboardPage() {
           sub="Ventas − Gastos"
           colorClass={balanceDia >= 0 ? 'text-green-700' : 'text-red-700'}
         />
-        <KpiCard
-          label="OT activas" href="/reparaciones"
-          value={String(otActivas ?? 0)}
-          colorClass="text-blue-700"
-        />
-        <KpiCard
-          label="Listas cobrar" href="/caja"
-          value={String(otListasCobrar ?? 0)}
-          colorClass={(otListasCobrar ?? 0) > 0 ? 'text-green-700' : 'text-gray-400'}
-        />
-        <KpiCard
-          label="OT hoy"
-          value={String(otHoy ?? 0)}
-          sub={totalComprasHoy > 0 ? `Compras: ${formatCLP(totalComprasHoy)}` : 'Sin compras'}
-          colorClass="text-gray-900"
-        />
+        {tieneTaller && (
+          <>
+            <KpiCard
+              label="OT activas" href="/reparaciones"
+              value={String(otActivas ?? 0)}
+              colorClass="text-blue-700"
+            />
+            <KpiCard
+              label="Listas cobrar" href="/caja"
+              value={String(otListasCobrar ?? 0)}
+              colorClass={(otListasCobrar ?? 0) > 0 ? 'text-green-700' : 'text-gray-400'}
+            />
+            <KpiCard
+              label="OT hoy"
+              value={String(otHoy ?? 0)}
+              sub={totalComprasHoy > 0 ? `Compras: ${formatCLP(totalComprasHoy)}` : 'Sin compras'}
+              colorClass="text-gray-900"
+            />
+          </>
+        )}
       </div>
 
       {/* ── Stock crítico ────────────────────────────────────────────────────── */}
@@ -254,76 +284,80 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* OTs activas */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-800 text-sm">📋 OTs en proceso <span className="text-gray-400 font-normal">({otActivas ?? 0})</span></h2>
-            <Link href="/reparaciones" className="text-xs text-blue-600 hover:underline">Ver todas →</Link>
-          </div>
-          <div className="bg-white rounded-xl border overflow-hidden">
-            {!otsList.length ? (
-              <div className="text-center py-10 text-sm text-gray-400">Sin OTs activas</div>
-            ) : (
-              <div className="divide-y">
-                {otsList.map((ot) => (
-                  <Link key={ot.id} href={`/reparaciones/${ot.id}`}>
-                    <div className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-mono font-bold text-blue-700 text-xs">{ot.numero_ot}</p>
-                        <p className="text-sm text-gray-800 truncate">{ot.customers?.nombre}</p>
-                        <p className="text-xs text-gray-400 truncate">{[labelTipoEquipo(ot.equipment?.tipo_equipo), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
-                      </div>
-                      <span className={`ml-2 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${ESTADO_COLOR[ot.estado] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {ESTADO_LABEL[ot.estado] ?? ot.estado}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-          <Link href="/reparaciones/nueva">
-            <div className="border-2 border-dashed border-blue-200 rounded-xl p-3 text-center text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium cursor-pointer">
-              + Nueva OT
+        {tieneTaller && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-gray-800 text-sm">📋 OTs en proceso <span className="text-gray-400 font-normal">({otActivas ?? 0})</span></h2>
+              <Link href="/reparaciones" className="text-xs text-blue-600 hover:underline">Ver todas →</Link>
             </div>
-          </Link>
-        </div>
+            <div className="bg-white rounded-xl border overflow-hidden">
+              {!otsList.length ? (
+                <div className="text-center py-10 text-sm text-gray-400">Sin OTs activas</div>
+              ) : (
+                <div className="divide-y">
+                  {otsList.map((ot) => (
+                    <Link key={ot.id} href={`/reparaciones/${ot.id}`}>
+                      <div className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono font-bold text-blue-700 text-xs">{ot.numero_ot}</p>
+                          <p className="text-sm text-gray-800 truncate">{ot.customers?.nombre}</p>
+                          <p className="text-xs text-gray-400 truncate">{[labelTipoEquipo(ot.equipment?.tipo_equipo), ot.equipment?.marca, ot.equipment?.modelo].filter(Boolean).join(' ')}</p>
+                        </div>
+                        <span className={`ml-2 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${ESTADO_COLOR[ot.estado] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {ESTADO_LABEL[ot.estado] ?? ot.estado}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Link href="/reparaciones/nueva">
+              <div className="border-2 border-dashed border-blue-200 rounded-xl p-3 text-center text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium cursor-pointer">
+                + Nueva OT
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* Ventas del día */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-800 text-sm">💰 Ventas de la {labelTemporal}</h2>
-            <Link href="/caja" className="text-xs text-blue-600 hover:underline">Ver caja →</Link>
-          </div>
-          <div className="bg-white rounded-xl border overflow-hidden">
-            {!ventasList.length ? (
-              <div className="text-center py-10 text-sm text-gray-400">Sin ventas en esta {labelTemporal}</div>
-            ) : (
-              <div className="divide-y">
-                {ventasList.map((v) => (
-                  <div key={v.id} className="px-4 py-3 flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-gray-400 font-mono">{v.numero_venta}</p>
-                      <p className="text-sm font-medium text-gray-800 truncate">{v.customers?.nombre ?? 'Sin cliente'}</p>
-                      <p className="text-xs text-gray-500 capitalize">{v.metodo_pago} · {v.tipo_documento}</p>
+        {tieneVentas && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-gray-800 text-sm">💰 Ventas de la {labelTemporal}</h2>
+              <Link href="/caja" className="text-xs text-blue-600 hover:underline">Ver caja →</Link>
+            </div>
+            <div className="bg-white rounded-xl border overflow-hidden">
+              {!ventasList.length ? (
+                <div className="text-center py-10 text-sm text-gray-400">Sin ventas en esta {labelTemporal}</div>
+              ) : (
+                <div className="divide-y">
+                  {ventasList.map((v) => (
+                    <div key={v.id} className="px-4 py-3 flex items-center justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-gray-400 font-mono">{v.numero_venta}</p>
+                        <p className="text-sm font-medium text-gray-800 truncate">{v.customers?.nombre ?? 'Sin cliente'}</p>
+                        <p className="text-xs text-gray-500 capitalize">{v.metodo_pago} · {v.tipo_documento}</p>
+                      </div>
+                      <p className="font-bold text-gray-900 shrink-0 ml-2">{formatCLP(v.total)}</p>
                     </div>
-                    <p className="font-bold text-gray-900 shrink-0 ml-2">{formatCLP(v.total)}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+            {totalVentasHoy > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 flex justify-between items-center">
+                <span className="text-xs font-medium text-green-700">Total ventas {labelTemporal}</span>
+                <span className="font-bold text-green-700">{formatCLP(totalVentasHoy)}</span>
               </div>
             )}
+            <Link href="/caja/venta-directa">
+              <div className="border-2 border-dashed border-green-200 rounded-xl p-3 text-center text-green-600 hover:border-green-400 hover:bg-green-50 transition-colors text-sm font-medium cursor-pointer">
+                + Venta directa
+              </div>
+            </Link>
           </div>
-          {totalVentasHoy > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 flex justify-between items-center">
-              <span className="text-xs font-medium text-green-700">Total ventas {labelTemporal}</span>
-              <span className="font-bold text-green-700">{formatCLP(totalVentasHoy)}</span>
-            </div>
-          )}
-          <Link href="/caja/venta-directa">
-            <div className="border-2 border-dashed border-green-200 rounded-xl p-3 text-center text-green-600 hover:border-green-400 hover:bg-green-50 transition-colors text-sm font-medium cursor-pointer">
-              + Venta directa
-            </div>
-          </Link>
-        </div>
+        )}
 
         {/* Gastos del día */}
         <div className="space-y-2">
@@ -366,7 +400,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Compras de hoy ───────────────────────────────────────────────────── */}
-      {comprasList.length > 0 && (
+      {tieneCompras && comprasList.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-semibold text-gray-800 text-sm">📦 Compras de la {labelTemporal} · {formatCLP(totalComprasHoy)}</h2>
@@ -392,7 +426,7 @@ export default async function DashboardPage() {
       )}
 
       {/* ── Técnicos ─────────────────────────────────────────────────────────── */}
-      {tecnicos.length > 0 && (
+      {tieneTaller && tecnicos.length > 0 && (
         <div>
           <h2 className="font-semibold text-gray-800 text-sm mb-3">👨‍🔧 OTs por técnico</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">

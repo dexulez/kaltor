@@ -35,6 +35,17 @@ export const MODULOS = [
 
 export type ModuloKey = typeof MODULOS[number]['key']
 
+// ── Módulo de negocio requerido para acceder a una ruta ──────────────────────
+// Usado por el middleware para bloquear el acceso directo (por URL) a páginas
+// que no correspondan al plan de la tienda, no solo ocultarlas del menú.
+export function moduloRequeridoPara(pathname: string): ModuloNegocio | null {
+  for (const item of MODULOS) {
+    if (item.modulo === null) continue
+    if (pathname === item.href || pathname.startsWith(item.href + '/')) return item.modulo
+  }
+  return null
+}
+
 // ── Agrupación visual del sidebar ────────────────────────────────────────────
 // Refleja los 9 módulos de negocio. Standalone = sin encabezado colapsable.
 export interface MenuGroup {

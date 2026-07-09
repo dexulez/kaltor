@@ -22,13 +22,15 @@ interface Props {
   currentTab: string
   desde: string
   hasta: string
+  tabsOcultas?: string[]
 }
 
-export default function FiltroFechas({ currentTab, desde, hasta }: Props) {
+export default function FiltroFechas({ currentTab, desde, hasta, tabsOcultas }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
+  const tabsVisibles = TABS.filter(t => !tabsOcultas?.includes(t.key))
 
   function navigate(updates: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString())
@@ -56,7 +58,7 @@ export default function FiltroFechas({ currentTab, desde, hasta }: Props) {
     <div className="space-y-3">
       {/* Tabs de módulos */}
       <div className="flex gap-1 flex-wrap bg-gray-100 p-1 rounded-xl">
-        {TABS.map(tab => (
+        {tabsVisibles.map(tab => (
           <button
             key={tab.key}
             onClick={() => handleTab(tab.key)}
