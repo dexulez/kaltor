@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import ProductoForm from '@/components/inventario/ProductoForm'
 import BotonVolver from '@/components/shared/BotonVolver'
 import { tieneSubPermiso } from '@/lib/modulos'
@@ -13,13 +13,27 @@ export default async function NuevoProductoPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: perfil } = await supabase
     .from('user_profiles')
-    .select('permisos_modulos, roles(nombre)')
+    .select('store_id, permisos_modulos, roles(nombre)')
     .eq('id', user!.id)
     .single()
   const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
   const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
   const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
   const puedeVerCostos = tieneSubPermiso('inventario.ver_costos', rolNombre, permisos)
+
+  const storeId = (perfil as { store_id?: string } | null)?.store_id
+  let tieneB2B = true
+  if (storeId) {
+    const admin = createServiceClient()
+    const { data: storeModules } = await admin
+      .from('store_modules')
+      .select('module_key')
+      .eq('store_id', storeId)
+      .eq('activo', true)
+    if (storeModules && storeModules.length > 0) {
+      tieneB2B = storeModules.some((m: { module_key: string }) => m.module_key === 'canal_b2b')
+    }
+  }
 
   const [{ data: categorias }, { data: proveedores }] = await Promise.all([
     supabase.from('product_categories').select('*').order('nombre'),
@@ -37,7 +51,7 @@ export default async function NuevoProductoPage({
           </p>
         )}
       </div>
-      <ProductoForm categorias={categorias ?? []} proveedores={proveedores ?? []} returnTo={returnTo} puedeVerCostos={puedeVerCostos} />
+      <ProductoForm categorias={categorias ?? []} proveedores={proveedores ?? []} returnTo={returnTo} puedeVerCostos={puedeVerCostos} tieneB2B={tieneB2B} />
     </div>
   )
 }

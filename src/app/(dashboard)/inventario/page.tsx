@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
@@ -8,7 +8,7 @@ import EliminarProductoBtn from '@/components/inventario/EliminarProductoBtn'
 import BuscadorInventario from '@/components/inventario/BuscadorInventario'
 import ProductoB2BControl from '@/components/inventario/ProductoB2BControl'
 import { Suspense } from 'react'
-import { tieneSubPermiso } from '@/lib/modulos'
+import { tieneSubPermiso, type ModuloNegocio } from '@/lib/modulos'
 
 const TIPO_LABELS: Record<string, string> = {
   repuesto: 'Repuesto', accesorio: 'Accesorio',
@@ -33,7 +33,7 @@ export default async function InventarioPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: perfil } = await supabase
     .from('user_profiles')
-    .select('permisos_modulos, roles(nombre)')
+    .select('store_id, permisos_modulos, roles(nombre)')
     .eq('id', user!.id)
     .single()
   const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
@@ -44,6 +44,22 @@ export default async function InventarioPage({
   const puedeVerCostos = tieneSubPermiso('inventario.ver_costos', rolNombre, permisos)
   const puedeCargaMasiva = tieneSubPermiso('inventario.carga_masiva', rolNombre, permisos)
   const puedeCategorias = tieneSubPermiso('inventario.categorias', rolNombre, permisos)
+
+  // Módulos activos según el plan de la tienda (service role para evitar RLS)
+  const storeId = (perfil as { store_id?: string } | null)?.store_id
+  let modulosDelPlan: Set<ModuloNegocio> | null = null
+  if (storeId) {
+    const admin = createServiceClient()
+    const { data: storeModules } = await admin
+      .from('store_modules')
+      .select('module_key')
+      .eq('store_id', storeId)
+      .eq('activo', true)
+    if (storeModules && storeModules.length > 0) {
+      modulosDelPlan = new Set(storeModules.map((m: { module_key: string }) => m.module_key as ModuloNegocio))
+    }
+  }
+  const tieneB2B = !modulosDelPlan || modulosDelPlan.has('canal_b2b')
 
   let query = supabase
     .from('products')
@@ -186,16 +202,18 @@ export default async function InventarioPage({
                       {puedeEliminar && <EliminarProductoBtn productId={p.id} nombre={p.nombre} />}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
-                    <span className="text-xs text-gray-400">Catálogo B2B</span>
-                    <ProductoB2BControl
-                      productId={p.id}
-                      nombre={p.nombre}
-                      precioMayorista={p.precio_mayorista ?? null}
-                      visibleCompradores={p.visible_compradores ?? false}
-                      disabled={!puedeEditar}
-                    />
-                  </div>
+                  {tieneB2B && (
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                      <span className="text-xs text-gray-400">Catálogo B2B</span>
+                      <ProductoB2BControl
+                        productId={p.id}
+                        nombre={p.nombre}
+                        precioMayorista={p.precio_mayorista ?? null}
+                        visibleCompradores={p.visible_compradores ?? false}
+                        disabled={!puedeEditar}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -212,7 +230,7 @@ export default async function InventarioPage({
                   <th className="text-right px-4 py-3 font-medium text-gray-600">Stock</th>
                   {puedeVerCostos && <th className="text-right px-4 py-3 font-medium text-gray-600">Costo real</th>}
                   <th className="text-right px-4 py-3 font-medium text-gray-600">Precio venta</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Mayorista / B2B</th>
+                  {tieneB2B && <th className="text-right px-4 py-3 font-medium text-gray-600">Mayorista / B2B</th>}
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -249,15 +267,17 @@ export default async function InventarioPage({
                       </td>
                       {puedeVerCostos && <td className="px-4 py-3 text-right text-gray-600">{formatCLP(costoReal)}</td>}
                       <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCLP(p.precio_venta)}</td>
-                      <td className="px-4 py-3">
-                        <ProductoB2BControl
-                          productId={p.id}
-                          nombre={p.nombre}
-                          precioMayorista={p.precio_mayorista ?? null}
-                          visibleCompradores={p.visible_compradores ?? false}
-                          disabled={!puedeEditar}
-                        />
-                      </td>
+                      {tieneB2B && (
+                        <td className="px-4 py-3">
+                          <ProductoB2BControl
+                            productId={p.id}
+                            nombre={p.nombre}
+                            precioMayorista={p.precio_mayorista ?? null}
+                            visibleCompradores={p.visible_compradores ?? false}
+                            disabled={!puedeEditar}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <div className="flex gap-1 justify-end">
                           <ProductoQRButton productId={p.id} nombre={p.nombre} sku={p.sku} />

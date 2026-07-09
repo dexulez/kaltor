@@ -20,9 +20,10 @@ interface Props {
   proveedores: Pick<Supplier, 'id' | 'nombre'>[]
   returnTo?: string
   puedeVerCostos?: boolean
+  tieneB2B?: boolean
 }
 
-export default function ProductoForm({ producto, categorias, proveedores, returnTo, puedeVerCostos = true }: Props) {
+export default function ProductoForm({ producto, categorias, proveedores, returnTo, puedeVerCostos = true, tieneB2B = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -590,6 +591,7 @@ export default function ProductoForm({ producto, categorias, proveedores, return
           </div>
         </div>
 
+        {tieneB2B && (
         <div className="bg-white rounded-xl border p-5 space-y-4">
           <div>
             <h2 className="font-semibold text-gray-800">Venta a compradores externos (B2B)</h2>
@@ -653,6 +655,7 @@ export default function ProductoForm({ producto, categorias, proveedores, return
             )}
           </div>
         </div>
+        )}
 
         <div className="flex gap-3 pb-20 md:pb-0">
           <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loading}>

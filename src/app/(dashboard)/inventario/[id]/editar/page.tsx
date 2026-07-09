@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import ProductoForm from '@/components/inventario/ProductoForm'
 import BotonVolver from '@/components/shared/BotonVolver'
@@ -10,13 +10,27 @@ export default async function EditarProductoPage({ params }: { params: Promise<{
   const { data: { user } } = await supabase.auth.getUser()
   const { data: perfil } = await supabase
     .from('user_profiles')
-    .select('permisos_modulos, roles(nombre)')
+    .select('store_id, permisos_modulos, roles(nombre)')
     .eq('id', user!.id)
     .single()
   const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
   const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
   const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
   const puedeVerCostos = tieneSubPermiso('inventario.ver_costos', rolNombre, permisos)
+
+  const storeId = (perfil as { store_id?: string } | null)?.store_id
+  let tieneB2B = true
+  if (storeId) {
+    const admin = createServiceClient()
+    const { data: storeModules } = await admin
+      .from('store_modules')
+      .select('module_key')
+      .eq('store_id', storeId)
+      .eq('activo', true)
+    if (storeModules && storeModules.length > 0) {
+      tieneB2B = storeModules.some((m: { module_key: string }) => m.module_key === 'canal_b2b')
+    }
+  }
 
   const [{ data: producto }, { data: categorias }, { data: proveedores }] = await Promise.all([
     supabase.from('products').select('*').eq('id', id).single(),
@@ -32,7 +46,7 @@ export default async function EditarProductoPage({ params }: { params: Promise<{
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Editar producto</h1>
         <p className="text-gray-500 text-sm">{producto.nombre}</p>
       </div>
-      <ProductoForm producto={producto} categorias={categorias ?? []} proveedores={proveedores ?? []} puedeVerCostos={puedeVerCostos} />
+      <ProductoForm producto={producto} categorias={categorias ?? []} proveedores={proveedores ?? []} puedeVerCostos={puedeVerCostos} tieneB2B={tieneB2B} />
     </div>
   )
 }
