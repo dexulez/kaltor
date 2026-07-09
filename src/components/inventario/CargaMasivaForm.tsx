@@ -55,6 +55,119 @@ function parseBool(v: unknown): boolean {
   return s === 'SI' || s === 'SÍ' || s === 'YES' || s === '1' || s === 'TRUE'
 }
 
+// ── Importación desde Bsale ──────────────────────────────────────────────────
+// Bsale exporta un reporte (no una planilla limpia): trae filas de título/filtros
+// antes del encabezado real, y cada variante de un producto en su propia fila.
+const CATEGORIA_FALLBACK_BSALE = 'Importado Bsale'
+
+function normalizarTexto(s: unknown): string {
+  return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+// Números de Bsale usan coma como separador de miles (ej: "86,130" = 86130)
+function toNumBsale(v: unknown): number {
+  const s = String(v ?? '').trim().replace(/,/g, '')
+  const n = parseFloat(s)
+  return isNaN(n) ? 0 : n
+}
+
+function colIndex(headerRow: unknown[], aliases: string[]): number {
+  const norm = headerRow.map(normalizarTexto)
+  for (const alias of aliases) {
+    const idx = norm.indexOf(alias)
+    if (idx >= 0) return idx
+  }
+  return -1
+}
+
+// Busca la fila de encabezados reales entre las primeras filas del reporte
+function encontrarHeaderBsale(rows: unknown[][]): number {
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const fila = (rows[i] ?? []).map(normalizarTexto)
+    if (fila.includes('sku') && fila.includes('producto') && fila.some(c => c.includes('costo neto'))) {
+      return i
+    }
+  }
+  return -1
+}
+
+interface BsaleColIdx {
+  tipoProducto: number
+  producto: number
+  variante: number
+  codigoBarras: number
+  sku: number
+  stock: number
+  costoNeto: number
+  cantidadDisponible: number
+  marca: number
+  precioVenta: number
+}
+
+function parseBsaleRow(
+  row: unknown[],
+  fila: number,
+  col: BsaleColIdx,
+  categorias: Categoria[]
+): FilaParsed {
+  const get = (idx: number) => (idx >= 0 ? row[idx] : '')
+
+  const producto = String(get(col.producto) ?? '').trim()
+  const variante = String(get(col.variante) ?? '').trim()
+  const nombre = [producto, variante].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+
+  const sku = String(get(col.sku) ?? '').trim()
+  const codigoBarras = String(get(col.codigoBarras) ?? '').trim()
+  const marca = String(get(col.marca) ?? '').trim()
+
+  const tipoProducto = String(get(col.tipoProducto) ?? '').trim()
+  const categoria_nombre = tipoProducto || CATEGORIA_FALLBACK_BSALE
+  const catMatch = categorias.find(c => c.nombre.toLowerCase() === categoria_nombre.toLowerCase())
+
+  const disponibleRaw = get(col.cantidadDisponible)
+  const stockRaw = (disponibleRaw !== '' && disponibleRaw != null) ? disponibleRaw : get(col.stock)
+  const stock_actual = toNumBsale(stockRaw)
+
+  const precio_costo = toNumBsale(get(col.costoNeto))
+  const precio_venta = toNumBsale(get(col.precioVenta))
+
+  const errores: string[] = []
+  if (!nombre) errores.push('Nombre obligatorio (Producto + Variante vacíos)')
+  if (!catMatch) errores.push(`Categoría "${categoria_nombre}" no encontrada`)
+  if (precio_venta <= 0) errores.push('Precio de venta debe ser > 0')
+  if (stock_actual < 0) errores.push('Stock actual no puede ser negativo')
+
+  const descParts: string[] = []
+  if (marca) descParts.push(`Marca: ${marca}`)
+  if (codigoBarras) descParts.push(`Cód. barras: ${codigoBarras}`)
+
+  return {
+    fila,
+    nombre,
+    sku,
+    descripcion: descParts.join(' · '),
+    categoria_nombre,
+    categoria_id: catMatch?.id ?? null,
+    proveedor_nombre: '',
+    proveedor_id: null,
+    unidad_medida: 'unidad',
+    stock_actual,
+    stock_minimo: 0,
+    precio_costo,
+    costo_envio: 0,
+    precio_venta,
+    // "Precio Venta Bruto" en Bsale = precio con IVA incluido
+    precio_incluye_iva: true,
+    ubicacion_bodega: '',
+    precio_mayorista: null,
+    visible_compradores: false,
+    mayorista_descuento_tipo: null,
+    mayorista_descuento_valor: null,
+    mayorista_descuento_desde_cantidad: null,
+    errores,
+  }
+}
+
 function parseRow(
   raw: Record<string, unknown>,
   idx: number,
@@ -148,10 +261,12 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const inputRef = useRef<HTMLInputElement>(null)
+  const [categoriasLocal, setCategoriasLocal] = useState<Categoria[]>(categorias)
   const [filas, setFilas] = useState<FilaParsed[]>([])
   const [cargando, setCargando] = useState(false)
   const [importando, setImportando] = useState(false)
   const [importResult, setImportResult] = useState<{ ok: number; errores: number } | null>(null)
+  const [origenBsale, setOrigenBsale] = useState(false)
 
   // ── Generar plantilla Excel ──────────────────────────────────────────────
   function descargarPlantilla() {
@@ -230,7 +345,7 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
     // Hoja 3: Categorías válidas
     const catData = [
       ['Categorías válidas (copiar exactamente)'],
-      ...categorias.map(c => [c.nombre, `Tipo: ${c.tipo}`]),
+      ...categoriasLocal.map(c => [c.nombre, `Tipo: ${c.tipo}`]),
     ]
     const wsCat = XLSX.utils.aoa_to_sheet(catData)
     wsCat['!cols'] = [{ wch: 25 }, { wch: 20 }]
@@ -257,6 +372,64 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
     URL.revokeObjectURL(url)
   }
 
+  // ── Procesar archivo exportado desde Bsale ───────────────────────────────
+  async function procesarBsale(aoa: unknown[][], headerIdx: number) {
+    const headerRow = aoa[headerIdx]
+    const col: BsaleColIdx = {
+      tipoProducto:       colIndex(headerRow, ['tipo de producto']),
+      producto:           colIndex(headerRow, ['producto']),
+      variante:           colIndex(headerRow, ['variante']),
+      codigoBarras:       colIndex(headerRow, ['código barras', 'codigo barras']),
+      sku:                colIndex(headerRow, ['sku']),
+      stock:              colIndex(headerRow, ['stock']),
+      costoNeto:          colIndex(headerRow, ['costo neto prom. unitario', 'costo neto prom unitario']),
+      cantidadDisponible: colIndex(headerRow, ['cantidad disponible']),
+      marca:              colIndex(headerRow, ['marca']),
+      precioVenta:        colIndex(headerRow, ['precio venta bruto']),
+    }
+
+    const dataRows = aoa.slice(headerIdx + 1).filter(r => r.some(c => String(c ?? '').trim() !== ''))
+    if (dataRows.length === 0) {
+      toast.error('No se encontraron productos en el archivo de Bsale.')
+      return
+    }
+    if (dataRows.length > 500) {
+      toast.error('Máximo 500 productos por carga. Divide el archivo en partes.')
+      return
+    }
+
+    // Detectar categorías (Tipo de Producto) que no existen aún en el sistema
+    const tiposDetectados = dataRows.map(r => {
+      const t = String((col.tipoProducto >= 0 ? r[col.tipoProducto] : '') ?? '').trim()
+      return t || CATEGORIA_FALLBACK_BSALE
+    })
+    const tiposUnicos = Array.from(new Set(tiposDetectados))
+    let categoriasActuales = categoriasLocal
+    const faltantes = tiposUnicos.filter(t => !categoriasActuales.some(c => c.nombre.toLowerCase() === t.toLowerCase()))
+
+    if (faltantes.length > 0) {
+      const crear = confirm(
+        `Bsale trae ${faltantes.length} categoría(s) que no existen en tu sistema:\n\n${faltantes.join(', ')}\n\n¿Crearlas automáticamente para continuar con la importación?\n\n(Si eliges "Cancelar", esos productos quedarán marcados con error y podrás crear las categorías manualmente antes de reintentar).`
+      )
+      if (crear) {
+        const { data: nuevas, error } = await supabase
+          .from('product_categories')
+          .insert(faltantes.map(nombre => ({ nombre, tipo: 'accesorio', vendible: true })))
+          .select('id, nombre, tipo')
+        if (error) {
+          toast.error('Error al crear categorías: ' + error.message)
+        } else if (nuevas) {
+          categoriasActuales = [...categoriasActuales, ...(nuevas as Categoria[])]
+          setCategoriasLocal(categoriasActuales)
+        }
+      }
+    }
+
+    const parsed = dataRows.map((row, i) => parseBsaleRow(row, headerIdx + i + 2, col, categoriasActuales))
+    setFilas(parsed)
+    toast.success(`Archivo de Bsale detectado: ${parsed.length} producto(s) leídos`)
+  }
+
   // ── Leer archivo Excel ───────────────────────────────────────────────────
   async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -268,21 +441,30 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
       const buf = await file.arrayBuffer()
       const wb = XLSX.read(buf)
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+      const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '', raw: false }) as unknown[][]
+      const headerIdxBsale = encontrarHeaderBsale(aoa)
 
-      if (rows.length === 0) {
-        toast.error('El archivo no tiene datos. Verifica que estés usando la hoja "Productos".')
-        setCargando(false)
-        return
-      }
-      if (rows.length > 500) {
-        toast.error('Máximo 500 productos por carga. Divide el archivo en partes.')
-        setCargando(false)
-        return
-      }
+      if (headerIdxBsale >= 0) {
+        setOrigenBsale(true)
+        await procesarBsale(aoa, headerIdxBsale)
+      } else {
+        setOrigenBsale(false)
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
 
-      const parsed = rows.map((row, i) => parseRow(row, i, categorias, proveedores))
-      setFilas(parsed)
+        if (rows.length === 0) {
+          toast.error('El archivo no tiene datos. Verifica que estés usando la hoja "Productos".')
+          setCargando(false)
+          return
+        }
+        if (rows.length > 500) {
+          toast.error('Máximo 500 productos por carga. Divide el archivo en partes.')
+          setCargando(false)
+          return
+        }
+
+        const parsed = rows.map((row, i) => parseRow(row, i, categoriasLocal, proveedores))
+        setFilas(parsed)
+      }
     } catch {
       toast.error('Error al leer el archivo. Asegúrate de subir un archivo .xlsx o .xls válido.')
     }
@@ -471,6 +653,9 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
             <p className="text-sm text-gray-500 mt-0.5">
               Rellena la hoja &ldquo;Productos&rdquo; con tus datos y sube el archivo aquí. Máximo 500 filas por carga.
             </p>
+            <p className="text-xs text-gray-400 mt-1">
+              También puedes subir directamente el archivo exportado desde <strong>Bsale</strong> (Inventario → Exportar) — el sistema detecta el formato automáticamente y convierte los datos.
+            </p>
 
             <label className="mt-3 flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
               <span className="text-3xl mb-1">📂</span>
@@ -498,7 +683,10 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
             <div className="flex items-start gap-4">
               <div className="text-3xl">3️⃣</div>
               <div>
-                <p className="font-semibold text-gray-800">Vista previa — {filas.length} fila(s)</p>
+                <p className="font-semibold text-gray-800">
+                  Vista previa — {filas.length} fila(s)
+                  {origenBsale && <span className="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium align-middle">Origen: Bsale</span>}
+                </p>
                 <div className="flex gap-3 mt-0.5 text-xs">
                   <span className="text-green-700 font-medium">✓ {validas} válidas</span>
                   {conErrores > 0 && <span className="text-red-600 font-medium">✗ {conErrores} con errores</span>}
