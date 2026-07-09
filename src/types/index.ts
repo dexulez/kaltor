@@ -201,6 +201,8 @@ export interface Product {
   proveedor_id?: string
   compatibilidad: string[]
   unidad_medida: UnidadMedida
+  contenido_por_caja?: number | null
+  contenido_unidad_medida?: UnidadMedida | null
   stock_actual: number
   stock_minimo: number
   precio_costo: number

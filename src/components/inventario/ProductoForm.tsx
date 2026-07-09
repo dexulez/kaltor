@@ -21,9 +21,10 @@ interface Props {
   returnTo?: string
   puedeVerCostos?: boolean
   tieneB2B?: boolean
+  tieneTaller?: boolean
 }
 
-export default function ProductoForm({ producto, categorias, proveedores, returnTo, puedeVerCostos = true, tieneB2B = true }: Props) {
+export default function ProductoForm({ producto, categorias, proveedores, returnTo, puedeVerCostos = true, tieneB2B = true, tieneTaller = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -47,6 +48,8 @@ export default function ProductoForm({ producto, categorias, proveedores, return
     codigo_barras: producto?.codigo_barras ?? '',
     sku: producto?.sku ?? '',
     unidad_medida: (producto?.unidad_medida ?? 'unidad') as UnidadMedida,
+    contenido_por_caja: String(producto?.contenido_por_caja ?? ''),
+    contenido_unidad_medida: (producto?.contenido_unidad_medida ?? 'unidad') as UnidadMedida,
     stock_actual: String(producto?.stock_actual ?? 0),
     stock_minimo: String(producto?.stock_minimo ?? 0),
     precio_costo: String(producto?.precio_costo ?? 0),
@@ -178,6 +181,8 @@ export default function ProductoForm({ producto, categorias, proveedores, return
       codigo_barras: form.codigo_barras.trim() || null,
       sku: form.sku.trim() || null,
       unidad_medida: form.unidad_medida,
+      contenido_por_caja: form.unidad_medida === 'caja' && form.contenido_por_caja.trim() ? parseFloat(form.contenido_por_caja) : null,
+      contenido_unidad_medida: form.unidad_medida === 'caja' ? form.contenido_unidad_medida : null,
       stock_actual: parseFloat(form.stock_actual) || 0,
       stock_minimo: parseFloat(form.stock_minimo) || 0,
       precio_costo: parseFloat(form.precio_costo) || 0,
@@ -190,8 +195,8 @@ export default function ProductoForm({ producto, categorias, proveedores, return
       mayorista_descuento_valor: form.mayorista_descuento_activo && form.mayorista_descuento_valor.trim() ? parseFloat(form.mayorista_descuento_valor) : null,
       mayorista_descuento_desde_cantidad: form.mayorista_descuento_activo && form.mayorista_descuento_desde_cantidad.trim() ? parseInt(form.mayorista_descuento_desde_cantidad) : null,
       ubicacion_bodega: form.ubicacion_bodega.trim() || null,
-      numero_serie: form.numero_serie.trim() || null,
-      imei: form.imei.trim() || null,
+      numero_serie: tieneTaller ? (form.numero_serie.trim() || null) : null,
+      imei: tieneTaller ? (form.imei.trim() || null) : null,
       foto_url: fotoUrl,
     }
 
@@ -487,6 +492,31 @@ export default function ProductoForm({ producto, categorias, proveedores, return
                 </SelectContent>
               </Select>
             </div>
+            {form.unidad_medida === 'caja' && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Cantidad por caja</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={form.contenido_por_caja}
+                    onChange={e => set('contenido_por_caja', e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))}
+                    placeholder="Ej: 12"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Medida del contenido</Label>
+                  <Select value={form.contenido_unidad_medida} onValueChange={v => set('contenido_unidad_medida', v as UnidadMedida)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(UNIDAD_MEDIDA_LABEL).filter(([key]) => key !== 'caja').map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             <div className="space-y-1.5">
               <Label>Stock actual</Label>
               <Input
@@ -510,12 +540,14 @@ export default function ProductoForm({ producto, categorias, proveedores, return
               <Input value={form.ubicacion_bodega} onChange={e => set('ubicacion_bodega', e.target.value)}
                 placeholder="Estante A-3" />
             </div>
-            <div className="space-y-1.5">
-              <Label>N° Serie / IMEI</Label>
-              <Input value={form.numero_serie || form.imei}
-                onChange={e => set('numero_serie', e.target.value)}
-                placeholder="Solo equipos usados" />
-            </div>
+            {tieneTaller && (
+              <div className="space-y-1.5">
+                <Label>N° Serie / IMEI</Label>
+                <Input value={form.numero_serie || form.imei}
+                  onChange={e => set('numero_serie', e.target.value)}
+                  placeholder="Solo equipos usados" />
+              </div>
+            )}
           </div>
         </div>
 

@@ -20,6 +20,7 @@ export default async function EditarProductoPage({ params }: { params: Promise<{
 
   const storeId = (perfil as { store_id?: string } | null)?.store_id
   let tieneB2B = true
+  let tieneTaller = true
   if (storeId) {
     const admin = createServiceClient()
     const { data: storeModules } = await admin
@@ -29,6 +30,7 @@ export default async function EditarProductoPage({ params }: { params: Promise<{
       .eq('activo', true)
     if (storeModules && storeModules.length > 0) {
       tieneB2B = storeModules.some((m: { module_key: string }) => m.module_key === 'canal_b2b')
+      tieneTaller = storeModules.some((m: { module_key: string }) => m.module_key === 'taller')
     }
   }
 
@@ -46,7 +48,7 @@ export default async function EditarProductoPage({ params }: { params: Promise<{
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Editar producto</h1>
         <p className="text-gray-500 text-sm">{producto.nombre}</p>
       </div>
-      <ProductoForm producto={producto} categorias={categorias ?? []} proveedores={proveedores ?? []} puedeVerCostos={puedeVerCostos} tieneB2B={tieneB2B} />
+      <ProductoForm producto={producto} categorias={categorias ?? []} proveedores={proveedores ?? []} puedeVerCostos={puedeVerCostos} tieneB2B={tieneB2B} tieneTaller={tieneTaller} />
     </div>
   )
 }
