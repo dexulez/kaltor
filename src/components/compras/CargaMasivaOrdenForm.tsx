@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { formatCLP } from '@/lib/calculations'
+import { formatCLP, formatCantidad, UNIDAD_MEDIDA_LABEL } from '@/lib/calculations'
 import { useRouter } from 'next/navigation'
 
 interface Proveedor { id: string; nombre: string }
@@ -19,12 +19,15 @@ interface Props {
   categorias: Categoria[]
 }
 
+const UNIDADES_VALIDAS = Object.keys(UNIDAD_MEDIDA_LABEL)
+
 interface FilaItem {
   fila: number
   nombre: string
   sku: string
   codigo_barras: string
   cantidad: number
+  unidad_medida: string
   precio_unitario: number
   precio_venta: number
   precio_incluye_iva: boolean
@@ -85,7 +88,11 @@ function parseRow(
   const descripcion = str(raw['descripcion'] ?? raw['Descripción'])
   const ubicacion_bodega = str(raw['ubicacion_bodega'] ?? raw['Ubicación bodega'])
 
-  const cantidad = Math.round(toNum(raw['cantidad'] ?? raw['Cantidad']))
+  const unidadRaw = String(raw['unidad_medida'] ?? raw['Unidad de medida'] ?? '').trim().toLowerCase()
+  const unidad_medida = unidadRaw && UNIDADES_VALIDAS.includes(unidadRaw) ? unidadRaw : 'unidad'
+  if (unidadRaw && !UNIDADES_VALIDAS.includes(unidadRaw)) errores.push(`unidad_medida "${unidadRaw}" no válida`)
+
+  const cantidad = toNum(raw['cantidad'] ?? raw['Cantidad'])
   if (cantidad <= 0) errores.push('Cantidad debe ser > 0')
 
   const precio_unitario = toNum(raw['precio_unitario'] ?? raw['Precio unitario'])
@@ -122,7 +129,7 @@ function parseRow(
 
   return {
     fila: idx + 2,
-    nombre, sku, codigo_barras, cantidad, precio_unitario,
+    nombre, sku, codigo_barras, cantidad, unidad_medida, precio_unitario,
     precio_venta, precio_incluye_iva,
     categoria_nombre, categoria_id: catMatch?.id ?? null,
     stock_minimo, ubicacion_bodega, descripcion,
@@ -153,18 +160,19 @@ export default function CargaMasivaOrdenForm({ proveedores, categorias }: Props)
     const wb = XLSX.utils.book_new()
 
     const headers = [
-      'nombre', 'sku', 'codigo_barras', 'cantidad', 'precio_unitario',
+      'nombre', 'sku', 'codigo_barras', 'cantidad', 'unidad_medida', 'precio_unitario',
       'precio_venta', 'precio_incluye_iva', 'categoria',
       'stock_minimo', 'ubicacion_bodega', 'descripcion',
     ]
-    const ej1 = ['Pantalla iPhone 13 OLED', 'PAN-IP13', '8900000001234', 2, 45000, 95000, 'SI', 'Repuesto', 2, 'Estante A-3', 'Original pull-out']
-    const ej2 = ['Batería Samsung A54', 'BAT-SA54', '', 5, 8000, 22000, 'NO', 'Repuesto', 3, 'Estante B-1', '']
-    const ej3 = ['Funda silicona iPhone 15', '', '', 10, 1500, 5990, 'SI', 'Accesorio', 5, '', 'Color negro']
-    const ej4 = ['Cable USB-C trenzado 2m', 'CAB-USBC-2M', '7500000009876', 20, 2000, 7990, 'NO', 'Accesorio', 10, '', '']
+    const ej1 = ['Pantalla iPhone 13 OLED', 'PAN-IP13', '8900000001234', 2, 'unidad', 45000, 95000, 'SI', 'Repuesto', 2, 'Estante A-3', 'Original pull-out']
+    const ej2 = ['Batería Samsung A54', 'BAT-SA54', '', 5, 'unidad', 8000, 22000, 'NO', 'Repuesto', 3, 'Estante B-1', '']
+    const ej3 = ['Funda silicona iPhone 15', '', '', 10, 'unidad', 1500, 5990, 'SI', 'Accesorio', 5, '', 'Color negro']
+    const ej4 = ['Cable USB-C trenzado 2m', 'CAB-USBC-2M', '7500000009876', 20, 'unidad', 2000, 7990, 'NO', 'Accesorio', 10, '', '']
+    const ej5 = ['Alcohol isopropílico', 'INS-ALC', '', 5, 'litro', 6000, 12000, 'NO', 'Insumo', 1, 'Estante C-2', 'Limpieza de placas']
 
-    const ws = XLSX.utils.aoa_to_sheet([headers, ej1, ej2, ej3, ej4])
+    const ws = XLSX.utils.aoa_to_sheet([headers, ej1, ej2, ej3, ej4, ej5])
     ws['!cols'] = [
-      { wch: 35 }, { wch: 15 }, { wch: 18 }, { wch: 10 }, { wch: 16 },
+      { wch: 35 }, { wch: 15 }, { wch: 18 }, { wch: 10 }, { wch: 14 }, { wch: 16 },
       { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 25 },
     ]
     XLSX.utils.book_append_sheet(wb, ws, 'Items')
@@ -175,7 +183,8 @@ export default function CargaMasivaOrdenForm({ proveedores, categorias }: Props)
       ['nombre', 'SÍ', 'Nombre del producto o ítem', 'Pantalla iPhone 13 OLED'],
       ['sku', 'NO', 'SKU único. Si coincide con inventario, se vincula automáticamente', 'PAN-IP13'],
       ['codigo_barras', 'NO', 'Código de barras EAN-13 o Code128', '8900000001234'],
-      ['cantidad', 'SÍ', 'Cantidad a pedir (número entero mayor que 0)', '5'],
+      ['cantidad', 'SÍ', 'Cantidad a pedir (mayor que 0, acepta decimales si la unidad no es "unidad")', '5'],
+      ['unidad_medida', 'NO', `Unidad de compra: ${UNIDADES_VALIDAS.join(', ')} (por defecto unidad)`, 'litro'],
       ['precio_unitario', 'SÍ', 'Precio de costo unitario en CLP sin puntos', '45000'],
       ['precio_venta', 'NO', 'Precio de venta al cliente en CLP (para crear producto nuevo)', '95000'],
       ['precio_incluye_iva', 'NO', 'SI = precio de venta ya incluye IVA | NO = es precio neto', 'SI'],
@@ -276,6 +285,7 @@ export default function CargaMasivaOrdenForm({ proveedores, categorias }: Props)
           codigo_barras: fila.codigo_barras || null,
           descripcion: fila.descripcion || null,
           categoria_id: fila.categoria_id,
+          unidad_medida: fila.unidad_medida,
           precio_costo: fila.precio_unitario,
           precio_venta: fila.precio_venta > 0 ? fila.precio_venta : fila.precio_unitario * 2,
           precio_incluye_iva: fila.precio_incluye_iva,
@@ -468,7 +478,8 @@ export default function CargaMasivaOrdenForm({ proveedores, categorias }: Props)
                   ['nombre', 'SÍ', 'Nombre del producto o ítem a pedir'],
                   ['sku', 'NO', 'SKU. Si coincide con inventario, se vincula automáticamente'],
                   ['codigo_barras', 'NO', 'Código de barras EAN-13/Code128 para vincular'],
-                  ['cantidad', 'SÍ', 'Unidades a pedir (número entero > 0)'],
+                  ['cantidad', 'SÍ', 'Cantidad a pedir, acepta decimales (> 0)'],
+                  ['unidad_medida', 'NO', `${UNIDADES_VALIDAS.join(', ')} (por defecto unidad)`],
                   ['precio_unitario', 'SÍ', 'Costo de compra por unidad en CLP sin puntos'],
                   ['precio_venta', 'NO', 'Precio de venta sugerido al cliente (para crear producto)'],
                   ['precio_incluye_iva', 'NO', 'SI/NO — si precio_venta ya incluye IVA'],
@@ -554,6 +565,7 @@ export default function CargaMasivaOrdenForm({ proveedores, categorias }: Props)
                   <th className="text-left px-3 py-2 font-medium text-gray-500">SKU</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-500">Categoría</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-500">Cant.</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-500">Unidad</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-500">P. Unit.</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-500">Subtotal</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-500">Estado</th>
@@ -570,7 +582,8 @@ export default function CargaMasivaOrdenForm({ proveedores, categorias }: Props)
                       </td>
                       <td className="px-3 py-2 font-mono text-gray-500">{f.sku || '—'}</td>
                       <td className="px-3 py-2 text-gray-600">{f.categoria_nombre || '—'}</td>
-                      <td className="px-3 py-2 text-right">{f.cantidad}</td>
+                      <td className="px-3 py-2 text-right">{formatCantidad(f.cantidad, f.unidad_medida)}</td>
+                      <td className="px-3 py-2 text-gray-500">{UNIDAD_MEDIDA_LABEL[f.unidad_medida] ?? f.unidad_medida}</td>
                       <td className="px-3 py-2 text-right text-gray-700">{formatCLP(f.precio_unitario)}</td>
                       <td className="px-3 py-2 text-right font-medium">{formatCLP(f.precio_unitario * f.cantidad)}</td>
                       <td className="px-3 py-2 min-w-[160px]">

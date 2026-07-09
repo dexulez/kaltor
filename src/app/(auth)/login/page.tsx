@@ -28,7 +28,12 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    // Si el usuario pertenece a más de una empresa, se le pide elegir con cuál entrar
+    const res = await fetch('/api/auth/mis-empresas')
+    const { empresas } = res.ok ? await res.json() : { empresas: [] }
+    const destino = (empresas?.length ?? 0) > 1 ? '/seleccionar-empresa' : '/dashboard'
+
+    router.push(destino)
     router.refresh()
   }
 

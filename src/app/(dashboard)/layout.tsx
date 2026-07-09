@@ -53,9 +53,9 @@ export default async function DashboardLayout({
 
   // Módulos activos según el plan de la tienda (service role para evitar RLS)
   const storeId = (profile as { store_id?: string } | null)?.store_id
+  const admin = createServiceClient()
   let modulosDelPlan: Set<ModuloNegocio> | null = null
   if (storeId) {
-    const admin = createServiceClient()
     const { data: storeModules } = await admin
       .from('store_modules')
       .select('module_key')
@@ -66,16 +66,23 @@ export default async function DashboardLayout({
     }
   }
 
+  // ¿El usuario pertenece a más de una empresa? (muestra "Cambiar de empresa" en el menú)
+  const { count: totalEmpresas } = await admin
+    .from('store_users')
+    .select('store_id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+  const multiEmpresa = (totalEmpresas ?? 0) > 1
+
   return (
     <div className="flex h-screen bg-[#F5F6F4] overflow-hidden">
       <InactivityRedirect />
       <RealtimeRefresh />
       <MayusculasListener activo={mayusculasActivas} />
-      <AppSidebar user={profile} logoUrl={logoUrl} nombreLocal={nombreLocal} alertas={alertas} modulosDelPlan={modulosDelPlan} />
+      <AppSidebar user={profile} logoUrl={logoUrl} nombreLocal={nombreLocal} alertas={alertas} modulosDelPlan={modulosDelPlan} multiEmpresa={multiEmpresa} />
       <main className="flex-1 overflow-auto pb-16 md:pb-0">
         {children}
       </main>
-      <MobileNav user={profile} alertas={alertas} modulosDelPlan={modulosDelPlan} />
+      <MobileNav user={profile} alertas={alertas} modulosDelPlan={modulosDelPlan} multiEmpresa={multiEmpresa} />
       <ChatWidget
         context="app"
         bgColor="#0F1318"

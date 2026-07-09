@@ -56,6 +56,40 @@ export function formatCLP(amount: number): string {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(amount)
 }
 
+// ── Unidad de medida ──────────────────────────────────────────────────────────
+
+export const UNIDAD_MEDIDA_LABEL: Record<string, string> = {
+  unidad: 'Unidad',
+  kg:     'Kilogramo (kg)',
+  g:      'Gramo (g)',
+  litro:  'Litro (L)',
+  ml:     'Mililitro (ml)',
+  metro:  'Metro (m)',
+  cm:     'Centímetro (cm)',
+  caja:   'Caja',
+}
+
+export const UNIDAD_MEDIDA_SUFIJO: Record<string, string> = {
+  unidad: '',
+  kg:     'kg',
+  g:      'g',
+  litro:  'L',
+  ml:     'ml',
+  metro:  'm',
+  cm:     'cm',
+  caja:   'caja',
+}
+
+// Formatea una cantidad respetando la unidad: enteras para "unidad",
+// hasta 3 decimales (sin ceros de más) para kg/litro/metro/etc.
+export function formatCantidad(cantidad: number, unidad: string = 'unidad'): string {
+  const numero = unidad === 'unidad'
+    ? String(Math.round(cantidad))
+    : new Intl.NumberFormat('es-CL', { maximumFractionDigits: 3 }).format(cantidad)
+  const sufijo = UNIDAD_MEDIDA_SUFIJO[unidad]
+  return sufijo ? `${numero} ${sufijo}` : numero
+}
+
 // ── RUT chileno ───────────────────────────────────────────────────────────────
 // Formato: 26595544-4 (sin puntos, con guión antes del DV)
 

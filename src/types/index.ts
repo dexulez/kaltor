@@ -189,6 +189,8 @@ export interface Supplier {
   updated_at: string
 }
 
+export type UnidadMedida = 'unidad' | 'kg' | 'g' | 'litro' | 'ml' | 'metro' | 'cm' | 'caja'
+
 export interface Product {
   id: string
   sku?: string
@@ -198,6 +200,7 @@ export interface Product {
   categoria_id: string
   proveedor_id?: string
   compatibilidad: string[]
+  unidad_medida: UnidadMedida
   stock_actual: number
   stock_minimo: number
   precio_costo: number

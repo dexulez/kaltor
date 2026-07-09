@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { formatCLP } from '@/lib/calculations'
-import { Product, ProductCategory, ProductCategoryType, Supplier } from '@/types'
+import { formatCLP, UNIDAD_MEDIDA_LABEL } from '@/lib/calculations'
+import { Product, ProductCategory, ProductCategoryType, Supplier, UnidadMedida } from '@/types'
 import QRScanner from '@/components/shared/QRScanner'
 import { comprimirArchivos } from '@/lib/imageCompress'
 
@@ -45,6 +45,7 @@ export default function ProductoForm({ producto, categorias, proveedores, return
     proveedor_id: producto?.proveedor_id ?? '',
     codigo_barras: producto?.codigo_barras ?? '',
     sku: producto?.sku ?? '',
+    unidad_medida: (producto?.unidad_medida ?? 'unidad') as UnidadMedida,
     stock_actual: String(producto?.stock_actual ?? 0),
     stock_minimo: String(producto?.stock_minimo ?? 0),
     precio_costo: String(producto?.precio_costo ?? 0),
@@ -175,8 +176,9 @@ export default function ProductoForm({ producto, categorias, proveedores, return
       proveedor_id: form.proveedor_id || null,
       codigo_barras: form.codigo_barras.trim() || null,
       sku: form.sku.trim() || null,
-      stock_actual: parseInt(form.stock_actual) || 0,
-      stock_minimo: parseInt(form.stock_minimo) || 0,
+      unidad_medida: form.unidad_medida,
+      stock_actual: parseFloat(form.stock_actual) || 0,
+      stock_minimo: parseFloat(form.stock_minimo) || 0,
       precio_costo: parseFloat(form.precio_costo) || 0,
       costo_envio: parseFloat(form.costo_envio) || 0,
       precio_venta: parseFloat(form.precio_venta) || 0,
@@ -474,14 +476,33 @@ export default function ProductoForm({ producto, categorias, proveedores, return
           <h2 className="font-semibold text-gray-800">Stock y ubicación</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="space-y-1.5">
+              <Label>Unidad de medida</Label>
+              <Select value={form.unidad_medida} onValueChange={v => set('unidad_medida', v as UnidadMedida)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(UNIDAD_MEDIDA_LABEL).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Stock actual</Label>
-              <Input type="number" min={0} value={form.stock_actual}
-                onChange={e => set('stock_actual', e.target.value)} />
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={form.stock_actual}
+                onChange={e => set('stock_actual', e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Stock mínimo</Label>
-              <Input type="number" min={0} value={form.stock_minimo}
-                onChange={e => set('stock_minimo', e.target.value)} />
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={form.stock_minimo}
+                onChange={e => set('stock_minimo', e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Ubicación en bodega</Label>

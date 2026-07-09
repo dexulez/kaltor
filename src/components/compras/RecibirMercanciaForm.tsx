@@ -245,11 +245,14 @@ export default function RecibirMercanciaForm({ oc }: Props) {
               <div className="w-28">
                 <p className="text-xs text-gray-400 mb-1 text-center">Recibido</p>
                 <Input
-                  type="number"
-                  min={item.cantidad_recibida}
-                  max={item.cantidad_solicitada}
+                  type="text"
+                  inputMode="decimal"
                   value={cantidades[item.id] ?? item.cantidad_recibida}
-                  onChange={e => setCant(item.id, Math.min(item.cantidad_solicitada, Math.max(item.cantidad_recibida, parseInt(e.target.value) || 0)))}
+                  onChange={e => {
+                    const limpio = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                    const n = limpio === '' ? 0 : parseFloat(limpio) || 0
+                    setCant(item.id, Math.min(item.cantidad_solicitada, Math.max(item.cantidad_recibida, n)))
+                  }}
                   className="text-center h-8 text-sm"
                 />
               </div>

@@ -45,7 +45,7 @@ const ALERTA_POR_HREF: Record<string, keyof Alertas> = {
 
 interface Alertas { compras: number; pedidosB2B: number }
 
-export default function MobileNav({ user, alertas, modulosDelPlan }: { user: UserProfile | null; alertas?: Alertas; modulosDelPlan?: Set<ModuloNegocio> | null }) {
+export default function MobileNav({ user, alertas, modulosDelPlan, multiEmpresa }: { user: UserProfile | null; alertas?: Alertas; modulosDelPlan?: Set<ModuloNegocio> | null; multiEmpresa?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -233,6 +233,15 @@ export default function MobileNav({ user, alertas, modulosDelPlan }: { user: Use
                   Cerrar sesión
                 </button>
               </div>
+              {multiEmpresa && (
+                <Link
+                  href="/seleccionar-empresa"
+                  className="mt-2 flex items-center gap-1.5 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 text-xs font-semibold w-fit"
+                >
+                  <span>🏢</span>
+                  Cambiar de empresa
+                </Link>
+              )}
             </div>
           </div>
         </div>

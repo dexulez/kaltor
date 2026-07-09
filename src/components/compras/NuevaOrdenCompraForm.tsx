@@ -322,9 +322,17 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
                     )}
                   </div>
                   <div className="sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Cantidad</Label>
-                    <Input type="number" min={0} value={item.cantidad_solicitada}
-                      onChange={e => setItem(item.id, 'cantidad_solicitada', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                    <Label className="text-xs">
+                      Cantidad
+                      {item.product_id && productos.find(p => p.id === item.product_id)?.unidad_medida !== 'unidad' && (
+                        <span className="text-gray-400 font-normal"> ({productos.find(p => p.id === item.product_id)?.unidad_medida})</span>
+                      )}
+                    </Label>
+                    <Input type="text" inputMode="decimal" value={item.cantidad_solicitada}
+                      onChange={e => {
+                        const limpio = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                        setItem(item.id, 'cantidad_solicitada', limpio === '' ? 0 : parseFloat(limpio) || 0)
+                      }}
                       className="text-sm" />
                   </div>
                   <div className="sm:col-span-3 space-y-1">

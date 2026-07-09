@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatCLP } from '@/lib/calculations'
+import { formatCLP, formatCantidad } from '@/lib/calculations'
 
 const MOTIVOS_CARGA = [
   'Corrección de inventario',
@@ -35,6 +35,7 @@ interface Producto {
   sku: string | null
   stock_actual: number
   precio_costo: number
+  unidad_medida: string
 }
 
 interface Props {
@@ -74,7 +75,7 @@ export default function AjusteStockForm({ productos }: Props) {
 
   const motivos = tipo === 'carga' ? MOTIVOS_CARGA : MOTIVOS_DESCARGA
   const motivoFinal = motivoSel === 'Otro' ? motivoCustom.trim() : motivoSel
-  const cant = parseInt(cantidad) || 0
+  const cant = parseFloat(cantidad) || 0
   const stockNuevo = prodSel ? (tipo === 'carga' ? prodSel.stock_actual + cant : prodSel.stock_actual - cant) : 0
 
   async function guardar() {
@@ -82,7 +83,7 @@ export default function AjusteStockForm({ productos }: Props) {
     if (cant <= 0) { toast.error('La cantidad debe ser mayor a 0'); return }
     if (!motivoFinal) { toast.error('Indica el motivo del ajuste'); return }
     if (tipo === 'descarga' && cant > prodSel.stock_actual) {
-      toast.error(`Stock insuficiente. Stock actual: ${prodSel.stock_actual}`); return
+      toast.error(`Stock insuficiente. Stock actual: ${formatCantidad(prodSel.stock_actual, prodSel.unidad_medida)}`); return
     }
 
     setSaving(true)
@@ -118,8 +119,8 @@ export default function AjusteStockForm({ productos }: Props) {
 
     toast.success(
       tipo === 'carga'
-        ? `✅ Carga registrada: +${cant} u. de "${prodSel.nombre}" (nuevo stock: ${nuevoStock})`
-        : `✅ Descarga registrada: −${cant} u. de "${prodSel.nombre}" (nuevo stock: ${nuevoStock})`
+        ? `✅ Carga registrada: +${formatCantidad(cant, prodSel.unidad_medida)} de "${prodSel.nombre}" (nuevo stock: ${formatCantidad(nuevoStock, prodSel.unidad_medida)})`
+        : `✅ Descarga registrada: −${formatCantidad(cant, prodSel.unidad_medida)} de "${prodSel.nombre}" (nuevo stock: ${formatCantidad(nuevoStock, prodSel.unidad_medida)})`
     )
 
     // Reset form
@@ -174,7 +175,7 @@ export default function AjusteStockForm({ productos }: Props) {
                   {p.sku && <p className="text-xs text-gray-400">{p.sku}</p>}
                 </div>
                 <div className="text-right shrink-0 ml-3">
-                  <p className="text-xs font-semibold text-gray-700">Stock: {p.stock_actual}</p>
+                  <p className="text-xs font-semibold text-gray-700">Stock: {formatCantidad(p.stock_actual, p.unidad_medida)}</p>
                   {p.precio_costo > 0 && <p className="text-xs text-gray-400">{formatCLP(p.precio_costo)}/u</p>}
                 </div>
               </button>
@@ -192,13 +193,13 @@ export default function AjusteStockForm({ productos }: Props) {
           </div>
           <div className="text-right shrink-0">
             <p className="text-xs text-gray-500">Stock actual</p>
-            <p className="text-xl font-bold text-gray-800">{prodSel.stock_actual}</p>
+            <p className="text-xl font-bold text-gray-800">{formatCantidad(prodSel.stock_actual, prodSel.unidad_medida)}</p>
           </div>
           {cant > 0 && (
             <div className="text-right shrink-0">
               <p className="text-xs text-gray-500">Stock después</p>
               <p className={`text-xl font-bold ${tipo === 'carga' ? 'text-green-700' : stockNuevo < 0 ? 'text-red-600' : 'text-red-700'}`}>
-                {stockNuevo}
+                {formatCantidad(stockNuevo, prodSel.unidad_medida)}
               </p>
               {tipo === 'descarga' && stockNuevo < 0 && (
                 <p className="text-xs text-red-500 font-medium">⚠ Insuficiente</p>
@@ -211,13 +212,23 @@ export default function AjusteStockForm({ productos }: Props) {
       {/* Cantidad y motivo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Label>Cantidad <span className="text-red-500">*</span></Label>
+          <Label>
+            Cantidad <span className="text-red-500">*</span>
+            {prodSel && prodSel.unidad_medida !== 'unidad' && (
+              <span className="text-xs text-gray-400 font-normal ml-1">({prodSel.unidad_medida})</span>
+            )}
+          </Label>
           <div className="flex items-center gap-2 mt-1">
-            <button type="button" onClick={() => setCantidad(v => String(Math.max(1, (parseInt(v) || 1) - 1)))}
+            <button type="button" onClick={() => setCantidad(v => String(Math.max(1, (parseFloat(v) || 1) - 1)))}
               className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold text-lg">−</button>
-            <Input type="number" min={1} value={cantidad} onChange={e => setCantidad(e.target.value)}
-              className="text-center font-bold text-lg w-20" />
-            <button type="button" onClick={() => setCantidad(v => String((parseInt(v) || 0) + 1))}
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={cantidad}
+              onChange={e => setCantidad(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))}
+              className="text-center font-bold text-lg w-20"
+            />
+            <button type="button" onClick={() => setCantidad(v => String((parseFloat(v) || 0) + 1))}
               className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold text-lg">+</button>
           </div>
         </div>
@@ -257,8 +268,8 @@ export default function AjusteStockForm({ productos }: Props) {
         {saving
           ? 'Registrando...'
           : tipo === 'carga'
-            ? `📥 Registrar carga de +${cant || 0} u.${prodSel ? ` a "${prodSel.nombre}"` : ''}`
-            : `📤 Registrar descarga de −${cant || 0} u.${prodSel ? ` de "${prodSel.nombre}"` : ''}`
+            ? `📥 Registrar carga de +${formatCantidad(cant || 0, prodSel?.unidad_medida)}${prodSel ? ` a "${prodSel.nombre}"` : ''}`
+            : `📤 Registrar descarga de −${formatCantidad(cant || 0, prodSel?.unidad_medida)}${prodSel ? ` de "${prodSel.nombre}"` : ''}`
         }
       </Button>
     </div>

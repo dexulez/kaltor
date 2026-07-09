@@ -310,18 +310,24 @@ export default function EditarOrdenForm({ oc, proveedores }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     <input
-                      type="number" min={0}
+                      type="text" inputMode="decimal"
                       value={item.cantidad_solicitada}
-                      onChange={e => setItem(item.id, 'cantidad_solicitada', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                      onChange={e => {
+                        const limpio = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                        setItem(item.id, 'cantidad_solicitada', limpio === '' ? 0 : parseFloat(limpio) || 0)
+                      }}
                       disabled={item._eliminar}
                       className="w-20 border rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-50"
                     />
                   </td>
                   <td className="px-3 py-2">
                     <input
-                      type="number" min={0}
+                      type="text" inputMode="decimal"
                       value={item.cantidad_recibida}
-                      onChange={e => setItem(item.id, 'cantidad_recibida', parseInt(e.target.value) || 0)}
+                      onChange={e => {
+                        const limpio = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                        setItem(item.id, 'cantidad_recibida', limpio === '' ? 0 : parseFloat(limpio) || 0)
+                      }}
                       disabled={item._eliminar}
                       className={`w-20 border rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-50
                         ${item.cantidad_recibida !== item._cantRecibidaOriginal ? 'border-amber-400 bg-amber-50' : ''}`}

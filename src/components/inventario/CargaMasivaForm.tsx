@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { formatCLP } from '@/lib/calculations'
+import { formatCLP, formatCantidad, UNIDAD_MEDIDA_LABEL } from '@/lib/calculations'
 import { useRouter } from 'next/navigation'
 
 interface Categoria { id: string; nombre: string; tipo: string }
@@ -16,6 +16,8 @@ interface Props {
   proveedores: Proveedor[]
 }
 
+const UNIDADES_VALIDAS = Object.keys(UNIDAD_MEDIDA_LABEL)
+
 interface FilaParsed {
   fila: number
   nombre: string
@@ -25,6 +27,7 @@ interface FilaParsed {
   categoria_id: string | null
   proveedor_nombre: string
   proveedor_id: string | null
+  unidad_medida: string
   stock_actual: number
   stock_minimo: number
   precio_costo: number
@@ -80,8 +83,12 @@ function parseRow(
     : null
   if (proveedor_nombre && !provMatch) errores.push(`Proveedor "${proveedor_nombre}" no encontrado`)
 
-  const stock_actual = Math.round(toNum(raw['stock_actual'] ?? raw['Stock actual']))
-  const stock_minimo = Math.round(toNum(raw['stock_minimo'] ?? raw['Stock mínimo']))
+  const unidadRaw = String(raw['unidad_medida'] ?? raw['Unidad de medida'] ?? '').trim().toLowerCase()
+  const unidad_medida = unidadRaw && UNIDADES_VALIDAS.includes(unidadRaw) ? unidadRaw : 'unidad'
+  if (unidadRaw && !UNIDADES_VALIDAS.includes(unidadRaw)) errores.push(`unidad_medida "${unidadRaw}" no válida`)
+
+  const stock_actual = toNum(raw['stock_actual'] ?? raw['Stock actual'])
+  const stock_minimo = toNum(raw['stock_minimo'] ?? raw['Stock mínimo'])
   const precio_costo = toNum(raw['precio_costo'] ?? raw['Precio costo'])
   const costo_envio = toNum(raw['costo_envio'] ?? raw['Costo envío'])
   const precio_venta = toNum(raw['precio_venta'] ?? raw['Precio venta'])
@@ -120,6 +127,7 @@ function parseRow(
     categoria_id: catMatch?.id ?? null,
     proveedor_nombre,
     proveedor_id: provMatch?.id ?? null,
+    unidad_medida,
     stock_actual,
     stock_minimo,
     precio_costo,
@@ -151,30 +159,35 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
 
     // Hoja 1: Productos
     const headers = [
-      'nombre', 'sku', 'descripcion', 'categoria', 'proveedor',
+      'nombre', 'sku', 'descripcion', 'categoria', 'proveedor', 'unidad_medida',
       'stock_actual', 'stock_minimo', 'precio_costo', 'costo_envio',
       'precio_venta', 'precio_incluye_iva', 'ubicacion_bodega',
       'precio_mayorista', 'visible_compradores', 'oferta_tipo', 'oferta_valor', 'oferta_desde_cantidad',
     ]
     const ejemplo1 = [
-      'Pantalla iPhone 13 OLED', 'PAN-IP13', 'Original pull-out', 'Repuesto', proveedores[0]?.nombre ?? 'Proveedor Ejemplo',
+      'Pantalla iPhone 13 OLED', 'PAN-IP13', 'Original pull-out', 'Repuesto', proveedores[0]?.nombre ?? 'Proveedor Ejemplo', 'unidad',
       5, 2, 45000, 2000, 95000, 'SI', 'Estante A-3',
       75000, 'SI', 'porcentaje', 10, 5,
     ]
     const ejemplo2 = [
-      'Batería Samsung A54', 'BAT-SA54', '', 'Repuesto', proveedores[0]?.nombre ?? '',
+      'Batería Samsung A54', 'BAT-SA54', '', 'Repuesto', proveedores[0]?.nombre ?? '', 'unidad',
       10, 3, 8000, 500, 22000, 'NO', 'Estante B-1',
       '', 'NO', '', '', '',
     ]
     const ejemplo3 = [
-      'Funda silicona iPhone 15', 'FUN-IP15-SIL', 'Color negro', 'Accesorio', '',
+      'Funda silicona iPhone 15', 'FUN-IP15-SIL', 'Color negro', 'Accesorio', '', 'unidad',
       20, 5, 1500, 200, 5990, 'SI', '',
       4500, 'SI', '', '', '',
     ]
+    const ejemplo4 = [
+      'Alcohol isopropílico', 'INS-ALC', 'Limpieza de placas', 'Insumo', proveedores[0]?.nombre ?? '', 'litro',
+      2.5, 0.5, 6000, 0, 12000, 'NO', 'Estante C-2',
+      '', 'NO', '', '', '',
+    ]
 
-    const wsProductos = XLSX.utils.aoa_to_sheet([headers, ejemplo1, ejemplo2, ejemplo3])
+    const wsProductos = XLSX.utils.aoa_to_sheet([headers, ejemplo1, ejemplo2, ejemplo3, ejemplo4])
     wsProductos['!cols'] = [
-      { wch: 35 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 20 },
+      { wch: 35 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 20 }, { wch: 14 },
       { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 14 },
       { wch: 18 }, { wch: 18 },
       { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 20 },
@@ -189,8 +202,9 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
       ['descripcion', 'NO', 'Descripción opcional', 'Original pull-out'],
       ['categoria', 'SÍ', 'Debe coincidir exactamente con un nombre de la hoja Categorías', 'Repuesto'],
       ['proveedor', 'NO', 'Debe coincidir exactamente con un nombre de la hoja Proveedores', 'Los Arepas'],
-      ['stock_actual', 'NO', 'Cantidad actual en bodega (número entero, por defecto 0)', '5'],
-      ['stock_minimo', 'NO', 'Stock mínimo para alerta (número entero, por defecto 0)', '2'],
+      ['unidad_medida', 'NO', `Unidad de venta/compra: ${UNIDADES_VALIDAS.join(', ')} (por defecto unidad)`, 'litro'],
+      ['stock_actual', 'NO', 'Cantidad actual en bodega (acepta decimales si la unidad no es "unidad", por defecto 0)', '5'],
+      ['stock_minimo', 'NO', 'Stock mínimo para alerta (acepta decimales, por defecto 0)', '2'],
       ['precio_costo', 'NO', 'Precio de compra en pesos chilenos (sin puntos)', '45000'],
       ['costo_envio', 'NO', 'Costo de envío prorrateado del producto (por defecto 0)', '2000'],
       ['precio_venta', 'SÍ', 'Precio de venta al cliente en pesos chilenos', '95000'],
@@ -303,6 +317,7 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
         descripcion: fila.descripcion || null,
         categoria_id: fila.categoria_id!,
         proveedor_id: fila.proveedor_id ?? null,
+        unidad_medida: fila.unidad_medida,
         stock_actual: fila.stock_actual,
         stock_minimo: fila.stock_minimo,
         precio_costo: fila.precio_costo,
@@ -417,8 +432,9 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
                   ['descripcion', 'NO', 'Descripción interna'],
                   ['categoria', 'SÍ', 'Debe coincidir exactamente con un nombre de la hoja Categorías'],
                   ['proveedor', 'NO', 'Debe coincidir exactamente con un nombre de la hoja Proveedores'],
-                  ['stock_actual', 'NO', 'Cantidad en bodega (por defecto 0)'],
-                  ['stock_minimo', 'NO', 'Mínimo para alerta (por defecto 0)'],
+                  ['unidad_medida', 'NO', `${UNIDADES_VALIDAS.join(', ')} (por defecto unidad)`],
+                  ['stock_actual', 'NO', 'Cantidad en bodega, acepta decimales (por defecto 0)'],
+                  ['stock_minimo', 'NO', 'Mínimo para alerta, acepta decimales (por defecto 0)'],
                   ['precio_costo', 'NO', 'Precio de compra en CLP sin puntos'],
                   ['costo_envio', 'NO', 'Costo de envío en CLP (por defecto 0)'],
                   ['precio_venta', 'SÍ', 'Precio de venta al cliente en CLP'],
@@ -519,6 +535,7 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
                   <th className="text-left px-3 py-2 font-medium text-gray-500">SKU</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-500">Categoría</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-500">Proveedor</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-500">Unidad</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-500">Stock</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-500">P. Costo</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-500">P. Venta</th>
@@ -541,7 +558,8 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-gray-500">{f.proveedor_nombre || '—'}</td>
-                      <td className="px-3 py-2 text-right text-gray-700">{f.stock_actual}</td>
+                      <td className="px-3 py-2 text-gray-500">{UNIDAD_MEDIDA_LABEL[f.unidad_medida] ?? f.unidad_medida}</td>
+                      <td className="px-3 py-2 text-right text-gray-700">{formatCantidad(f.stock_actual, f.unidad_medida)}</td>
                       <td className="px-3 py-2 text-right text-gray-600">{formatCLP(f.precio_costo)}</td>
                       <td className="px-3 py-2 text-right font-medium text-gray-900">{formatCLP(f.precio_venta)}</td>
                       <td className="px-3 py-2 min-w-[180px]">

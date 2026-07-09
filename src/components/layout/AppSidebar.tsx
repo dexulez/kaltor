@@ -44,12 +44,13 @@ function grupoQueContiene(pathname: string): string | null {
   return null
 }
 
-export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulosDelPlan }: {
+export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulosDelPlan, multiEmpresa }: {
   user: UserProfile | null
   logoUrl?: string | null
   nombreLocal?: string
   alertas?: Alertas
   modulosDelPlan?: Set<ModuloNegocio> | null
+  multiEmpresa?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -267,20 +268,29 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
           )}
         </div>
         {!collapsed && (
-          <div className="flex gap-1 mt-2">
-            <Link href="/perfil" className="flex-1">
-              <Button variant="ghost" size="sm" className="w-full text-[#8B94A3] hover:text-[#E6E9ED] hover:bg-[#171D24] text-xs">
-                👤 Perfil
+          <div className="flex flex-col gap-1 mt-2">
+            {multiEmpresa && (
+              <Link href="/seleccionar-empresa">
+                <Button variant="ghost" size="sm" className="w-full text-[#8B94A3] hover:text-[#E6E9ED] hover:bg-[#171D24] text-xs justify-start">
+                  🏢 Cambiar de empresa
+                </Button>
+              </Link>
+            )}
+            <div className="flex gap-1">
+              <Link href="/perfil" className="flex-1">
+                <Button variant="ghost" size="sm" className="w-full text-[#8B94A3] hover:text-[#E6E9ED] hover:bg-[#171D24] text-xs">
+                  👤 Perfil
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 text-[#8B94A3] hover:text-[#E6E9ED] hover:bg-[#171D24] text-xs"
+                onClick={handleLogout}
+              >
+                Salir
               </Button>
-            </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex-1 text-[#8B94A3] hover:text-[#E6E9ED] hover:bg-[#171D24] text-xs"
-              onClick={handleLogout}
-            >
-              Salir
-            </Button>
+            </div>
           </div>
         )}
       </div>

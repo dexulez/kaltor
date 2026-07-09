@@ -7,7 +7,7 @@ export default async function AjusteStockPage() {
 
   const [{ data: productos }, { data: ajustes }] = await Promise.all([
     supabase.from('products')
-      .select('id, nombre, sku, stock_actual, precio_costo')
+      .select('id, nombre, sku, stock_actual, precio_costo, unidad_medida')
       .eq('activo', true)
       .order('nombre'),
     supabase.from('stock_movements')
@@ -32,7 +32,7 @@ export default async function AjusteStockPage() {
         <p className="text-sm text-gray-500">Carga o descarga productos por merma, corrección, uso interno u otro motivo</p>
       </div>
 
-      <AjusteStockForm productos={(productos ?? []) as { id: string; nombre: string; sku: string | null; stock_actual: number; precio_costo: number }[]} />
+      <AjusteStockForm productos={(productos ?? []) as { id: string; nombre: string; sku: string | null; stock_actual: number; precio_costo: number; unidad_medida: string }[]} />
 
       {/* Historial de ajustes recientes */}
       <div className="bg-white rounded-xl border overflow-hidden">

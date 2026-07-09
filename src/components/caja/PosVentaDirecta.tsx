@@ -221,9 +221,18 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
   }
 
   function cambiarCantidad(id: string, delta: number) {
-    setCarrito(c => c.map(i => i.product.id === id
-      ? { ...i, cantidad: Math.max(1, i.cantidad + delta) }
-      : i).filter(i => i.cantidad > 0))
+    setCarrito(c => c.map(i => {
+      if (i.product.id !== id) return i
+      const step = i.product.unidad_medida === 'unidad' ? 1 : 0.1
+      const nueva = Math.round((i.cantidad + delta * step) * 1000) / 1000
+      return { ...i, cantidad: Math.max(step, nueva) }
+    }).filter(i => i.cantidad > 0))
+  }
+
+  function actualizarCantidadManual(id: string, valor: string) {
+    const limpio = valor.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+    const n = limpio === '' ? 0 : parseFloat(limpio)
+    setCarrito(c => c.map(i => i.product.id === id ? { ...i, cantidad: isNaN(n) ? 0 : n } : i))
   }
 
   function quitarItem(id: string) { setCarrito(c => c.filter(i => i.product.id !== id)) }
@@ -1058,10 +1067,23 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
                       <td className="px-4 py-3 font-medium text-sm">{p.nombre}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => cambiarCantidad(p.id, -1)} className="w-6 h-6 rounded-full border hover:bg-gray-100 text-lg leading-none">−</button>
-                          <span className="w-8 text-center font-bold">{cantidad}</span>
-                          <button onClick={() => cambiarCantidad(p.id, 1)} className="w-6 h-6 rounded-full border hover:bg-gray-100 text-lg leading-none">+</button>
+                          <button onClick={() => cambiarCantidad(p.id, -1)} className="w-6 h-6 rounded-full border hover:bg-gray-100 text-lg leading-none shrink-0">−</button>
+                          {p.unidad_medida === 'unidad' ? (
+                            <span className="w-8 text-center font-bold">{cantidad}</span>
+                          ) : (
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={cantidad}
+                              onChange={e => actualizarCantidadManual(p.id, e.target.value)}
+                              className="w-16 text-center font-bold border rounded px-1 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            />
+                          )}
+                          <button onClick={() => cambiarCantidad(p.id, 1)} className="w-6 h-6 rounded-full border hover:bg-gray-100 text-lg leading-none shrink-0">+</button>
                         </div>
+                        {p.unidad_medida !== 'unidad' && (
+                          <p className="text-center text-[10px] text-gray-400 mt-0.5">{p.unidad_medida}</p>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <input
