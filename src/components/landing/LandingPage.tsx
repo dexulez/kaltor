@@ -727,6 +727,85 @@ function MisionVision() {
   )
 }
 
+// ── Para quién es Kaltor ─────────────────────────────────────────────────────
+function ParaQuienEs() {
+  const negocios = [
+    { Icon: Wrench,    titulo: 'Talleres de reparación',   texto: 'Celulares, notebooks, electrodomésticos o motos — controla cada orden de trabajo de principio a fin.' },
+    { Icon: Store,     titulo: 'Tiendas y minimarkets',     texto: 'Punto de venta rápido, boletas al instante y stock siempre bajo control.' },
+    { Icon: Package,   titulo: 'Ferreterías y bodegas',     texto: 'Miles de productos, cero descuadres. Alertas antes de quedarte sin stock.' },
+    { Icon: Truck,     titulo: 'Distribuidoras y mayoristas', texto: 'Vende al por mayor con catálogo B2B y precios diferenciados por cliente.' },
+    { Icon: Building2, titulo: 'Pymes y emprendimientos',   texto: 'Si compras, vendes o entregas un servicio, necesitas saber cuánto ganas. Kaltor te lo muestra.' },
+  ]
+
+  const facil = [
+    { Icon: Globe, texto: 'Sin instalar nada — funciona desde el navegador' },
+    { Icon: Zap,   texto: 'Tu equipo aprende a usarlo en minutos, no en semanas' },
+    { Icon: Users, texto: 'Celular, tablet o computador: mismo sistema, siempre a mano' },
+  ]
+
+  return (
+    <section style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>
+          Para quién es Kaltor
+        </p>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>
+          Hecho para negocios que compran, venden o reparan.
+        </h2>
+        <p style={{ fontSize: 20, color: C.ink, opacity: 0.6, marginBottom: 48, maxWidth: 620 }}>
+          No importa el rubro: si necesitas orden en tu inventario, tus ventas y tus números, Kaltor calza con tu negocio.
+        </p>
+
+        {/* Grid de tipos de negocio */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, marginBottom: 56 }}>
+          {negocios.map(({ Icon, titulo, texto }) => (
+            <div key={titulo} style={{
+              padding: '24px 22px', borderRadius: 14,
+              border: `1px solid ${C.line}`, backgroundColor: C.paper,
+            }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: '50%',
+                backgroundColor: C.signal,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                marginBottom: 16,
+              }}>
+                <Icon size={20} color="#fff" strokeWidth={1.8} />
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 6 }}>{titulo}</h3>
+              <p style={{ fontSize: 15, color: C.ink, opacity: 0.55, lineHeight: 1.5, margin: 0 }}>{texto}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Fácil de usar */}
+        <div style={{
+          padding: '36px 40px', borderRadius: 18,
+          backgroundColor: C.navy,
+          display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <p style={{ fontFamily: FD, fontSize: 20, fontWeight: 700, color: C.paper, margin: 0, flexShrink: 0 }}>
+            Fácil desde<br />el primer día.
+          </p>
+          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', flex: 1 }}>
+            {facil.map(({ Icon, texto }) => (
+              <div key={texto} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 220 }}>
+                <Icon size={18} color={C.signal} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                <p style={{ fontSize: 15, color: C.paper, opacity: 0.75, margin: 0, lineHeight: 1.4 }}>{texto}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recomendación sutil */}
+        <p style={{ textAlign: 'center', fontSize: 17, color: C.ink, opacity: 0.65, marginTop: 40, lineHeight: 1.6 }}>
+          Si tu negocio se parece a alguno de estos, es muy probable que <strong style={{ opacity: 1 }}>Kaltor ya esté pensado para ti</strong>.{' '}
+          <a href="#planes" style={{ color: C.signal, fontWeight: 600, textDecoration: 'none' }}>Descubre tu plan →</a>
+        </p>
+      </div>
+    </section>
+  )
+}
+
 // ── Ventajas / Por qué usar Kaltor ───────────────────────────────────────────
 function VentajasKaltor() {
   const items = [
@@ -923,6 +1002,7 @@ export default function LandingPage() {
       `}</style>
       <Nav />
       <Hero />
+      <ParaQuienEs />
       <VentajasKaltor />
       <Modulos />
       <MisionVision />
