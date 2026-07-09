@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users } from 'lucide-react'
 import ChatWidget from '@/components/chat/ChatWidget'
+import { formatConversion, type ConversionInfo } from '@/lib/currency'
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
 
@@ -388,7 +389,7 @@ function ModuloCard({ m, idx }: { m: typeof MODULOS[0]; idx: number }) {
 }
 
 // ── Planes ────────────────────────────────────────────────────────────────────
-function Planes() {
+function Planes({ conversion }: { conversion: ConversionInfo | null }) {
   const [anual, setAnual] = useState(false)
   const basic  = PLANES.filter(p => p.familia === 'básico')
   const taller = PLANES.filter(p => p.familia === 'taller')
@@ -427,23 +428,23 @@ function Planes() {
         {/* Familia básico */}
         <FamiliaLabel label="Familia básico" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 368px))', gap: 14, marginBottom: 40, justifyContent: 'center' }}>
-          {basic.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} />)}
+          {basic.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} conversion={conversion} />)}
         </div>
 
         {/* Familia taller */}
         <FamiliaLabel label="Familia taller" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 40 }}>
-          {taller.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} />)}
+          {taller.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} conversion={conversion} />)}
         </div>
 
         {/* Multi-tienda */}
         <FamiliaLabel label="Multi-sucursal" />
         <div style={{ maxWidth: '50%', margin: '0 auto' }}>
-          {multi.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} full />)}
+          {multi.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} conversion={conversion} full />)}
         </div>
 
         {/* Tabla comparativa */}
-        <TablaComparativa anual={anual} />
+        <TablaComparativa anual={anual} conversion={conversion} />
       </div>
     </section>
   )
@@ -457,7 +458,7 @@ function FamiliaLabel({ label }: { label: string }) {
   )
 }
 
-function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; full?: boolean }) {
+function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual: boolean; conversion: ConversionInfo | null; full?: boolean }) {
   const [hov, setHov] = useState(false)
   const precio = anual ? plan.precio_anual : plan.precio_mes
   const sufijo = anual ? '/año + IVA' : '/mes + IVA'
@@ -490,10 +491,15 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
       <p style={{ fontSize: 14, color: C.ink, opacity: 0.5, marginBottom: 16, textAlign: 'center' }}>{plan.usuarios}</p>
 
       {/* Precio */}
-      <p style={{ marginBottom: 24, textAlign: 'center' }}>
+      <p style={{ marginBottom: conversion ? 4 : 24, textAlign: 'center' }}>
         <span style={{ fontFamily: FM, fontSize: 30, fontWeight: 700, color: C.ink }}>{clp(precio)}</span>
         <span style={{ fontSize: 14, color: C.ink, opacity: 0.45, marginLeft: 4 }}>{sufijo}</span>
       </p>
+      {conversion && (
+        <p style={{ fontFamily: FM, fontSize: 13, color: C.ink, opacity: 0.45, textAlign: 'center', marginBottom: 24 }}>
+          ≈ {formatConversion(precio, conversion)}
+        </p>
+      )}
 
       {/* Módulos en 2 columnas — solo los incluidos en el plan */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, max-content)', gap: '2px 20px', marginBottom: 24, alignContent: 'start', justifyContent: 'center', overflow: 'hidden' }}>
@@ -541,7 +547,7 @@ function PlanCard({ plan, anual, full = false }: { plan: Plan; anual: boolean; f
 }
 
 // ── Tabla comparativa de planes ───────────────────────────────────────────────
-function TablaComparativa({ anual }: { anual: boolean }) {
+function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: ConversionInfo | null }) {
   return (
     <div style={{ marginTop: 72, paddingTop: 48, borderTop: `2px solid ${C.line}` }}>
       <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Comparativa</p>
@@ -563,6 +569,11 @@ function TablaComparativa({ anual }: { anual: boolean }) {
                   <p style={{ margin: '2px 0 0', fontFamily: FM, fontSize: 12, fontWeight: 400, color: C.ink, opacity: 0.5 }}>
                     {clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}/mes
                   </p>
+                  {conversion && (
+                    <p style={{ margin: '1px 0 0', fontFamily: FM, fontSize: 11, fontWeight: 400, color: C.ink, opacity: 0.4 }}>
+                      ≈ {formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}
+                    </p>
+                  )}
                 </th>
               ))}
             </tr>
@@ -611,9 +622,14 @@ function TablaComparativa({ anual }: { anual: boolean }) {
               <td style={{ padding: '16px 12px', fontWeight: 700, color: C.ink }}>Precio/mes</td>
               {PLANES.map(p => (
                 <td key={p.nombre} style={{ textAlign: 'center', padding: '16px 6px', borderLeft: `1px solid ${C.line}33` }}>
-                  <p style={{ margin: '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 16, color: p.destacado ? C.signal : C.ink }}>
+                  <p style={{ margin: conversion ? '0 0 2px' : '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 16, color: p.destacado ? C.signal : C.ink }}>
                     {clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}
                   </p>
+                  {conversion && (
+                    <p style={{ margin: '0 0 8px', fontFamily: FM, fontSize: 11, fontWeight: 400, color: C.ink, opacity: 0.45 }}>
+                      ≈ {formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}
+                    </p>
+                  )}
                   <a href="https://app.kaltorpos.com/registro" style={{
                     display: 'inline-block', padding: '5px 14px', borderRadius: 6, fontSize: 13, fontWeight: 600, textDecoration: 'none',
                     backgroundColor: p.destacado ? C.signal : 'transparent',
@@ -628,7 +644,10 @@ function TablaComparativa({ anual }: { anual: boolean }) {
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 13, color: C.ink, opacity: 0.35, marginTop: 16 }}>Precios en CLP · IVA no incluido</p>
+      <p style={{ fontSize: 13, color: C.ink, opacity: 0.35, marginTop: 16 }}>
+        Precios en CLP · IVA no incluido
+        {conversion && conversion.tipo !== 'uf' && ' · conversión referencial, el cobro siempre es en CLP'}
+      </p>
     </div>
   )
 }
@@ -991,7 +1010,7 @@ function Footer() {
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
-export default function LandingPage() {
+export default function LandingPage({ conversion = null }: { conversion?: ConversionInfo | null }) {
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', backgroundColor: C.paper, color: C.ink }}>
       <style>{`
@@ -1006,7 +1025,7 @@ export default function LandingPage() {
       <VentajasKaltor />
       <Modulos />
       <MisionVision />
-      <Planes />
+      <Planes conversion={conversion} />
       <ComoFunciona />
       <Footer />
       <ChatWidget
