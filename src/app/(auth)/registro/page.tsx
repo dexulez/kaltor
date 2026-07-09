@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { toast } from 'sonner'
 
 const PLANES = [
-  { slug: 'basico',              nombre: 'Básico',              precio: 14990,  desc: '1 usuario · Inventario, Compras, Ventas' },
+  { slug: 'basico',              nombre: 'Básico',              precio: 14990,  desc: '1 usuario · Inventario, Compras, Ventas, Informes' },
   { slug: 'pro',                 nombre: 'Pro',                 precio: 23990,  desc: 'Multiusuario · + Informes, RRHH, Contabilidad, Manuales' },
   { slug: 'taller-basico',       nombre: 'Taller Básico',       precio: 19990,  desc: '1 usuario · + Módulo Taller' },
   { slug: 'taller-basico-5u',    nombre: 'Taller Básico 5U',    precio: 29990,  desc: 'Hasta 5 usuarios · + Módulo Taller' },

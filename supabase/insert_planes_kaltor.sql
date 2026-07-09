@@ -36,13 +36,13 @@ ON CONFLICT (slug) DO UPDATE SET
   sesion_unica   = EXCLUDED.sesion_unica;
 
 -- 3. Asignar módulos por plan
--- Básico: ventas, compras, productos, trazabilidad, configuracion
+-- Básico: ventas, compras, productos, informes, trazabilidad, configuracion
 WITH p AS (SELECT id FROM plans WHERE slug = 'basico')
 INSERT INTO plan_modules (plan_id, module_key)
-SELECT p.id, m FROM p, UNNEST(ARRAY['ventas','compras','productos','trazabilidad','configuracion']) AS m
+SELECT p.id, m FROM p, UNNEST(ARRAY['ventas','compras','productos','informes','trazabilidad','configuracion']) AS m
 ON CONFLICT (plan_id, module_key) DO NOTHING;
 
--- Pro: + informes, contabilidad, conciliaciones
+-- Pro: + contabilidad, conciliaciones
 WITH p AS (SELECT id FROM plans WHERE slug = 'pro')
 INSERT INTO plan_modules (plan_id, module_key)
 SELECT p.id, m FROM p, UNNEST(ARRAY['ventas','compras','productos','informes','contabilidad','conciliaciones','trazabilidad','configuracion']) AS m

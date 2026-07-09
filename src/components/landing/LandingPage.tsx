@@ -61,7 +61,7 @@ type Plan = {
 }
 
 const PLANES: Plan[] = [
-  { nombre: 'Básico',              precio_mes: 14990, precio_anual: 149900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','trazabilidad','configuracion'],                                                                                          familia: 'básico',       destacado: false },
+  { nombre: 'Básico',              precio_mes: 14990, precio_anual: 149900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','informes','trazabilidad','configuracion'],                                                                                 familia: 'básico',       destacado: false },
   { nombre: 'Pro',                 precio_mes: 23990, precio_anual: 239900, usuarios: 'Multiusuario',                    modulos: ['ventas','compras','productos','informes','contabilidad','conciliaciones','trazabilidad','configuracion'],                                             familia: 'básico',       destacado: false },
   { nombre: 'Taller Básico',       precio_mes: 19990, precio_anual: 199900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','servicios','taller','manuales','trazabilidad','configuracion'],                                                        familia: 'taller',       destacado: false },
   { nombre: 'Taller Básico 5U',    precio_mes: 29990, precio_anual: 299900, usuarios: 'Hasta 5 usuarios',                modulos: ['ventas','compras','productos','servicios','taller','manuales','trazabilidad','configuracion'],                                                        familia: 'taller',       destacado: true  },

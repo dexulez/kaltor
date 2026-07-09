@@ -22,8 +22,8 @@ MÓDULOS (12 disponibles):
 - Trazabilidad (TRZ): Seguimiento de compra y venta de mercancía desde proveedor hasta cliente final.
 
 PLANES Y PRECIOS (en CLP + IVA):
-- Básico $14.990/mes · 1 usuario · Ventas, Compras, Inventario, Trazabilidad, Configuración
-- Pro $23.990/mes · Multiusuario · + Informes, Contabilidad, Conciliaciones
+- Básico $14.990/mes · 1 usuario · Ventas, Compras, Inventario, Informes, Trazabilidad, Configuración
+- Pro $23.990/mes · Multiusuario · + Contabilidad, Conciliaciones
 - Taller Básico $19.990/mes · 1 usuario · + Servicios, Taller, Manuales
 - Taller Básico 5U $29.990/mes · Hasta 5 usuarios · mismo contenido que Taller Básico
 - Taller Multiusuario $36.990/mes · Ilimitados · + Informes, Contabilidad, Manuales
