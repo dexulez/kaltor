@@ -62,7 +62,7 @@ export default function MobileNav({ user, alertas, modulosDelPlan, multiEmpresa 
 
   const visibles = MODULOS.filter(m => {
     if (!tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)) return false
-    if (roleName !== 'administrador' && modulosDelPlan && m.modulo !== null && !modulosDelPlan.has(m.modulo as ModuloNegocio)) return false
+    if (modulosDelPlan && m.modulo !== null && !modulosDelPlan.has(m.modulo as ModuloNegocio)) return false
     return true
   })
 

@@ -68,8 +68,9 @@ export default function AppSidebar({ user, logoUrl, nombreLocal, alertas, modulo
   const visibleItems = MODULOS.filter(m => {
     if (!tieneAccesoModulo(m.key, roleName, user?.permisos_modulos ?? null)) return false
     // m.modulo === null → core, siempre visible
-    // administrador bypasea el filtro de plan
-    if (roleName !== 'administrador' && modulosDelPlan && m.modulo !== null && !modulosDelPlan.has(m.modulo as ModuloNegocio)) return false
+    // El filtro de plan aplica también a administradores: si el módulo no está
+    // activo para el plan de la tienda, no se muestra.
+    if (modulosDelPlan && m.modulo !== null && !modulosDelPlan.has(m.modulo as ModuloNegocio)) return false
     return true
   })
   const visibleKeys = new Set(visibleItems.map(m => m.key))
