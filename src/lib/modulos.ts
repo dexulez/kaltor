@@ -3,7 +3,7 @@
 // dashboard y notificaciones no están aquí: son utilidades siempre presentes.
 export const MODULO_NEGOCIO_KEYS = [
   'ventas', 'compras', 'productos', 'servicios', 'taller',
-  'informes', 'contabilidad', 'configuracion', 'canal_b2b', 'trazabilidad',
+  'informes', 'contabilidad', 'configuracion', 'canal_b2b', 'trazabilidad', 'manuales',
 ] as const
 export type ModuloNegocio = typeof MODULO_NEGOCIO_KEYS[number]
 
@@ -24,7 +24,7 @@ export const MODULOS = [
   { key: 'bancos',        label: 'Bancos',               icon: '🏦', href: '/bancos',         modulo: 'contabilidad'   },
   { key: 'catalogo_b2b',  label: 'Catálogo B2B',         icon: '🛍️', href: '/catalogo-b2b',  modulo: 'canal_b2b'      },
   { key: 'pedidos_b2b',   label: 'Pedidos B2B',          icon: '📥', href: '/pedidos-b2b',   modulo: 'canal_b2b'      },
-  { key: 'manuales',      label: 'Manuales',             icon: '🧠', href: '/manuales',      modulo: null             },
+  { key: 'manuales',      label: 'Manuales',             icon: '🧠', href: '/manuales',      modulo: 'manuales'       },
   { key: 'usuarios',      label: 'Usuarios',             icon: '👥', href: '/usuarios',      modulo: null             },
   { key: 'configuracion', label: 'Configuración',        icon: '⚙️', href: '/configuracion', modulo: null             },
   { key: 'notificaciones',label: 'Notificaciones',       icon: '🔔', href: '/notificaciones',modulo: null             },
