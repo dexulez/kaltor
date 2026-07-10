@@ -31,15 +31,15 @@ async function buildRows(
 ): Promise<StoreRow[]> {
   // ── 2. Planes (query separada, sin depender de join) ─────────────────────
   const planIds = [...new Set(stores.map(s => s.plan_id as string).filter(Boolean))]
-  const planMap: Record<string, { nombre: string; precio_mes: number }> = {}
+  const planMap: Record<string, { nombre: string; precio_mensual: number }> = {}
   if (planIds.length > 0) {
     const { data: plans } = await admin
       .from('plans')
-      .select('id, nombre, precio_mes')
+      .select('id, nombre, precio_mensual')
       .in('id', planIds)
     if (plans) {
-      for (const p of plans as { id: string; nombre: string; precio_mes: number }[]) {
-        planMap[p.id] = { nombre: p.nombre, precio_mes: p.precio_mes }
+      for (const p of plans as { id: string; nombre: string; precio_mensual: number }[]) {
+        planMap[p.id] = { nombre: p.nombre, precio_mensual: p.precio_mensual }
       }
     }
   }
@@ -78,7 +78,7 @@ export default async function KaltorAdminPage() {
   const trialVencido = stores.filter(s => (s.billing_status ?? 'trial') === 'trial' && !!s.trial_hasta && new Date(s.trial_hasta) <= ahora).length
   const activas      = stores.filter(s => s.billing_status === 'active').length
   const sinPago      = stores.filter(s => ['past_due', 'cancelled', 'suspended'].includes(s.billing_status ?? '')).length
-  const mrr          = stores.filter(s => s.billing_status === 'active').reduce((acc, s) => acc + (s.plans?.precio_mes ?? 0), 0)
+  const mrr          = stores.filter(s => s.billing_status === 'active').reduce((acc, s) => acc + (s.plans?.precio_mensual ?? 0), 0)
 
   return (
     <div className="space-y-8">

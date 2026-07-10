@@ -16,7 +16,7 @@ type StoreInfo = {
   proximo_cobro_at:     string | null
   ultimo_pago_at:       string | null
   flow_subscription_id: string | null
-  plans: { nombre: string; precio_mes: number } | null
+  plans: { nombre: string; precio_mensual: number } | null
 }
 
 const STATUS_LABEL: Record<BillingStatus, string> = {
@@ -76,7 +76,7 @@ export default function FacturacionPage() {
 
       const { data } = await supabase
         .from('stores')
-        .select('nombre, billing_status, trial_hasta, proximo_cobro_at, ultimo_pago_at, flow_subscription_id, plans(nombre, precio_mes)')
+        .select('nombre, billing_status, trial_hasta, proximo_cobro_at, ultimo_pago_at, flow_subscription_id, plans(nombre, precio_mensual)')
         .eq('id', profile.store_id)
         .single()
 
@@ -149,7 +149,7 @@ export default function FacturacionPage() {
           <div className="flex items-center justify-between">
             <span className="text-gray-600">Precio</span>
             <span className="font-semibold text-gray-900">
-              {plan ? `${clp(plan.precio_mes)} + IVA/mes` : '—'}
+              {plan ? `${clp(plan.precio_mensual)} + IVA/mes` : '—'}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -222,7 +222,7 @@ export default function FacturacionPage() {
               disabled={subscribing}
               className="w-full bg-[#FF7A1A] hover:bg-[#E06010] text-white font-semibold"
             >
-              {subscribing ? 'Redirigiendo a Flow...' : `Suscribirme por ${plan ? clp(plan.precio_mes) : '—'} + IVA/mes →`}
+              {subscribing ? 'Redirigiendo a Flow...' : `Suscribirme por ${plan ? clp(plan.precio_mensual) : '—'} + IVA/mes →`}
             </Button>
             <p className="text-xs text-gray-400 mt-2 text-center">
               Serás redirigido a Flow.cl para registrar tu método de pago de forma segura.

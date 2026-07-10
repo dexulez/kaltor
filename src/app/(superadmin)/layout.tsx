@@ -36,6 +36,12 @@ export default async function SuperAdminLayout({ children }: { children: React.R
             >
               Resumen
             </Link>
+            <Link
+              href="/kaltor-admin/planes"
+              className="text-gray-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              Planes
+            </Link>
           </nav>
 
           {/* User */}

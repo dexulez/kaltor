@@ -13,7 +13,7 @@ export type StoreRow = {
   billing_status: string | null
   flow_subscription_id: string | null
   proximo_cobro_at?: string | null
-  plans: { nombre: string; precio_mes: number } | null
+  plans: { nombre: string; precio_mensual: number } | null
   user_profiles: { count: number }[]
 }
 
@@ -134,8 +134,8 @@ export default function StoresTable({ stores }: { stores: StoreRow[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <p className="text-gray-800">{store.plans?.nombre ?? '—'}</p>
-                    {store.plans?.precio_mes ? (
-                      <p className="text-xs text-gray-400">${store.plans.precio_mes.toLocaleString('es-CL')}/mes</p>
+                    {store.plans?.precio_mensual ? (
+                      <p className="text-xs text-gray-400">${store.plans.precio_mensual.toLocaleString('es-CL')}/mes</p>
                     ) : null}
                   </td>
                   <td className="px-4 py-3">

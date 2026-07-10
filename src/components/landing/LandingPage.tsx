@@ -436,13 +436,19 @@ function ModuloCard({ m, idx }: { m: typeof MODULOS[0]; idx: number }) {
 }
 
 // ── Planes ────────────────────────────────────────────────────────────────────
-function Planes({ conversion }: { conversion: ConversionInfo | null }) {
+type PreciosPorPlan = Record<string, { mensual: number; anual: number }>
+
+function Planes({ conversion, precios }: { conversion: ConversionInfo | null; precios?: PreciosPorPlan }) {
   const { lang } = useLang()
   const t = LANDING_TXT[lang]
   const [anual, setAnual] = useState(false)
-  const basic  = PLANES.filter(p => p.familia === 'básico')
-  const taller = PLANES.filter(p => p.familia === 'taller')
-  const multi  = PLANES.filter(p => p.familia === 'multi-tienda')
+  const planesConPrecio = PLANES.map(p => {
+    const override = precios?.[p.id]
+    return override ? { ...p, precio_mes: override.mensual, precio_anual: override.anual } : p
+  })
+  const basic  = planesConPrecio.filter(p => p.familia === 'básico')
+  const taller = planesConPrecio.filter(p => p.familia === 'taller')
+  const multi  = planesConPrecio.filter(p => p.familia === 'multi-tienda')
 
   return (
     <section id="planes" style={{ padding: '96px 48px', backgroundColor: C.paper }}>
@@ -493,7 +499,7 @@ function Planes({ conversion }: { conversion: ConversionInfo | null }) {
         </div>
 
         {/* Tabla comparativa */}
-        <TablaComparativa anual={anual} conversion={conversion} />
+        <TablaComparativa anual={anual} conversion={conversion} planes={planesConPrecio} />
       </div>
     </section>
   )
@@ -603,7 +609,7 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
 }
 
 // ── Tabla comparativa de planes ───────────────────────────────────────────────
-function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: ConversionInfo | null }) {
+function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conversion: ConversionInfo | null; planes: Plan[] }) {
   const { lang } = useLang()
   const t = LANDING_TXT[lang]
   const tc = t.planes.comparativa
@@ -618,7 +624,7 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
           <thead>
             <tr style={{ borderBottom: `2px solid ${C.line}` }}>
               <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600, color: C.ink, opacity: 0.45, minWidth: 140 }}>{tc.modulo}</th>
-              {PLANES.map(p => {
+              {planes.map(p => {
                 const planTxt = PLANES_TXT[lang][p.id]
                 return (
                 <th key={p.id} style={{
@@ -664,7 +670,7 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
                       <span style={{ fontWeight: 500, color: C.ink }}>{modTxt.label}</span>
                     </div>
                   </td>
-                  {PLANES.map(p => (
+                  {planes.map(p => (
                     <td key={p.id} style={{ textAlign: 'center', padding: '9px 6px', borderLeft: `1px solid ${C.line}33` }}>
                       {p.modulos.includes(m.key)
                         ? <span style={{ color: C.mod, fontWeight: 700, fontSize: 17 }}>✓</span>
@@ -678,7 +684,7 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
             {/* Fila usuarios */}
             <tr style={{ backgroundColor: '#f5f5f5', borderTop: `1px solid ${C.line}` }}>
               <td style={{ padding: '9px 12px', fontWeight: 600, color: C.ink }}>{tc.usuarios}</td>
-              {PLANES.map(p => {
+              {planes.map(p => {
                 const planTxt = PLANES_TXT[lang][p.id]
                 return (
                 <td key={p.id} style={{ textAlign: 'center', padding: '9px 6px', fontSize: 13, color: C.ink, opacity: 0.7, borderLeft: `1px solid ${C.line}33` }}>
@@ -691,7 +697,7 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
             {/* Fila precio / CTA */}
             <tr style={{ borderTop: `2px solid ${C.line}`, backgroundColor: '#fff' }}>
               <td style={{ padding: '16px 12px', fontWeight: 700, color: C.ink }}>{tc.precioMes}</td>
-              {PLANES.map(p => (
+              {planes.map(p => (
                 <td key={p.id} style={{ textAlign: 'center', padding: '16px 6px', borderLeft: `1px solid ${C.line}33` }}>
                   <p style={{ margin: conversion ? '0 0 2px' : '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 16, color: p.destacado ? C.signal : C.ink }}>
                     {clpPrimero
@@ -1049,7 +1055,7 @@ function Footer() {
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
-export default function LandingPage({ conversion = null, lang: initialLang = 'es' }: { conversion?: ConversionInfo | null; lang?: Lang }) {
+export default function LandingPage({ conversion = null, lang: initialLang = 'es', precios }: { conversion?: ConversionInfo | null; lang?: Lang; precios?: PreciosPorPlan }) {
   const [lang, setLang] = useState<Lang>(initialLang)
   const t = LANDING_TXT[lang]
   return (
@@ -1067,7 +1073,7 @@ export default function LandingPage({ conversion = null, lang: initialLang = 'es
         <VentajasKaltor />
         <Modulos />
         <MisionVision />
-        <Planes conversion={conversion} />
+        <Planes conversion={conversion} precios={precios} />
         <ComoFunciona />
         <Footer />
         <ChatWidget
