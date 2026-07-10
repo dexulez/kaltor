@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -22,9 +23,10 @@ interface Props {
   puedeVerCostos?: boolean
   tieneB2B?: boolean
   tieneTaller?: boolean
+  tienePanaderia?: boolean
 }
 
-export default function ProductoForm({ producto, categorias, proveedores, returnTo, puedeVerCostos = true, tieneB2B = true, tieneTaller = true }: Props) {
+export default function ProductoForm({ producto, categorias, proveedores, returnTo, puedeVerCostos = true, tieneB2B = true, tieneTaller = true, tienePanaderia = false }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -65,6 +67,7 @@ export default function ProductoForm({ producto, categorias, proveedores, return
     ubicacion_bodega: producto?.ubicacion_bodega ?? '',
     numero_serie: producto?.numero_serie ?? '',
     imei: producto?.imei ?? '',
+    es_elaborado: producto?.es_elaborado ?? false,
   })
 
   const costoReal = (Number(form.precio_costo) || 0) + (Number(form.costo_envio) || 0)
@@ -198,6 +201,7 @@ export default function ProductoForm({ producto, categorias, proveedores, return
       numero_serie: tieneTaller ? (form.numero_serie.trim() || null) : null,
       imei: tieneTaller ? (form.imei.trim() || null) : null,
       foto_url: fotoUrl,
+      es_elaborado: tienePanaderia ? form.es_elaborado : false,
     }
 
     // Obtener usuario actual para el log
@@ -550,6 +554,27 @@ export default function ProductoForm({ producto, categorias, proveedores, return
             )}
           </div>
         </div>
+
+        {/* Panadería y Repostería */}
+        {tienePanaderia && (
+          <div className="bg-white rounded-xl border p-5 space-y-3">
+            <h2 className="font-semibold text-gray-800">Panadería y Repostería</h2>
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" checked={form.es_elaborado}
+                onChange={e => set('es_elaborado', e.target.checked)} />
+              Es un producto elaborado (usa receta)
+            </label>
+            {form.es_elaborado && producto && (
+              <Link href={`/panaderia/recetas/${producto.id}`}
+                className="inline-block text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 hover:bg-orange-100">
+                📖 Ver/editar receta →
+              </Link>
+            )}
+            {form.es_elaborado && !producto && (
+              <p className="text-xs text-gray-400">Guarda el producto primero para poder crear su receta.</p>
+            )}
+          </div>
+        )}
 
         {/* Precios */}
         <div className="bg-white rounded-xl border p-5 space-y-4">

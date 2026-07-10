@@ -219,10 +219,54 @@ export interface Product {
   imei?: string
   foto_url?: string | null
   activo: boolean
+  es_elaborado?: boolean
   created_at: string
   updated_at: string
   product_categories?: ProductCategory
   suppliers?: Supplier
+}
+
+export interface Receta {
+  id: string
+  producto_id: string
+  rendimiento_cantidad: number
+  rendimiento_unidad: string
+  instrucciones?: string | null
+  created_at: string
+  updated_at: string
+  products?: Product
+  receta_ingredientes?: RecetaIngrediente[]
+}
+
+export interface RecetaIngrediente {
+  id: string
+  receta_id: string
+  ingrediente_producto_id: string
+  cantidad: number
+  products?: Product
+}
+
+export interface Produccion {
+  id: string
+  producto_id: string
+  receta_id?: string | null
+  cantidad_producida: number
+  costo_total: number
+  costo_unitario: number
+  usuario_id?: string | null
+  notas?: string | null
+  created_at: string
+  products?: Product
+}
+
+export interface ProduccionConsumo {
+  id: string
+  produccion_id: string
+  ingrediente_producto_id: string
+  cantidad_consumida: number
+  costo_unitario_ingrediente: number
+  created_at: string
+  products?: Product
 }
 
 export interface StockMovement {

@@ -3,7 +3,7 @@
 // dashboard y notificaciones no están aquí: son utilidades siempre presentes.
 export const MODULO_NEGOCIO_KEYS = [
   'ventas', 'compras', 'productos', 'servicios', 'taller',
-  'informes', 'contabilidad', 'configuracion', 'canal_b2b', 'trazabilidad', 'manuales',
+  'informes', 'contabilidad', 'configuracion', 'canal_b2b', 'trazabilidad', 'manuales', 'panaderia',
 ] as const
 export type ModuloNegocio = typeof MODULO_NEGOCIO_KEYS[number]
 
@@ -29,6 +29,8 @@ export const MODULOS = [
   { key: 'configuracion', label: 'Configuración',        icon: '⚙️', href: '/configuracion', modulo: null             },
   { key: 'notificaciones',label: 'Notificaciones',       icon: '🔔', href: '/notificaciones',modulo: null             },
   { key: 'trazabilidad',  label: 'Trazabilidad',         icon: '🔍', href: '/trazabilidad',   modulo: 'trazabilidad'   },
+  { key: 'panaderia_recetas',    label: 'Recetas',             icon: '📖', href: '/panaderia/recetas',    modulo: 'panaderia' },
+  { key: 'panaderia_produccion', label: 'Producción',          icon: '🥖', href: '/panaderia/produccion', modulo: 'panaderia' },
 ] as const satisfies ReadonlyArray<{
   key: string; label: string; icon: string; href: string; modulo: ModuloNegocio | null
 }>
@@ -66,6 +68,7 @@ export const MENU_GROUPS: MenuGroup[] = [
   { key: 'contabilidad', label: 'Contabilidad',  icon: '🧾', modulos: ['contabilidad', 'bancos'] },
   { key: 'configuracion',  label: 'Configuración', icon: '⚙️', modulos: ['configuracion', 'usuarios', 'manuales', 'notificaciones'] },
   { key: 'trazabilidad',  label: 'Trazabilidad',  icon: '🔍', modulos: ['trazabilidad'], standalone: true },
+  { key: 'panaderia',     label: 'Panadería',     icon: '🥖', modulos: ['panaderia_recetas', 'panaderia_produccion'] },
 ]
 
 // ── Sub-permisos por módulo ───────────────────────────────────────────────────
@@ -123,12 +126,18 @@ export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: strin
     { key: 'informes.exportar',         label: 'Exportar a Excel/PDF',        desc: 'Botones de exportación en cada informe' },
     { key: 'informes.personalizado',    label: 'Crear reporte a medida',      desc: 'Acceso al constructor de reportes personalizados' },
   ],
+  panaderia_recetas: [
+    { key: 'panaderia.crear_receta', label: 'Crear/editar recetas', desc: 'Definir ingredientes y rendimiento de un producto elaborado' },
+  ],
+  panaderia_produccion: [
+    { key: 'panaderia.registrar_produccion', label: 'Registrar producción', desc: 'Registrar lotes de producción, descontando ingredientes' },
+  ],
 }
 
 // ── Acceso a módulos por rol (items de menú) ──────────────────────────────────
 // Controla qué items de navegación puede ver cada rol, independientemente del plan.
 export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
-  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'bancos', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones', 'trazabilidad'],
+  administrador:     ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'informes', 'contabilidad', 'bancos', 'catalogo_b2b', 'pedidos_b2b', 'manuales', 'usuarios', 'configuracion', 'notificaciones', 'trazabilidad', 'panaderia_recetas', 'panaderia_produccion'],
   tecnico:           ['dashboard', 'reparaciones', 'inventario', 'servicios', 'manuales', 'informes', 'notificaciones'],
   vendedor:          ['dashboard', 'caja', 'clientes', 'reparaciones', 'inventario', 'servicios', 'informes', 'pedidos_b2b', 'notificaciones'],
   supervisor_ventas: ['dashboard', 'caja', 'clientes', 'compras', 'proveedores', 'inventario', 'servicios', 'reparaciones', 'manuales', 'informes', 'pedidos_b2b', 'notificaciones', 'trazabilidad'],
@@ -148,6 +157,7 @@ const SUB_DEFAULT: Record<string, Record<string, boolean>> = {
     'compras.crear': true, 'compras.recibir': true, 'compras.editar': true, 'compras.pagar': true, 'compras.cancelar': true, 'compras.proveedores': true,
     'usuarios.crear': true, 'usuarios.editar': true, 'usuarios.editar_permisos': true, 'usuarios.eliminar': true,
     'informes.solo_propios': false, 'informes.ver_ventas': true, 'informes.ver_rentabilidad': true, 'informes.exportar': true, 'informes.personalizado': true,
+    'panaderia.crear_receta': true, 'panaderia.registrar_produccion': true,
   },
   tecnico: {
     'clientes.crear': false, 'clientes.editar': false, 'clientes.eliminar': false,
