@@ -1,9 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, createContext, useContext } from 'react'
 import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users } from 'lucide-react'
 import ChatWidget from '@/components/chat/ChatWidget'
 import { formatConversion, type ConversionInfo } from '@/lib/currency'
+import { LANGS, LANDING_TXT, MODULOS_TXT, PLANES_TXT, type Lang } from '@/lib/i18n/landing'
+
+// ── Idioma ────────────────────────────────────────────────────────────────────
+type LangCtxValue = { lang: Lang; setLang: (l: Lang) => void }
+const LangContext = createContext<LangCtxValue>({ lang: 'es', setLang: () => {} })
+function useLang() { return useContext(LangContext) }
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
 
@@ -35,40 +41,41 @@ const FD = 'var(--font-display, "Space Grotesk", sans-serif)'
 const FM = 'var(--font-mono, "JetBrains Mono", monospace)'
 
 // ── Datos ─────────────────────────────────────────────────────────────────────
+// El texto (label/desc/ventaja) vive en MODULOS_TXT (src/lib/i18n/landing.ts), por idioma.
 const MODULOS = [
-  { code: 'MOD-01', key: 'ventas',        abbr: 'VTA', icon: '💰', label: 'Ventas',        desc: 'Caja, punto de venta, clientes y venta directa desde cualquier dispositivo.',             ventaja: 'Cobra en segundos con POS táctil. Boleta y factura integradas, sin papeleos.' },
-  { code: 'MOD-02', key: 'compras',       abbr: 'COM', icon: '🏭', label: 'Compras',       desc: 'Órdenes de compra, proveedores, recepciones y control de pagos pendientes.',             ventaja: 'Nunca pierdas trazabilidad de un pago. Cada OC, recepción y abono en un solo lugar.' },
-  { code: 'MOD-03', key: 'productos',     abbr: 'INV', icon: '📦', label: 'Inventario',    desc: 'Control de stock, movimientos, alertas de quiebre y valorización.',                       ventaja: 'Stock en tiempo real. Alertas automáticas antes de quedarte sin mercadería.' },
-  { code: 'MOD-04', key: 'servicios',     abbr: 'SVC', icon: '🔩', label: 'Servicios',     desc: 'Catálogo de servicios del taller con precios y tiempos estándar.',                       ventaja: 'Cotiza cualquier reparación en segundos con precios y tiempos predefinidos.' },
-  { code: 'MOD-05', key: 'taller',        abbr: 'TAL', icon: '🔧', label: 'Taller',        desc: 'Órdenes de trabajo, seguimiento de reparaciones y etiquetas térmicas.',                   ventaja: 'Desde la recepción hasta la entrega. El cliente sabe en qué etapa está su equipo.' },
-  { code: 'MOD-06', key: 'informes',      abbr: 'INF', icon: '📈', label: 'Informes',      desc: 'Dashboard financiero, punto de equilibrio e informes exportables a Excel.',               ventaja: 'Ve la rentabilidad de tu negocio en un vistazo. Exporta a Excel con un clic.' },
-  { code: 'MOD-07', key: 'contabilidad',  abbr: 'CTB', icon: '🧾', label: 'Contabilidad',  desc: 'Libro de ingresos/egresos, IVA, PPM y preparación de declaraciones.',                    ventaja: 'IVA y PPM calculados automáticamente. Tu contador agradecerá el orden.' },
-  { code: 'MOD-08', key: 'canal_b2b',     abbr: 'B2B', icon: '🛍️', label: 'Canal B2B',     desc: 'Catálogo mayorista para compradores externos con pedidos y precios diferenciados.',      ventaja: 'Vende al por mayor con precios exclusivos por cliente. Tu catálogo, siempre actualizado.' },
-  { code: 'MOD-09', key: 'configuracion',  abbr: 'CFG', icon: '⚙️', label: 'Configuración',  desc: 'Usuarios, roles, permisos y ajustes generales del sistema.',                                                         ventaja: 'Permisos finos por módulo y acción. Cada usuario ve solo lo que necesita.' },
-  { code: 'MOD-10', key: 'manuales',       abbr: 'MAN', icon: '🧠', label: 'Manuales',       desc: 'Base de conocimiento para reparaciones con guías paso a paso y tiempos estándar por modelo y falla.',           ventaja: 'Tu equipo resuelve fallas complejas sin depender de un solo técnico. Saber colectivo.' },
-  { code: 'MOD-11', key: 'conciliaciones', abbr: 'BNK', icon: '🏦', label: 'Conciliaciones',  desc: 'Conciliación bancaria: cruza movimientos de caja con el extracto del banco y detecta diferencias.',            ventaja: 'Detecta diferencias antes de cerrar el mes. Sin sorpresas al enfrentar la contabilidad.' },
-  { code: 'MOD-12', key: 'trazabilidad',   abbr: 'TRZ', icon: '📍', label: 'Trazabilidad',   desc: 'Seguimiento de compra y venta de mercancía: desde el proveedor de origen hasta la venta final al cliente.',    ventaja: 'Sabe exactamente de dónde viene cada producto y adónde fue. Auditoría y control total.' },
+  { code: 'MOD-01', key: 'ventas',        abbr: 'VTA', icon: '💰' },
+  { code: 'MOD-02', key: 'compras',       abbr: 'COM', icon: '🏭' },
+  { code: 'MOD-03', key: 'productos',     abbr: 'INV', icon: '📦' },
+  { code: 'MOD-04', key: 'servicios',     abbr: 'SVC', icon: '🔩' },
+  { code: 'MOD-05', key: 'taller',        abbr: 'TAL', icon: '🔧' },
+  { code: 'MOD-06', key: 'informes',      abbr: 'INF', icon: '📈' },
+  { code: 'MOD-07', key: 'contabilidad',  abbr: 'CTB', icon: '🧾' },
+  { code: 'MOD-08', key: 'canal_b2b',     abbr: 'B2B', icon: '🛍️' },
+  { code: 'MOD-09', key: 'configuracion',  abbr: 'CFG', icon: '⚙️' },
+  { code: 'MOD-10', key: 'manuales',       abbr: 'MAN', icon: '🧠' },
+  { code: 'MOD-11', key: 'conciliaciones', abbr: 'BNK', icon: '🏦' },
+  { code: 'MOD-12', key: 'trazabilidad',   abbr: 'TRZ', icon: '📍' },
 ]
 
+// El texto (nombre/usuarios/addon) vive en PLANES_TXT (src/lib/i18n/landing.ts), por idioma.
 type Plan = {
-  nombre: string
+  id: string
   precio_mes: number
   precio_anual: number
-  usuarios: string
   modulos: string[]
   familia: string
   destacado: boolean
-  addon?: string
+  hasAddon?: boolean
 }
 
 const PLANES: Plan[] = [
-  { nombre: 'Básico',              precio_mes: 14990, precio_anual: 149900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','informes','trazabilidad','configuracion'],                                                                                 familia: 'básico',       destacado: false },
-  { nombre: 'Pro',                 precio_mes: 23990, precio_anual: 239900, usuarios: 'Multiusuario',                    modulos: ['ventas','compras','productos','informes','contabilidad','conciliaciones','trazabilidad','configuracion'],                                             familia: 'básico',       destacado: false },
-  { nombre: 'Taller Básico',       precio_mes: 19990, precio_anual: 199900, usuarios: '1 usuario · 1 sesión',           modulos: ['ventas','compras','productos','servicios','taller','manuales','trazabilidad','configuracion'],                                                        familia: 'taller',       destacado: false },
-  { nombre: 'Taller Básico 5U',    precio_mes: 29990, precio_anual: 299900, usuarios: 'Hasta 5 usuarios',                modulos: ['ventas','compras','productos','servicios','taller','manuales','trazabilidad','configuracion'],                                                        familia: 'taller',       destacado: true  },
-  { nombre: 'Taller Multiusuario', precio_mes: 36990, precio_anual: 369900, usuarios: 'Usuarios ilimitados',             modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','trazabilidad','configuracion'],                              familia: 'taller',       destacado: false },
-  { nombre: 'Taller Pro',          precio_mes: 44990, precio_anual: 449900, usuarios: 'Multiusuario + informes',         modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','conciliaciones','trazabilidad','configuracion'],             familia: 'taller',       destacado: false },
-  { nombre: 'Taller Multi-tienda', precio_mes: 84990, precio_anual: 849900, usuarios: 'Multi-usuario · Multi-sucursal', modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','canal_b2b','manuales','conciliaciones','trazabilidad','configuracion'], familia: 'multi-tienda', destacado: false, addon: 'Incluye Canal B2B' },
+  { id: 'basico',              precio_mes: 14990, precio_anual: 149900, modulos: ['ventas','compras','productos','informes','trazabilidad','configuracion'],                                                                                 familia: 'básico',       destacado: false },
+  { id: 'pro',                 precio_mes: 23990, precio_anual: 239900, modulos: ['ventas','compras','productos','informes','contabilidad','conciliaciones','trazabilidad','configuracion'],                                             familia: 'básico',       destacado: false },
+  { id: 'taller-basico',       precio_mes: 19990, precio_anual: 199900, modulos: ['ventas','compras','productos','servicios','taller','manuales','trazabilidad','configuracion'],                                                        familia: 'taller',       destacado: false },
+  { id: 'taller-basico-5u',    precio_mes: 29990, precio_anual: 299900, modulos: ['ventas','compras','productos','servicios','taller','manuales','trazabilidad','configuracion'],                                                        familia: 'taller',       destacado: true  },
+  { id: 'taller-multiusuario', precio_mes: 36990, precio_anual: 369900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','trazabilidad','configuracion'],                              familia: 'taller',       destacado: false },
+  { id: 'taller-pro',          precio_mes: 44990, precio_anual: 449900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','conciliaciones','trazabilidad','configuracion'],             familia: 'taller',       destacado: false },
+  { id: 'taller-multi-tienda', precio_mes: 84990, precio_anual: 849900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','canal_b2b','manuales','conciliaciones','trazabilidad','configuracion'], familia: 'multi-tienda', destacado: false, hasAddon: true },
 ]
 
 function clp(n: number) { return `$${n.toLocaleString('es-CL')}` }
@@ -106,6 +113,8 @@ function Switch({ on, code, color = 'signal', size = 'md', dimCode = false }: {
 function HeroModuloItem({ m, lit, isOpen, onToggle, iconColor }: {
   m: typeof MODULOS[0]; lit: boolean; isOpen: boolean; onToggle: () => void; iconColor: string
 }) {
+  const { lang } = useLang()
+  const txt = MODULOS_TXT[lang][m.key]
   const [hov, setHov] = useState(false)
   const activo = hov || isOpen || lit
   const Icon = HERO_ICONS[m.key]
@@ -140,7 +149,7 @@ function HeroModuloItem({ m, lit, isOpen, onToggle, iconColor }: {
         fontWeight: (hov || isOpen) ? 600 : 400,
         maxWidth: 72, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
-        {(hov || isOpen) ? m.label : m.abbr}
+        {(hov || isOpen) ? txt.label : m.abbr}
       </span>
 
       {/* Popup al hacer click */}
@@ -169,11 +178,11 @@ function HeroModuloItem({ m, lit, isOpen, onToggle, iconColor }: {
               {Icon && <Icon size={18} color={C.signal} strokeWidth={1.8} />}
             </span>
             <div>
-              <p style={{ fontFamily: FD, fontSize: 15, fontWeight: 700, margin: 0, color: C.paper }}>{m.label}</p>
+              <p style={{ fontFamily: FD, fontSize: 15, fontWeight: 700, margin: 0, color: C.paper }}>{txt.label}</p>
               <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.signal, margin: 0 }}>{m.abbr}</p>
             </div>
           </div>
-          <p style={{ fontSize: 14, lineHeight: 1.55, opacity: 0.82, margin: 0 }}>{m.ventaja}</p>
+          <p style={{ fontSize: 14, lineHeight: 1.55, opacity: 0.82, margin: 0 }}>{txt.ventaja}</p>
           {/* Flecha */}
           <div style={{
             position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
@@ -188,6 +197,8 @@ function HeroModuloItem({ m, lit, isOpen, onToggle, iconColor }: {
 }
 
 function HeroModuloPanel({ lit }: { lit: number }) {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang]
   const [popup, setPopup] = useState<string | null>(null)
 
   useEffect(() => {
@@ -217,14 +228,43 @@ function HeroModuloPanel({ lit }: { lit: number }) {
         ))}
       </div>
       <p style={{ textAlign: 'center', fontSize: 13, color: C.line, marginTop: 16, marginBottom: 0, letterSpacing: '0.05em' }}>
-        Haz clic en cualquier módulo para saber más
+        {t.hero.hint}
       </p>
     </div>
   )
 }
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
+function LangSwitcher() {
+  const { lang, setLang } = useLang()
+  return (
+    <div style={{ display: 'flex', gap: 2, border: `1px solid ${C.line}`, borderRadius: 8, padding: 2 }}>
+      {LANGS.map(l => (
+        <button
+          key={l.code}
+          onClick={() => {
+            setLang(l.code)
+            document.cookie = `kaltor_lang=${l.code}; path=/; max-age=31536000`
+          }}
+          style={{
+            padding: '4px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
+            fontFamily: FM, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em',
+            backgroundColor: lang === l.code ? C.signal : 'transparent',
+            color: lang === l.code ? '#fff' : C.ink,
+            opacity: lang === l.code ? 1 : 0.55,
+            transition: 'all 0.2s',
+          }}
+        >
+          {l.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function Nav() {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang]
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 20)
@@ -249,20 +289,21 @@ function Nav() {
 
       {/* Links */}
       <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-        {[['Módulos', '#modulos'], ['Planes', '#planes'], ['Contacto', '#contacto']].map(([label, href]) => (
+        {[[t.nav.modulos, '#modulos'], [t.nav.planes, '#planes'], [t.nav.contacto, '#contacto']].map(([label, href]) => (
           <a key={label} href={href} style={{ fontSize: 16, color: C.ink, textDecoration: 'none', opacity: 0.7, transition: 'opacity 0.2s' }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}>
             {label}
           </a>
         ))}
+        <LangSwitcher />
         <a href="/login" style={{
           padding: '8px 18px', borderRadius: 8, backgroundColor: C.signal, color: '#fff',
           fontSize: 16, fontWeight: 600, textDecoration: 'none', transition: 'opacity 0.2s',
         }}
           onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
           onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-          Entrar →
+          {t.nav.entrar}
         </a>
       </div>
     </nav>
@@ -271,29 +312,31 @@ function Nav() {
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 function Hero() {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang]
   const [lit, setLit] = useState(0)
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduced) { setLit(12); return }
     if (lit >= 12) return
-    const t = setTimeout(() => setLit(l => l + 1), 130)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setLit(l => l + 1), 130)
+    return () => clearTimeout(timer)
   }, [lit])
 
   return (
     <section style={{ minHeight: '88vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', textAlign: 'center', backgroundColor: C.paper }}>
       <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 24 }}>
-        Sistema de gestión modular
+        {t.hero.kicker}
       </p>
 
       <h1 style={{ fontFamily: FD, fontSize: 'clamp(46px, 7vw, 83px)', fontWeight: 700, lineHeight: 1.1, color: C.ink, marginBottom: 20, maxWidth: 800 }}>
-        El sistema que enciendes<br />
-        <span style={{ color: C.signal }}>módulo por módulo.</span>
+        {t.hero.titleLine1}<br />
+        <span style={{ color: C.signal }}>{t.hero.titleHighlight}</span>
       </h1>
 
       <p style={{ fontSize: 21, color: C.ink, opacity: 0.6, maxWidth: 560, marginBottom: 40, lineHeight: 1.6 }}>
-        Ventas, inventario, compras, taller — paga solo por lo que tu negocio usa.
+        {t.hero.subtitle}
       </p>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 72, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -303,7 +346,7 @@ function Hero() {
         }}
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
-          Comenzar gratis →
+          {t.hero.ctaStart}
         </a>
         <a href="#planes" style={{
           padding: '14px 32px', borderRadius: 12, border: `2px solid ${C.line}`,
@@ -311,7 +354,7 @@ function Hero() {
         }}
           onMouseEnter={e => (e.currentTarget.style.borderColor = C.ink)}
           onMouseLeave={e => (e.currentTarget.style.borderColor = C.line)}>
-          Ver planes
+          {t.hero.ctaPlans}
         </a>
       </div>
 
@@ -323,13 +366,15 @@ function Hero() {
 
 // ── Módulos ───────────────────────────────────────────────────────────────────
 function Modulos() {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang]
   return (
     <section id="modulos" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Módulos</p>
-        <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>{MODULOS.length} módulos de negocio.</h2>
+        <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>{t.modulosSection.kicker}</p>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>{t.modulosSection.title(MODULOS.length)}</h2>
         <p style={{ fontSize: 20, color: C.ink, opacity: 0.6, marginBottom: 56, maxWidth: 560 }}>
-          Activa los que tu empresa necesita hoy. Cada módulo es independiente — si no lo usas, no lo pagas.
+          {t.modulosSection.subtitle}
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
@@ -343,6 +388,8 @@ function Modulos() {
 }
 
 function ModuloCard({ m, idx }: { m: typeof MODULOS[0]; idx: number }) {
+  const { lang } = useLang()
+  const txt = MODULOS_TXT[lang][m.key]
   const [hov, setHov] = useState(false)
   const Icon = HERO_ICONS[m.key]
   const iconColor = idx % 2 === 0 ? '#ffffff' : '#000000'
@@ -376,11 +423,11 @@ function ModuloCard({ m, idx }: { m: typeof MODULOS[0]; idx: number }) {
       </div>
       <div style={{ flex: 1 }}>
         <span style={{ fontFamily: FM, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.line, display: 'block', marginBottom: 4 }}>{m.code}</span>
-        <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{m.label}</h3>
-        <p style={{ fontSize: 15, color: C.ink, opacity: 0.55, lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
+        <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{txt.label}</h3>
+        <p style={{ fontSize: 15, color: C.ink, opacity: 0.55, lineHeight: 1.5, margin: 0 }}>{txt.desc}</p>
         {hov && (
           <p style={{ fontSize: 14, color: C.signal, lineHeight: 1.5, margin: '10px 0 0', fontWeight: 600, borderTop: `1px solid ${C.signal}33`, paddingTop: 8 }}>
-            ✦ {m.ventaja}
+            ✦ {txt.ventaja}
           </p>
         )}
       </div>
@@ -390,6 +437,8 @@ function ModuloCard({ m, idx }: { m: typeof MODULOS[0]; idx: number }) {
 
 // ── Planes ────────────────────────────────────────────────────────────────────
 function Planes({ conversion }: { conversion: ConversionInfo | null }) {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang]
   const [anual, setAnual] = useState(false)
   const basic  = PLANES.filter(p => p.familia === 'básico')
   const taller = PLANES.filter(p => p.familia === 'taller')
@@ -400,13 +449,13 @@ function Planes({ conversion }: { conversion: ConversionInfo | null }) {
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 56 }}>
           <div>
-            <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Planes</p>
-            <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink }}>Elige tu plan.</h2>
+            <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>{t.planes.kicker}</p>
+            <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink }}>{t.planes.title}</h2>
           </div>
 
           {/* Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 16, color: anual ? C.line : C.ink }}>Mensual</span>
+            <span style={{ fontSize: 16, color: anual ? C.line : C.ink }}>{t.planes.mensual}</span>
             <button
               onClick={() => setAnual(a => !a)}
               style={{ position: 'relative', width: 48, height: 26, borderRadius: 13, backgroundColor: anual ? C.signal : C.line, border: 'none', cursor: 'pointer', transition: 'background-color 0.3s' }}
@@ -420,27 +469,27 @@ function Planes({ conversion }: { conversion: ConversionInfo | null }) {
               }} />
             </button>
             <span style={{ fontSize: 16, color: anual ? C.ink : C.line }}>
-              Anual <span style={{ color: C.mod, fontSize: 14 }}>· ahorra 2 meses</span>
+              {t.planes.anual} <span style={{ color: C.mod, fontSize: 14 }}>{t.planes.ahorra}</span>
             </span>
           </div>
         </div>
 
         {/* Familia básico */}
-        <FamiliaLabel label="Familia básico" />
+        <FamiliaLabel label={t.planes.familiaBasico} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 368px))', gap: 14, marginBottom: 40, justifyContent: 'center' }}>
-          {basic.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} conversion={conversion} />)}
+          {basic.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
         </div>
 
         {/* Familia taller */}
-        <FamiliaLabel label="Familia taller" />
+        <FamiliaLabel label={t.planes.familiaTaller} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 40 }}>
-          {taller.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} conversion={conversion} />)}
+          {taller.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
         </div>
 
         {/* Multi-tienda */}
-        <FamiliaLabel label="Multi-sucursal" />
+        <FamiliaLabel label={t.planes.familiaMulti} />
         <div style={{ maxWidth: '50%', margin: '0 auto' }}>
-          {multi.map(p => <PlanCard key={p.nombre} plan={p} anual={anual} conversion={conversion} full />)}
+          {multi.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} full />)}
         </div>
 
         {/* Tabla comparativa */}
@@ -459,9 +508,12 @@ function FamiliaLabel({ label }: { label: string }) {
 }
 
 function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual: boolean; conversion: ConversionInfo | null; full?: boolean }) {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang]
+  const planTxt = PLANES_TXT[lang][plan.id]
   const [hov, setHov] = useState(false)
   const precio = anual ? plan.precio_anual : plan.precio_mes
-  const sufijo = anual ? '/año + IVA' : '/mes + IVA'
+  const sufijo = anual ? t.planes.sufijoAnio : t.planes.sufijoMes
   const clpPrimero = !conversion || conversion.tipo === 'uf'
 
   return (
@@ -480,16 +532,16 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
       }}
     >
       {/* Badges */}
-      {(plan.destacado || plan.addon) && (
+      {(plan.destacado || plan.hasAddon) && (
         <div style={{ marginBottom: 8 }}>
-          {plan.destacado && <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.signal, margin: 0 }}>⬥ Más elegido</p>}
-          {plan.addon    && <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.mod,    margin: 0 }}>⬥ {plan.addon}</p>}
+          {plan.destacado && <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.signal, margin: 0 }}>⬥ {t.planes.masElegido}</p>}
+          {plan.hasAddon && planTxt.addon && <p style={{ fontFamily: FM, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.mod,    margin: 0 }}>⬥ {planTxt.addon}</p>}
         </div>
       )}
 
       {/* Título centrado */}
-      <h3 style={{ fontFamily: FD, fontSize: 23, fontWeight: 700, color: C.ink, marginBottom: 4, textAlign: 'center' }}>{plan.nombre}</h3>
-      <p style={{ fontSize: 14, color: C.ink, opacity: 0.5, marginBottom: 16, textAlign: 'center' }}>{plan.usuarios}</p>
+      <h3 style={{ fontFamily: FD, fontSize: 23, fontWeight: 700, color: C.ink, marginBottom: 4, textAlign: 'center' }}>{planTxt.nombre}</h3>
+      <p style={{ fontSize: 14, color: C.ink, opacity: 0.5, marginBottom: 16, textAlign: 'center' }}>{planTxt.usuarios}</p>
 
       {/* Precio */}
       <p style={{ marginBottom: conversion ? 4 : 24, textAlign: 'center' }}>
@@ -500,7 +552,7 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
       </p>
       {conversion && (
         <p style={{ fontFamily: FM, fontSize: 13, color: C.ink, opacity: 0.45, textAlign: 'center', marginBottom: 24 }}>
-          {clpPrimero ? `≈ ${formatConversion(precio, conversion)}` : `Cobro real: ${clp(precio)} CLP`}
+          {clpPrimero ? `≈ ${formatConversion(precio, conversion)}` : `${t.planes.cobroReal} ${clp(precio)} CLP`}
         </p>
       )}
 
@@ -508,6 +560,7 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, max-content)', gap: '2px 20px', marginBottom: 24, alignContent: 'start', justifyContent: 'center', overflow: 'hidden' }}>
         {MODULOS.filter(m => plan.modulos.includes(m.key)).map(m => {
           const Icon = HERO_ICONS[m.key]
+          const modTxt = MODULOS_TXT[lang][m.key]
           return (
             <div key={m.key} style={{
               display: 'flex', alignItems: 'center', gap: 5,
@@ -526,7 +579,7 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
                   <Icon size={8} color="#fff" strokeWidth={2.2} />
                 </span>
               )}
-              <p style={{ fontSize: 11, fontWeight: 600, color: C.ink, margin: 0, lineHeight: 1.25, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: C.ink, margin: 0, lineHeight: 1.25, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{modTxt.label}</p>
             </div>
           )
         })}
@@ -543,7 +596,7 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
         onMouseEnter={e => { if (!plan.destacado) e.currentTarget.style.borderColor = C.ink }}
         onMouseLeave={e => { if (!plan.destacado) e.currentTarget.style.borderColor = C.line }}
       >
-        Comenzar gratis
+        {t.planes.comenzarGratis}
       </a>
     </div>
   )
@@ -551,44 +604,51 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
 
 // ── Tabla comparativa de planes ───────────────────────────────────────────────
 function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: ConversionInfo | null }) {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang]
+  const tc = t.planes.comparativa
   const clpPrimero = !conversion || conversion.tipo === 'uf'
   return (
     <div style={{ marginTop: 72, paddingTop: 48, borderTop: `2px solid ${C.line}` }}>
-      <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Comparativa</p>
-      <h3 style={{ fontFamily: FD, fontSize: 'clamp(25px, 3.45vw, 37px)', fontWeight: 700, color: C.ink, marginBottom: 32 }}>Todos los planes, de un vistazo.</h3>
+      <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>{tc.kicker}</p>
+      <h3 style={{ fontFamily: FD, fontSize: 'clamp(25px, 3.45vw, 37px)', fontWeight: 700, color: C.ink, marginBottom: 32 }}>{tc.title}</h3>
 
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15, minWidth: 780 }}>
           <thead>
             <tr style={{ borderBottom: `2px solid ${C.line}` }}>
-              <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600, color: C.ink, opacity: 0.45, minWidth: 140 }}>Módulo</th>
-              {PLANES.map(p => (
-                <th key={p.nombre} style={{
+              <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600, color: C.ink, opacity: 0.45, minWidth: 140 }}>{tc.modulo}</th>
+              {PLANES.map(p => {
+                const planTxt = PLANES_TXT[lang][p.id]
+                return (
+                <th key={p.id} style={{
                   textAlign: 'center', padding: '12px 6px',
                   color: p.destacado ? C.signal : C.ink,
                   borderLeft: `1px solid ${C.line}44`,
                   minWidth: 100,
                 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{p.nombre}</p>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{planTxt.nombre}</p>
                   <p style={{ margin: '2px 0 0', fontFamily: FM, fontSize: 12, fontWeight: 400, color: C.ink, opacity: 0.5 }}>
                     {clpPrimero
-                      ? `${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}/mes`
-                      : `${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion!)}/mes`}
+                      ? `${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}${tc.mesSufijo}`
+                      : `${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion!)}${tc.mesSufijo}`}
                   </p>
                   {conversion && (
                     <p style={{ margin: '1px 0 0', fontFamily: FM, fontSize: 11, fontWeight: 400, color: C.ink, opacity: 0.4 }}>
                       {clpPrimero
                         ? `≈ ${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}`
-                        : `Cobro real: ${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)} CLP`}
+                        : `${t.planes.cobroReal} ${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)} CLP`}
                     </p>
                   )}
                 </th>
-              ))}
+                )
+              })}
             </tr>
           </thead>
           <tbody>
             {MODULOS.map((m, i) => {
               const Icon = HERO_ICONS[m.key]
+              const modTxt = MODULOS_TXT[lang][m.key]
               return (
                 <tr key={m.key} style={{ backgroundColor: i % 2 === 0 ? '#fafafa' : '#fff' }}>
                   <td style={{ padding: '9px 12px' }}>
@@ -601,11 +661,11 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
                           <Icon size={12} color="#fff" strokeWidth={2} />
                         </span>
                       )}
-                      <span style={{ fontWeight: 500, color: C.ink }}>{m.label}</span>
+                      <span style={{ fontWeight: 500, color: C.ink }}>{modTxt.label}</span>
                     </div>
                   </td>
                   {PLANES.map(p => (
-                    <td key={p.nombre} style={{ textAlign: 'center', padding: '9px 6px', borderLeft: `1px solid ${C.line}33` }}>
+                    <td key={p.id} style={{ textAlign: 'center', padding: '9px 6px', borderLeft: `1px solid ${C.line}33` }}>
                       {p.modulos.includes(m.key)
                         ? <span style={{ color: C.mod, fontWeight: 700, fontSize: 17 }}>✓</span>
                         : <span style={{ color: C.line, fontSize: 15 }}>—</span>}
@@ -617,19 +677,22 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
 
             {/* Fila usuarios */}
             <tr style={{ backgroundColor: '#f5f5f5', borderTop: `1px solid ${C.line}` }}>
-              <td style={{ padding: '9px 12px', fontWeight: 600, color: C.ink }}>Usuarios</td>
-              {PLANES.map(p => (
-                <td key={p.nombre} style={{ textAlign: 'center', padding: '9px 6px', fontSize: 13, color: C.ink, opacity: 0.7, borderLeft: `1px solid ${C.line}33` }}>
-                  {p.usuarios}
+              <td style={{ padding: '9px 12px', fontWeight: 600, color: C.ink }}>{tc.usuarios}</td>
+              {PLANES.map(p => {
+                const planTxt = PLANES_TXT[lang][p.id]
+                return (
+                <td key={p.id} style={{ textAlign: 'center', padding: '9px 6px', fontSize: 13, color: C.ink, opacity: 0.7, borderLeft: `1px solid ${C.line}33` }}>
+                  {planTxt.usuarios}
                 </td>
-              ))}
+                )
+              })}
             </tr>
 
             {/* Fila precio / CTA */}
             <tr style={{ borderTop: `2px solid ${C.line}`, backgroundColor: '#fff' }}>
-              <td style={{ padding: '16px 12px', fontWeight: 700, color: C.ink }}>Precio/mes</td>
+              <td style={{ padding: '16px 12px', fontWeight: 700, color: C.ink }}>{tc.precioMes}</td>
               {PLANES.map(p => (
-                <td key={p.nombre} style={{ textAlign: 'center', padding: '16px 6px', borderLeft: `1px solid ${C.line}33` }}>
+                <td key={p.id} style={{ textAlign: 'center', padding: '16px 6px', borderLeft: `1px solid ${C.line}33` }}>
                   <p style={{ margin: conversion ? '0 0 2px' : '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 16, color: p.destacado ? C.signal : C.ink }}>
                     {clpPrimero
                       ? clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)
@@ -639,7 +702,7 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
                     <p style={{ margin: '0 0 8px', fontFamily: FM, fontSize: 11, fontWeight: 400, color: C.ink, opacity: 0.45 }}>
                       {clpPrimero
                         ? `≈ ${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}`
-                        : `Cobro real: ${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)} CLP`}
+                        : `${t.planes.cobroReal} ${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)} CLP`}
                     </p>
                   )}
                   <a href="https://app.kaltorpos.com/registro" style={{
@@ -648,7 +711,7 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
                     color: p.destacado ? '#fff' : C.ink,
                     border: p.destacado ? 'none' : `1.5px solid ${C.line}`,
                   }}>
-                    Elegir
+                    {tc.elegir}
                   </a>
                 </td>
               ))}
@@ -657,8 +720,8 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
         </table>
       </div>
       <p style={{ fontSize: 13, color: C.ink, opacity: 0.35, marginTop: 16 }}>
-        Precios en CLP · IVA no incluido
-        {conversion && conversion.tipo !== 'uf' && ' · conversión referencial, el cobro siempre es en CLP'}
+        {tc.footnoteClp}
+        {conversion && conversion.tipo !== 'uf' && tc.footnoteConversion}
       </p>
     </div>
   )
@@ -666,17 +729,19 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
 
 // ── Misión y Visión ───────────────────────────────────────────────────────────
 function MisionVision() {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang].misionVision
   return (
     <section style={{ padding: '96px 48px', backgroundColor: C.navy, color: C.paper }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
         {/* Frase central */}
         <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 24, textAlign: 'center' }}>
-          Por qué existe Kaltor
+          {t.kicker}
         </p>
         <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 4.5vw, 52px)', fontWeight: 700, lineHeight: 1.2, color: C.paper, textAlign: 'center', marginBottom: 64 }}>
-          Saber exactamente cuánto ganas,<br />
-          cuánto gastas y <span style={{ color: C.signal }}>qué tan efectivo eres.</span>
+          {t.titleLine1}<br />
+          {t.titlePre2}<span style={{ color: C.signal }}>{t.titleHighlight}</span>
         </h2>
 
         {/* Misión + Visión */}
@@ -698,15 +763,13 @@ function MisionVision() {
               }}>
                 <Target size={18} color="#fff" strokeWidth={2} />
               </span>
-              <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, margin: 0 }}>Misión</p>
+              <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, margin: 0 }}>{t.misionLabel}</p>
             </div>
             <h3 style={{ fontFamily: FD, fontSize: 22, fontWeight: 700, color: C.paper, marginBottom: 16, lineHeight: 1.3 }}>
-              Orden real para tu emprendimiento.
+              {t.misionTitle}
             </h3>
             <p style={{ fontSize: 16, lineHeight: 1.7, color: C.paper, opacity: 0.65, margin: 0 }}>
-              Entregamos a cada emprendedor una herramienta simple para controlar su negocio sin complicaciones —
-              sin hojas de cálculo desordenadas, sin números perdidos, sin adivinar si el mes fue bueno o malo.
-              Solo claridad: lo que entra, lo que sale y lo que queda.
+              {t.misionText}
             </p>
           </div>
 
@@ -725,15 +788,13 @@ function MisionVision() {
               }}>
                 <TrendingUp size={18} color="#fff" strokeWidth={2} />
               </span>
-              <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.mod, margin: 0 }}>Visión</p>
+              <p style={{ fontFamily: FM, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.mod, margin: 0 }}>{t.visionLabel}</p>
             </div>
             <h3 style={{ fontFamily: FD, fontSize: 22, fontWeight: 700, color: C.paper, marginBottom: 16, lineHeight: 1.3 }}>
-              Ningún negocio opera a ciegas.
+              {t.visionTitle}
             </h3>
             <p style={{ fontSize: 16, lineHeight: 1.7, color: C.paper, opacity: 0.65, margin: 0 }}>
-              Que cualquier negocio tome decisiones con datos reales, sin importar su tamaño o rubro.
-              Con información clara y ordenada, los emprendedores crecen con más seguridad,
-              reducen sus pérdidas y construyen algo que dura.
+              {t.visionText}
             </p>
           </div>
 
@@ -741,11 +802,7 @@ function MisionVision() {
 
         {/* Línea divisoria + cifra de impacto */}
         <div style={{ marginTop: 64, paddingTop: 48, borderTop: '1px solid #ffffff12', display: 'flex', justifyContent: 'center', gap: 64, flexWrap: 'wrap', textAlign: 'center' }}>
-          {[
-            { valor: '12', label: 'módulos de negocio' },
-            { valor: '7',  label: 'planes disponibles' },
-            { valor: '1',  label: 'objetivo: tu control total' },
-          ].map(item => (
+          {t.stats.map(item => (
             <div key={item.label}>
               <p style={{ fontFamily: FD, fontSize: 48, fontWeight: 700, color: C.signal, margin: 0, lineHeight: 1 }}>{item.valor}</p>
               <p style={{ fontSize: 14, color: C.paper, opacity: 0.45, marginTop: 6 }}>{item.label}</p>
@@ -759,37 +816,31 @@ function MisionVision() {
 }
 
 // ── Para quién es Kaltor ─────────────────────────────────────────────────────
-function ParaQuienEs() {
-  const negocios = [
-    { Icon: Wrench,    titulo: 'Talleres de reparación',   texto: 'Celulares, notebooks, electrodomésticos o motos — controla cada orden de trabajo de principio a fin.' },
-    { Icon: Store,     titulo: 'Tiendas y minimarkets',     texto: 'Punto de venta rápido, boletas al instante y stock siempre bajo control.' },
-    { Icon: Package,   titulo: 'Ferreterías y bodegas',     texto: 'Miles de productos, cero descuadres. Alertas antes de quedarte sin stock.' },
-    { Icon: Truck,     titulo: 'Distribuidoras y mayoristas', texto: 'Vende al por mayor con catálogo B2B y precios diferenciados por cliente.' },
-    { Icon: Building2, titulo: 'Pymes y emprendimientos',   texto: 'Si compras, vendes o entregas un servicio, necesitas saber cuánto ganas. Kaltor te lo muestra.' },
-  ]
+const NEGOCIO_ICONS = [Wrench, Store, Package, Truck, Building2]
+const FACIL_ICONS = [Globe, Zap, Users]
 
-  const facil = [
-    { Icon: Globe, texto: 'Sin instalar nada — funciona desde el navegador' },
-    { Icon: Zap,   texto: 'Tu equipo aprende a usarlo en minutos, no en semanas' },
-    { Icon: Users, texto: 'Celular, tablet o computador: mismo sistema, siempre a mano' },
-  ]
+function ParaQuienEs() {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang].paraQuienEs
 
   return (
     <section style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>
-          Para quién es Kaltor
+          {t.kicker}
         </p>
         <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>
-          Hecho para negocios que compran, venden o reparan.
+          {t.title}
         </h2>
         <p style={{ fontSize: 20, color: C.ink, opacity: 0.6, marginBottom: 48, maxWidth: 620 }}>
-          No importa el rubro: si necesitas orden en tu inventario, tus ventas y tus números, Kaltor calza con tu negocio.
+          {t.subtitle}
         </p>
 
         {/* Grid de tipos de negocio */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, marginBottom: 56 }}>
-          {negocios.map(({ Icon, titulo, texto }) => (
+          {t.negocios.map(({ titulo, texto }, i) => {
+            const Icon = NEGOCIO_ICONS[i]
+            return (
             <div key={titulo} style={{
               padding: '24px 22px', borderRadius: 14,
               border: `1px solid ${C.line}`, backgroundColor: C.paper,
@@ -805,7 +856,8 @@ function ParaQuienEs() {
               <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 6 }}>{titulo}</h3>
               <p style={{ fontSize: 15, color: C.ink, opacity: 0.55, lineHeight: 1.5, margin: 0 }}>{texto}</p>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Fácil de usar */}
@@ -815,22 +867,25 @@ function ParaQuienEs() {
           display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'center', justifyContent: 'space-between',
         }}>
           <p style={{ fontFamily: FD, fontSize: 20, fontWeight: 700, color: C.paper, margin: 0, flexShrink: 0 }}>
-            Fácil desde<br />el primer día.
+            {t.facilTitle1}<br />{t.facilTitle2}
           </p>
           <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', flex: 1 }}>
-            {facil.map(({ Icon, texto }) => (
+            {t.facil.map(({ texto }, i) => {
+              const Icon = FACIL_ICONS[i]
+              return (
               <div key={texto} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 220 }}>
                 <Icon size={18} color={C.signal} strokeWidth={1.8} style={{ flexShrink: 0 }} />
                 <p style={{ fontSize: 15, color: C.paper, opacity: 0.75, margin: 0, lineHeight: 1.4 }}>{texto}</p>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
         {/* Recomendación sutil */}
         <p style={{ textAlign: 'center', fontSize: 17, color: C.ink, opacity: 0.65, marginTop: 40, lineHeight: 1.6 }}>
-          Si tu negocio se parece a alguno de estos, es muy probable que <strong style={{ opacity: 1 }}>Kaltor ya esté pensado para ti</strong>.{' '}
-          <a href="#planes" style={{ color: C.signal, fontWeight: 600, textDecoration: 'none' }}>Descubre tu plan →</a>
+          {t.recomendacionPre}<strong style={{ opacity: 1 }}>{t.recomendacionBold}</strong>.{' '}
+          <a href="#planes" style={{ color: C.signal, fontWeight: 600, textDecoration: 'none' }}>{t.recomendacionLink}</a>
         </p>
       </div>
     </section>
@@ -838,45 +893,12 @@ function ParaQuienEs() {
 }
 
 // ── Ventajas / Por qué usar Kaltor ───────────────────────────────────────────
+const VENTAJA_ICONS = [Eye, Users, AlertTriangle, Zap, SlidersHorizontal, Globe]
+const VENTAJA_ACCENTS = [C.signal, C.mod, '#e8604c', C.signal, C.mod, C.signal]
+
 function VentajasKaltor() {
-  const items = [
-    {
-      Icon: Eye,
-      titulo: 'Sabes exactamente dónde estás',
-      texto: 'Cada peso ingresado, cada gasto registrado. Todo visible en tiempo real.',
-      accent: C.signal,
-    },
-    {
-      Icon: Users,
-      titulo: 'Tu competencia ya tomó la decisión',
-      texto: 'Los que crecen tienen orden y datos. Los que no, adivinan. ¿De qué lado estás?',
-      accent: C.mod,
-    },
-    {
-      Icon: AlertTriangle,
-      titulo: 'El desorden silencioso cuesta caro',
-      texto: 'Registros olvidados, gastos sin detectar. Cuando los ves, ya es tarde.',
-      accent: '#e8604c',
-    },
-    {
-      Icon: Zap,
-      titulo: 'Operativo desde el primer minuto',
-      texto: 'Sin capacitaciones ni manuales. Tu equipo empieza a usarlo hoy.',
-      accent: C.signal,
-    },
-    {
-      Icon: SlidersHorizontal,
-      titulo: 'Pagas solo lo que usas',
-      texto: 'Sin módulos que no necesitas. Escalas cuando tú decides, no cuando te lo imponen.',
-      accent: C.mod,
-    },
-    {
-      Icon: Globe,
-      titulo: 'Tu negocio no para. Tu sistema tampoco.',
-      texto: 'Celular, tablet o computador. Siempre disponible, siempre sincronizado.',
-      accent: C.signal,
-    },
-  ]
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang].ventajasKaltor
 
   return (
     <section style={{ padding: '96px 48px', backgroundColor: '#080F16' }}>
@@ -885,22 +907,23 @@ function VentajasKaltor() {
         {/* Cabecera */}
         <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto 72px' }}>
           <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#e8604c', marginBottom: 20 }}>
-            Sin excusas
+            {t.kicker}
           </p>
           <h2 style={{ fontFamily: FD, fontSize: 'clamp(30px, 4.5vw, 52px)', fontWeight: 700, lineHeight: 1.2, color: C.paper, marginBottom: 24 }}>
-            El desorden te está costando dinero<br />
-            <span style={{ color: C.signal }}>ahora mismo.</span>
+            {t.titleLine1}<br />
+            <span style={{ color: C.signal }}>{t.titleHighlight}</span>
           </h2>
           <p style={{ fontSize: 18, lineHeight: 1.7, color: C.paper, opacity: 0.55 }}>
-            Cada día sin claridad es un día de decisiones mal tomadas, gastos sin detectar
-            y oportunidades que se van. Kaltor no es una opción — es la diferencia entre
-            saber y adivinar.
+            {t.subtitle}
           </p>
         </div>
 
         {/* Grid de ventajas */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 16, marginBottom: 72 }}>
-          {items.map(({ Icon, titulo, texto, accent }) => (
+          {t.items.map(({ titulo, texto }, i) => {
+            const Icon = VENTAJA_ICONS[i]
+            const accent = VENTAJA_ACCENTS[i]
+            return (
             <div key={titulo} style={{
               padding: '32px 28px',
               borderRadius: 16,
@@ -923,16 +946,17 @@ function VentajasKaltor() {
                 {texto}
               </p>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* CTA final */}
         <div style={{ textAlign: 'center', padding: '48px', borderRadius: 20, backgroundColor: '#ffffff06', border: '1px solid #ffffff0D' }}>
           <p style={{ fontFamily: FD, fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 700, color: C.paper, marginBottom: 10 }}>
-            ¿Cuánto más vas a operar a ciegas?
+            {t.ctaTitle}
           </p>
           <p style={{ fontSize: 16, color: C.paper, opacity: 0.5, marginBottom: 32 }}>
-            Empieza gratis hoy. Sin tarjeta de crédito. Sin compromisos.
+            {t.ctaSubtitle}
           </p>
           <a href="https://app.kaltorpos.com/registro" style={{
             display: 'inline-block', padding: '16px 40px', borderRadius: 12,
@@ -940,7 +964,7 @@ function VentajasKaltor() {
             fontWeight: 700, fontSize: 16, textDecoration: 'none',
             boxShadow: `0 0 32px ${C.signal}55`,
           }}>
-            Comenzar gratis →
+            {t.ctaButton}
           </a>
         </div>
 
@@ -951,24 +975,24 @@ function VentajasKaltor() {
 
 // ── Cómo funciona ─────────────────────────────────────────────────────────────
 function ComoFunciona() {
-  const pasos = [
-    { num: '01', titulo: 'Elige tu plan',       desc: 'Selecciona el plan que calce con tu negocio hoy. Puedes cambiar o escalar cuando lo necesites.' },
-    { num: '02', titulo: 'Enciende tus módulos', desc: 'Activa exactamente los módulos que usas. Cada uno es un interruptor: lo prendes, lo apagas.' },
-    { num: '03', titulo: 'Empieza a operar',     desc: 'Accede desde cualquier dispositivo, sin instalar nada. Tu equipo listo para trabajar en minutos.' },
-  ]
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang].comoFunciona
   return (
     <section id="contacto" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Cómo funciona</p>
-        <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 56 }}>Tres pasos para empezar.</h2>
+        <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>{t.kicker}</p>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 56 }}>{t.title}</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 40 }}>
-          {pasos.map(p => (
-            <div key={p.num}>
-              <span style={{ fontFamily: FM, fontSize: 46, fontWeight: 700, color: C.line, display: 'block', marginBottom: 16 }}>{p.num}</span>
+          {t.pasos.map((p, i) => {
+            const num = ['01', '02', '03'][i]
+            return (
+            <div key={num}>
+              <span style={{ fontFamily: FM, fontSize: 46, fontWeight: 700, color: C.line, display: 'block', marginBottom: 16 }}>{num}</span>
               <h3 style={{ fontSize: 21, fontWeight: 700, color: C.ink, marginBottom: 10 }}>{p.titulo}</h3>
               <p style={{ fontSize: 17, color: C.ink, opacity: 0.6, lineHeight: 1.6 }}>{p.desc}</p>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>
@@ -977,6 +1001,9 @@ function ComoFunciona() {
 
 // ── Footer ────────────────────────────────────────────────────────────────────
 function Footer() {
+  const { lang } = useLang()
+  const t = LANDING_TXT[lang]
+  const links: [string, string][] = [[t.nav.modulos, '#modulos'], [t.nav.planes, '#planes'], [t.footer.entrar, '/login']]
   return (
     <footer style={{ padding: '64px 48px 40px', backgroundColor: C.navy, color: C.paper }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -986,7 +1013,7 @@ function Footer() {
             <img src="/kaltor-logo.svg" alt="Kaltor" style={{ height: 44, filter: 'brightness(0) invert(1)' }} />
           </a>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-            {[['Módulos', '#modulos'], ['Planes', '#planes'], ['Entrar', '/login']].map(([label, href]) => (
+            {links.map(([label, href]) => (
               <a key={label} href={href} style={{ fontSize: 15, color: C.paper, opacity: 0.5, textDecoration: 'none', transition: 'opacity 0.2s' }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
                 onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}>
@@ -1014,7 +1041,7 @@ function Footer() {
 
         <div style={{ borderTop: `1px solid #ffffff15`, paddingTop: 20, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <p style={{ fontSize: 14, opacity: 0.35 }}>© {new Date().getFullYear()} Kaltor · kaltorpos.com</p>
-          <p style={{ fontSize: 14, opacity: 0.35 }}>Precios en CLP · IVA no incluido</p>
+          <p style={{ fontSize: 14, opacity: 0.35 }}>{t.footer.footnoteClp}</p>
         </div>
       </div>
     </footer>
@@ -1022,29 +1049,33 @@ function Footer() {
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
-export default function LandingPage({ conversion = null }: { conversion?: ConversionInfo | null }) {
+export default function LandingPage({ conversion = null, lang: initialLang = 'es' }: { conversion?: ConversionInfo | null; lang?: Lang }) {
+  const [lang, setLang] = useState<Lang>(initialLang)
+  const t = LANDING_TXT[lang]
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', backgroundColor: C.paper, color: C.ink }}>
-      <style>{`
-        @keyframes popupIn {
-          from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-      `}</style>
-      <Nav />
-      <Hero />
-      <ParaQuienEs />
-      <VentajasKaltor />
-      <Modulos />
-      <MisionVision />
-      <Planes conversion={conversion} />
-      <ComoFunciona />
-      <Footer />
-      <ChatWidget
-        context="landing"
-        welcomeMessage="¡Hola! Soy el asistente de Kaltor 👋 ¿Te ayudo a elegir un plan o tienes alguna pregunta sobre los módulos?"
-        placeholder="Pregúntame sobre planes, módulos o precios…"
-      />
-    </div>
+    <LangContext.Provider value={{ lang, setLang }}>
+      <div style={{ fontFamily: 'Inter, sans-serif', backgroundColor: C.paper, color: C.ink }}>
+        <style>{`
+          @keyframes popupIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+          }
+        `}</style>
+        <Nav />
+        <Hero />
+        <ParaQuienEs />
+        <VentajasKaltor />
+        <Modulos />
+        <MisionVision />
+        <Planes conversion={conversion} />
+        <ComoFunciona />
+        <Footer />
+        <ChatWidget
+          context="landing"
+          welcomeMessage={t.chat.welcome}
+          placeholder={t.chat.placeholder}
+        />
+      </div>
+    </LangContext.Provider>
   )
 }

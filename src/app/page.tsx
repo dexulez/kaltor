@@ -1,7 +1,8 @@
-import { headers } from 'next/headers'
+import { headers, cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import LandingPage from '@/components/landing/LandingPage'
 import { obtenerConversion } from '@/lib/currency'
+import { detectarIdioma, esLangValido } from '@/lib/i18n/landing'
 
 export default async function Home() {
   const headersList = await headers()
@@ -13,5 +14,9 @@ export default async function Home() {
   const countryCode = headersList.get('x-vercel-ip-country')
   const conversion = await obtenerConversion(countryCode)
 
-  return <LandingPage conversion={conversion} />
+  const cookieStore = await cookies()
+  const langCookie = cookieStore.get('kaltor_lang')?.value
+  const lang = esLangValido(langCookie) ? langCookie : detectarIdioma(countryCode)
+
+  return <LandingPage conversion={conversion} lang={lang} />
 }
