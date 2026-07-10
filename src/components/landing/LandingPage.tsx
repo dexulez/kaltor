@@ -462,6 +462,7 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
   const [hov, setHov] = useState(false)
   const precio = anual ? plan.precio_anual : plan.precio_mes
   const sufijo = anual ? '/año + IVA' : '/mes + IVA'
+  const clpPrimero = !conversion || conversion.tipo === 'uf'
 
   return (
     <div
@@ -492,12 +493,14 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
 
       {/* Precio */}
       <p style={{ marginBottom: conversion ? 4 : 24, textAlign: 'center' }}>
-        <span style={{ fontFamily: FM, fontSize: 30, fontWeight: 700, color: C.ink }}>{clp(precio)}</span>
+        <span style={{ fontFamily: FM, fontSize: 30, fontWeight: 700, color: C.ink }}>
+          {clpPrimero ? clp(precio) : formatConversion(precio, conversion!)}
+        </span>
         <span style={{ fontSize: 14, color: C.ink, opacity: 0.45, marginLeft: 4 }}>{sufijo}</span>
       </p>
       {conversion && (
         <p style={{ fontFamily: FM, fontSize: 13, color: C.ink, opacity: 0.45, textAlign: 'center', marginBottom: 24 }}>
-          ≈ {formatConversion(precio, conversion)}
+          {clpPrimero ? `≈ ${formatConversion(precio, conversion)}` : `Cobro real: ${clp(precio)} CLP`}
         </p>
       )}
 
@@ -548,6 +551,7 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
 
 // ── Tabla comparativa de planes ───────────────────────────────────────────────
 function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: ConversionInfo | null }) {
+  const clpPrimero = !conversion || conversion.tipo === 'uf'
   return (
     <div style={{ marginTop: 72, paddingTop: 48, borderTop: `2px solid ${C.line}` }}>
       <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>Comparativa</p>
@@ -567,11 +571,15 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
                 }}>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{p.nombre}</p>
                   <p style={{ margin: '2px 0 0', fontFamily: FM, fontSize: 12, fontWeight: 400, color: C.ink, opacity: 0.5 }}>
-                    {clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}/mes
+                    {clpPrimero
+                      ? `${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}/mes`
+                      : `${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion!)}/mes`}
                   </p>
                   {conversion && (
                     <p style={{ margin: '1px 0 0', fontFamily: FM, fontSize: 11, fontWeight: 400, color: C.ink, opacity: 0.4 }}>
-                      ≈ {formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}
+                      {clpPrimero
+                        ? `≈ ${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}`
+                        : `Cobro real: ${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)} CLP`}
                     </p>
                   )}
                 </th>
@@ -623,11 +631,15 @@ function TablaComparativa({ anual, conversion }: { anual: boolean; conversion: C
               {PLANES.map(p => (
                 <td key={p.nombre} style={{ textAlign: 'center', padding: '16px 6px', borderLeft: `1px solid ${C.line}33` }}>
                   <p style={{ margin: conversion ? '0 0 2px' : '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 16, color: p.destacado ? C.signal : C.ink }}>
-                    {clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}
+                    {clpPrimero
+                      ? clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)
+                      : formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion!)}
                   </p>
                   {conversion && (
                     <p style={{ margin: '0 0 8px', fontFamily: FM, fontSize: 11, fontWeight: 400, color: C.ink, opacity: 0.45 }}>
-                      ≈ {formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}
+                      {clpPrimero
+                        ? `≈ ${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}`
+                        : `Cobro real: ${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)} CLP`}
                     </p>
                   )}
                   <a href="https://app.kaltorpos.com/registro" style={{

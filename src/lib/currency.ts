@@ -6,29 +6,30 @@ export type ConversionInfo = {
   tipo: 'uf' | 'usd' | 'local'
   codigo: string
   simbolo: string
+  locale: string
   factor: number // precio_local = precio_clp * factor
 }
 
-const PAIS_MONEDA: Record<string, { codigo: string; simbolo: string }> = {
-  AR: { codigo: 'ARS', simbolo: 'AR$' },
-  BO: { codigo: 'BOB', simbolo: 'Bs' },
-  BR: { codigo: 'BRL', simbolo: 'R$' },
-  CO: { codigo: 'COP', simbolo: 'COL$' },
-  CR: { codigo: 'CRC', simbolo: '₡' },
-  DO: { codigo: 'DOP', simbolo: 'RD$' },
-  GT: { codigo: 'GTQ', simbolo: 'Q' },
-  HN: { codigo: 'HNL', simbolo: 'L' },
-  MX: { codigo: 'MXN', simbolo: 'MX$' },
-  NI: { codigo: 'NIO', simbolo: 'C$' },
-  PY: { codigo: 'PYG', simbolo: '₲' },
-  PE: { codigo: 'PEN', simbolo: 'S/' },
-  UY: { codigo: 'UYU', simbolo: '$U' },
-  VE: { codigo: 'VES', simbolo: 'Bs' },
-  ES: { codigo: 'EUR', simbolo: '€' },
+const PAIS_MONEDA: Record<string, { codigo: string; simbolo: string; locale: string }> = {
+  AR: { codigo: 'ARS', simbolo: 'AR$',   locale: 'es-AR' },
+  BO: { codigo: 'BOB', simbolo: 'Bs',    locale: 'es-BO' },
+  BR: { codigo: 'BRL', simbolo: 'R$',    locale: 'pt-BR' },
+  CO: { codigo: 'COP', simbolo: 'COL$',  locale: 'es-CO' },
+  CR: { codigo: 'CRC', simbolo: '₡',     locale: 'es-CR' },
+  DO: { codigo: 'DOP', simbolo: 'RD$',   locale: 'es-DO' },
+  GT: { codigo: 'GTQ', simbolo: 'Q',     locale: 'es-GT' },
+  HN: { codigo: 'HNL', simbolo: 'L',     locale: 'es-HN' },
+  MX: { codigo: 'MXN', simbolo: 'MX$',   locale: 'es-MX' },
+  NI: { codigo: 'NIO', simbolo: 'C$',    locale: 'es-NI' },
+  PY: { codigo: 'PYG', simbolo: '₲',     locale: 'es-PY' },
+  PE: { codigo: 'PEN', simbolo: 'S/',    locale: 'es-PE' },
+  UY: { codigo: 'UYU', simbolo: '$U',    locale: 'es-UY' },
+  VE: { codigo: 'VES', simbolo: 'Bs',    locale: 'es-VE' },
+  ES: { codigo: 'EUR', simbolo: '€',     locale: 'es-ES' },
 }
 
-// Países dolarizados o donde el dólar es la referencia más clara
-const PAISES_USD = new Set(['US', 'EC', 'SV', 'PA'])
+// Países dolarizados o donde el dólar es la referencia más clara, con su locale para formato de número
+const PAISES_USD: Record<string, string> = { US: 'en-US', EC: 'es-EC', SV: 'es-SV', PA: 'es-PA' }
 
 async function fetchJson(url: string): Promise<any | null> {
   try {
@@ -47,29 +48,30 @@ export async function obtenerConversion(countryCode: string | null): Promise<Con
     const indicadores = await fetchJson('https://mindicador.cl/api')
     const uf = indicadores?.uf?.valor
     if (!uf || typeof uf !== 'number') return null
-    return { tipo: 'uf', codigo: 'UF', simbolo: 'UF', factor: 1 / uf }
+    return { tipo: 'uf', codigo: 'UF', simbolo: 'UF', locale: 'es-CL', factor: 1 / uf }
   }
 
   const indicadores = await fetchJson('https://mindicador.cl/api')
   const dolarClp = indicadores?.dolar?.valor
   if (!dolarClp || typeof dolarClp !== 'number') return null
 
-  if (PAISES_USD.has(pais)) {
-    return { tipo: 'usd', codigo: 'USD', simbolo: 'US$', factor: 1 / dolarClp }
+  const localeUsd = PAISES_USD[pais]
+  if (localeUsd) {
+    return { tipo: 'usd', codigo: 'USD', simbolo: 'US$', locale: localeUsd, factor: 1 / dolarClp }
   }
 
   const moneda = PAIS_MONEDA[pais]
   if (!moneda) {
-    return { tipo: 'usd', codigo: 'USD', simbolo: 'US$', factor: 1 / dolarClp }
+    return { tipo: 'usd', codigo: 'USD', simbolo: 'US$', locale: 'en-US', factor: 1 / dolarClp }
   }
 
   const tasas = await fetchJson('https://open.er-api.com/v6/latest/USD')
   const tasaLocal = tasas?.rates?.[moneda.codigo]
   if (!tasaLocal || typeof tasaLocal !== 'number') {
-    return { tipo: 'usd', codigo: 'USD', simbolo: 'US$', factor: 1 / dolarClp }
+    return { tipo: 'usd', codigo: 'USD', simbolo: 'US$', locale: 'en-US', factor: 1 / dolarClp }
   }
 
-  return { tipo: 'local', codigo: moneda.codigo, simbolo: moneda.simbolo, factor: (1 / dolarClp) * tasaLocal }
+  return { tipo: 'local', codigo: moneda.codigo, simbolo: moneda.simbolo, locale: moneda.locale, factor: (1 / dolarClp) * tasaLocal }
 }
 
 export function formatConversion(precioClp: number, conversion: ConversionInfo): string {
@@ -77,5 +79,9 @@ export function formatConversion(precioClp: number, conversion: ConversionInfo):
   if (conversion.tipo === 'uf') {
     return `${valor.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF`
   }
-  return `${conversion.simbolo} ${Math.round(valor).toLocaleString('es-CL')}`
+  try {
+    return new Intl.NumberFormat(conversion.locale, { style: 'currency', currency: conversion.codigo }).format(valor)
+  } catch {
+    return `${conversion.simbolo} ${Math.round(valor).toLocaleString('es-CL')}`
+  }
 }
