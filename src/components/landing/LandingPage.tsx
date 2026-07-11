@@ -839,7 +839,7 @@ function MisionVision() {
 }
 
 // ── Para quién es Kaltor ─────────────────────────────────────────────────────
-const NEGOCIO_ICONS = [Wrench, Store, Package, Truck, Building2]
+const NEGOCIO_ICONS = [Wrench, Store, Package, Truck, Building2, Croissant]
 const FACIL_ICONS = [Globe, Zap, Users]
 
 function ParaQuienEs() {
