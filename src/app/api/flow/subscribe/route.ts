@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
 
     await admin.from('stores').update({
       flow_subscription_id: subscription.subscriptionId,
+      payment_provider:     'flow',
       billing_status:       'pending',
     }).eq('id', store.id)
 

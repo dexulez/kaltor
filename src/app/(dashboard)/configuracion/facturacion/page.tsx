@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -10,13 +10,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 type BillingStatus = 'trial' | 'pending' | 'active' | 'past_due' | 'cancelled' | 'suspended'
 
 type StoreInfo = {
-  nombre:               string
-  billing_status:       BillingStatus
-  trial_hasta:          string | null
-  proximo_cobro_at:     string | null
-  ultimo_pago_at:       string | null
-  flow_subscription_id: string | null
-  plans: { nombre: string; precio_mensual: number } | null
+  nombre:                 string
+  billing_status:         BillingStatus
+  trial_hasta:            string | null
+  proximo_cobro_at:       string | null
+  ultimo_pago_at:         string | null
+  flow_subscription_id:   string | null
+  paypal_subscription_id: string | null
+  payment_provider:       'flow' | 'paypal' | null
+  plans: { nombre: string; precio_mensual: number; precio_mensual_usd: number } | null
 }
 
 const STATUS_LABEL: Record<BillingStatus, string> = {
@@ -54,6 +56,10 @@ export default function FacturacionPage() {
   const [loading, setLoading]   = useState(true)
   const [subscribing, setSub]   = useState(false)
   const [cancelling, setCancel] = useState(false)
+  const [paypalInfo, setPaypalInfo]   = useState<{ clientId: string; planId: string } | null>(null)
+  const [paypalError, setPaypalError] = useState<string | null>(null)
+  const paypalContainerRef = useRef<HTMLDivElement>(null)
+  const paypalRendered     = useRef(false)
 
   useEffect(() => {
     if (params.get('flow_result') === 'success') {
@@ -76,7 +82,7 @@ export default function FacturacionPage() {
 
       const { data } = await supabase
         .from('stores')
-        .select('nombre, billing_status, trial_hasta, proximo_cobro_at, ultimo_pago_at, flow_subscription_id, plans(nombre, precio_mensual)')
+        .select('nombre, billing_status, trial_hasta, proximo_cobro_at, ultimo_pago_at, flow_subscription_id, paypal_subscription_id, payment_provider, plans(nombre, precio_mensual, precio_mensual_usd)')
         .eq('id', profile.store_id)
         .single()
 
@@ -86,6 +92,58 @@ export default function FacturacionPage() {
     }
     load()
   }, [supabase, router])
+
+  // Obtener el plan_id de PayPal correspondiente al plan de la tienda
+  useEffect(() => {
+    if (!store || store.billing_status === 'active') return
+    fetch('/api/paypal/plan')
+      .then(async res => {
+        const data = await res.json()
+        if (!res.ok) { setPaypalError(data.error); return }
+        setPaypalInfo(data)
+      })
+      .catch(() => setPaypalError('No se pudo conectar con PayPal'))
+  }, [store])
+
+  // Cargar el SDK de PayPal y renderizar el botón de suscripción
+  useEffect(() => {
+    if (!paypalInfo || paypalRendered.current) return
+
+    const script = document.createElement('script')
+    script.src = `https://www.paypal.com/sdk/js?client-id=${paypalInfo.clientId}&vault=true&intent=subscription&currency=USD`
+    script.async = true
+    script.onload = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const paypal = (window as any).paypal
+      if (!paypal || !paypalContainerRef.current) return
+
+      paypal.Buttons({
+        style: { label: 'subscribe' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        createSubscription: (_data: unknown, actions: any) =>
+          actions.subscription.create({ plan_id: paypalInfo.planId }),
+        onApprove: async (data: { subscriptionID: string }) => {
+          const res  = await fetch('/api/paypal/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscriptionId: data.subscriptionID }),
+          })
+          const json = await res.json()
+          if (!res.ok) { toast.error(json.error); return }
+          toast.success('¡Suscripción de PayPal activada!')
+          router.refresh()
+        },
+        onError: () => {
+          toast.error('Ocurrió un error al procesar el pago con PayPal')
+        },
+      }).render(paypalContainerRef.current)
+
+      paypalRendered.current = true
+    }
+
+    document.body.appendChild(script)
+    return () => { document.body.removeChild(script) }
+  }, [paypalInfo, router])
 
   async function handleSubscribe() {
     setSub(true)
@@ -103,7 +161,8 @@ export default function FacturacionPage() {
     if (!confirm('¿Confirmas cancelar la suscripción? Seguirás teniendo acceso hasta el fin del período pagado.')) return
     setCancel(true)
     try {
-      const res  = await fetch('/api/flow/cancel', { method: 'POST' })
+      const endpoint = store?.payment_provider === 'paypal' ? '/api/paypal/cancel' : '/api/flow/cancel'
+      const res  = await fetch(endpoint, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error); return }
       toast.success('Suscripción cancelada.')
@@ -231,8 +290,27 @@ export default function FacturacionPage() {
         </Card>
       )}
 
+      {/* Alternativa: pagar con PayPal (USD) */}
+      {status !== 'active' && plan && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">O paga con PayPal (USD)</CardTitle>
+            <CardDescription>
+              Ideal si estás fuera de Chile. Cobro mensual de US${plan.precio_mensual_usd} en dólares.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {paypalError ? (
+              <p className="text-sm text-red-600">{paypalError}</p>
+            ) : (
+              <div ref={paypalContainerRef} />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Suscripción activa — mostrar botón cancelar */}
-      {status === 'active' && store.flow_subscription_id && (
+      {status === 'active' && (store.flow_subscription_id || store.paypal_subscription_id) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Cancelar suscripción</CardTitle>
@@ -253,12 +331,12 @@ export default function FacturacionPage() {
         </Card>
       )}
 
-      {/* Info Flow */}
+      {/* Info métodos de pago */}
       <div className="flex items-center gap-3 text-xs text-gray-400 bg-gray-50 rounded-lg p-3 border">
         <svg className="shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
         </svg>
-        <span>Los pagos son procesados de forma segura por <strong>Flow.cl</strong>. Kaltor no almacena datos de tu tarjeta.</span>
+        <span>Los pagos son procesados de forma segura por <strong>Flow.cl</strong> o <strong>PayPal</strong>. Kaltor no almacena datos de tu tarjeta.</span>
       </div>
     </div>
   )
