@@ -40,6 +40,7 @@ export const MODULOS_TXT: Record<Lang, Record<string, ModuloTxt>> = {
     manuales:       { label: 'Manuales',      desc: 'Base de conocimiento para reparaciones con guías paso a paso y tiempos estándar por modelo y falla.', ventaja: 'Tu equipo resuelve fallas complejas sin depender de un solo técnico. Saber colectivo.' },
     conciliaciones: { label: 'Conciliaciones',desc: 'Conciliación bancaria: cruza movimientos de caja con el extracto del banco y detecta diferencias.',   ventaja: 'Detecta diferencias antes de cerrar el mes. Sin sorpresas al enfrentar la contabilidad.' },
     trazabilidad:   { label: 'Trazabilidad',  desc: 'Seguimiento de compra y venta de mercancía: desde el proveedor de origen hasta la venta final al cliente.', ventaja: 'Sabe exactamente de dónde viene cada producto y adónde fue. Auditoría y control total.' },
+    panaderia:      { label: 'Panadería y Repostería', desc: 'Productos elaborados con receta: ingredientes, rendimiento y producción por lotes que descuenta stock automáticamente.', ventaja: 'Registra tu producción del día y el sistema descuenta los ingredientes y calcula el costo real de cada pan o torta.' },
   },
   pt: {
     ventas:         { label: 'Vendas',         desc: 'Caixa, ponto de venda, clientes e venda direta em qualquer dispositivo.',                      ventaja: 'Receba pagamentos em segundos com PDV touch. Recibo e nota fiscal integrados, sem burocracia.' },
@@ -54,6 +55,7 @@ export const MODULOS_TXT: Record<Lang, Record<string, ModuloTxt>> = {
     manuales:       { label: 'Manuais',        desc: 'Base de conhecimento para reparos com guias passo a passo e tempos padrão por modelo e defeito.', ventaja: 'Sua equipe resolve defeitos complexos sem depender de um único técnico. Conhecimento coletivo.' },
     conciliaciones: { label: 'Conciliações',   desc: 'Conciliação bancária: cruza movimentos de caixa com o extrato do banco e detecta diferenças.',  ventaja: 'Detecte diferenças antes de fechar o mês. Sem surpresas na hora da contabilidade.' },
     trazabilidad:   { label: 'Rastreabilidade',desc: 'Rastreamento de compra e venda de mercadoria: do fornecedor de origem até a venda final ao cliente.', ventaja: 'Saiba exatamente de onde vem cada produto e para onde foi. Auditoria e controle total.' },
+    panaderia:      { label: 'Padaria e Confeitaria', desc: 'Produtos elaborados com receita: ingredientes, rendimento e produção em lotes que desconta o estoque automaticamente.', ventaja: 'Registre sua produção do dia e o sistema desconta os ingredientes e calcula o custo real de cada pão ou bolo.' },
   },
   en: {
     ventas:         { label: 'Sales',          desc: 'Register, point of sale, customers and direct sales from any device.',                  ventaja: 'Charge in seconds with a touch POS. Receipts and invoices built in, no paperwork.' },
@@ -68,6 +70,7 @@ export const MODULOS_TXT: Record<Lang, Record<string, ModuloTxt>> = {
     manuales:       { label: 'Manuals',        desc: 'Knowledge base for repairs with step-by-step guides and standard times per model and issue.', ventaja: 'Your team solves complex issues without depending on a single technician. Shared knowledge.' },
     conciliaciones: { label: 'Reconciliation', desc: 'Bank reconciliation: matches register movements with the bank statement and flags differences.', ventaja: 'Catch differences before closing the month. No surprises at accounting time.' },
     trazabilidad:   { label: 'Traceability',   desc: 'Track purchases and sales of goods: from the original supplier to the final sale to the customer.', ventaja: 'Know exactly where each product came from and where it went. Full audit and control.' },
+    panaderia:      { label: 'Bakery & Pastry', desc: 'Elaborated products with recipes: ingredients, yield and batch production that automatically deducts stock.', ventaja: "Log today's production batch and the system deducts ingredients and calculates the real cost of every loaf or cake." },
   },
 }
 
@@ -132,7 +135,7 @@ export type LandingTxt = {
     familiaBasico: string; familiaTaller: string; familiaMulti: string
     masElegido: string; comenzarGratis: string; sufijoMes: string; sufijoAnio: string
     cobroReal: string
-    comparativa: { kicker: string; title: string; modulo: string; usuarios: string; precioMes: string; mesSufijo: string; elegir: string; footnoteClp: string; footnoteConversion: string }
+    comparativa: { kicker: string; title: string; modulo: string; usuarios: string; precioMes: string; mesSufijo: string; elegir: string; footnoteClp: string; footnoteConversion: string; addonNote: string }
   }
   comoFunciona: { kicker: string; title: string; pasos: { titulo: string; desc: string }[] }
   footer: { entrar: string; footnoteClp: string }
@@ -189,14 +192,14 @@ export const LANDING_TXT: Record<Lang, LandingTxt> = {
       misionText: 'Entregamos a cada emprendedor una herramienta simple para controlar su negocio sin complicaciones — sin hojas de cálculo desordenadas, sin números perdidos, sin adivinar si el mes fue bueno o malo. Solo claridad: lo que entra, lo que sale y lo que queda.',
       visionLabel: 'Visión', visionTitle: 'Ningún negocio opera a ciegas.',
       visionText: 'Que cualquier negocio tome decisiones con datos reales, sin importar su tamaño o rubro. Con información clara y ordenada, los emprendedores crecen con más seguridad, reducen sus pérdidas y construyen algo que dura.',
-      stats: [{ valor: '12', label: 'módulos de negocio' }, { valor: '7', label: 'planes disponibles' }, { valor: '1', label: 'objetivo: tu control total' }],
+      stats: [{ valor: '13', label: 'módulos de negocio' }, { valor: '7', label: 'planes disponibles' }, { valor: '1', label: 'objetivo: tu control total' }],
     },
     planes: {
       kicker: 'Planes', title: 'Elige tu plan.', mensual: 'Mensual', anual: 'Anual', ahorra: '· ahorra 2 meses',
       familiaBasico: 'Familia básico', familiaTaller: 'Familia taller', familiaMulti: 'Multi-sucursal',
       masElegido: 'Más elegido', comenzarGratis: 'Comenzar gratis', sufijoMes: '/mes + IVA', sufijoAnio: '/año + IVA',
       cobroReal: 'Cobro real:',
-      comparativa: { kicker: 'Comparativa', title: 'Todos los planes, de un vistazo.', modulo: 'Módulo', usuarios: 'Usuarios', precioMes: 'Precio/mes', mesSufijo: '/mes', elegir: 'Elegir', footnoteClp: 'Precios en CLP · IVA no incluido', footnoteConversion: ' · conversión referencial, el cobro siempre es en CLP' },
+      comparativa: { kicker: 'Comparativa', title: 'Todos los planes, de un vistazo.', modulo: 'Módulo', usuarios: 'Usuarios', precioMes: 'Precio/mes', mesSufijo: '/mes', elegir: 'Elegir', footnoteClp: 'Precios en CLP · IVA no incluido', footnoteConversion: ' · conversión referencial, el cobro siempre es en CLP', addonNote: '🥖 ¿Tienes panadería o repostería? El módulo de Recetas y Producción está disponible como complemento para cualquier plan — actívalo cuando lo necesites.' },
     },
     comoFunciona: {
       kicker: 'Cómo funciona', title: 'Tres pasos para empezar.',
@@ -258,14 +261,14 @@ export const LANDING_TXT: Record<Lang, LandingTxt> = {
       misionText: 'Entregamos a cada empreendedor uma ferramenta simples para controlar o negócio sem complicação — sem planilhas bagunçadas, sem números perdidos, sem adivinhar se o mês foi bom ou ruim. Só clareza: o que entra, o que sai e o que sobra.',
       visionLabel: 'Visão', visionTitle: 'Nenhum negócio opera às cegas.',
       visionText: 'Que qualquer negócio tome decisões com dados reais, não importa o tamanho ou o ramo. Com informação clara e organizada, os empreendedores crescem com mais segurança, reduzem suas perdas e constroem algo que dura.',
-      stats: [{ valor: '12', label: 'módulos de negócio' }, { valor: '7', label: 'planos disponíveis' }, { valor: '1', label: 'objetivo: seu controle total' }],
+      stats: [{ valor: '13', label: 'módulos de negócio' }, { valor: '7', label: 'planos disponíveis' }, { valor: '1', label: 'objetivo: seu controle total' }],
     },
     planes: {
       kicker: 'Planos', title: 'Escolha seu plano.', mensual: 'Mensal', anual: 'Anual', ahorra: '· economize 2 meses',
       familiaBasico: 'Família básico', familiaTaller: 'Família oficina', familiaMulti: 'Multi-loja',
       masElegido: 'Mais escolhido', comenzarGratis: 'Comece grátis', sufijoMes: '/mês + impostos', sufijoAnio: '/ano + impostos',
       cobroReal: 'Cobrança real:',
-      comparativa: { kicker: 'Comparativo', title: 'Todos os planos, de relance.', modulo: 'Módulo', usuarios: 'Usuários', precioMes: 'Preço/mês', mesSufijo: '/mês', elegir: 'Escolher', footnoteClp: 'Preços em CLP (peso chileno) · impostos não incluídos', footnoteConversion: ' · conversão referencial, a cobrança é sempre em CLP' },
+      comparativa: { kicker: 'Comparativo', title: 'Todos os planos, de relance.', modulo: 'Módulo', usuarios: 'Usuários', precioMes: 'Preço/mês', mesSufijo: '/mês', elegir: 'Escolher', footnoteClp: 'Preços em CLP (peso chileno) · impostos não incluídos', footnoteConversion: ' · conversão referencial, a cobrança é sempre em CLP', addonNote: '🥖 Tem padaria ou confeitaria? O módulo de Receitas e Produção está disponível como complemento para qualquer plano — ative quando precisar.' },
     },
     comoFunciona: {
       kicker: 'Como funciona', title: 'Três passos para começar.',
@@ -327,14 +330,14 @@ export const LANDING_TXT: Record<Lang, LandingTxt> = {
       misionText: "We give every entrepreneur a simple tool to run their business without complications — no messy spreadsheets, no lost numbers, no guessing whether the month was good or bad. Just clarity: what comes in, what goes out and what's left.",
       visionLabel: 'Vision', visionTitle: 'No business operates blind.',
       visionText: 'That any business can make decisions with real data, regardless of size or industry. With clear, organized information, entrepreneurs grow with more confidence, cut their losses and build something that lasts.',
-      stats: [{ valor: '12', label: 'business modules' }, { valor: '7', label: 'available plans' }, { valor: '1', label: 'goal: your full control' }],
+      stats: [{ valor: '13', label: 'business modules' }, { valor: '7', label: 'available plans' }, { valor: '1', label: 'goal: your full control' }],
     },
     planes: {
       kicker: 'Plans', title: 'Choose your plan.', mensual: 'Monthly', anual: 'Yearly', ahorra: '· save 2 months',
       familiaBasico: 'Basic family', familiaTaller: 'Repair shop family', familiaMulti: 'Multi-location',
       masElegido: 'Most popular', comenzarGratis: 'Start for free', sufijoMes: '/mo + tax', sufijoAnio: '/yr + tax',
       cobroReal: 'Actual charge:',
-      comparativa: { kicker: 'Comparison', title: 'All plans, at a glance.', modulo: 'Module', usuarios: 'Users', precioMes: 'Price/mo', mesSufijo: '/mo', elegir: 'Choose', footnoteClp: 'Prices in CLP (Chilean pesos) · tax not included', footnoteConversion: ' · reference conversion, the charge is always in CLP' },
+      comparativa: { kicker: 'Comparison', title: 'All plans, at a glance.', modulo: 'Module', usuarios: 'Users', precioMes: 'Price/mo', mesSufijo: '/mo', elegir: 'Choose', footnoteClp: 'Prices in CLP (Chilean pesos) · tax not included', footnoteConversion: ' · reference conversion, the charge is always in CLP', addonNote: '🥖 Got a bakery or pastry business? The Recipes & Production module is available as an add-on for any plan — activate it whenever you need it.' },
     },
     comoFunciona: {
       kicker: 'How it works', title: 'Three steps to get started.',

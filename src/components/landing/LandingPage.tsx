@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, createContext, useContext } from 'react'
-import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users } from 'lucide-react'
+import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users, Croissant } from 'lucide-react'
 import ChatWidget from '@/components/chat/ChatWidget'
 import { formatConversion, type ConversionInfo } from '@/lib/currency'
 import { LANGS, LANDING_TXT, MODULOS_TXT, PLANES_TXT, type Lang } from '@/lib/i18n/landing'
@@ -26,6 +26,7 @@ const HERO_ICONS: Record<string, LucideIcon> = {
   manuales:       BookOpen,
   conciliaciones: Banknote,
   trazabilidad:   Truck,
+  panaderia:      Croissant,
 }
 
 // ── Paleta ────────────────────────────────────────────────────────────────────
@@ -55,7 +56,12 @@ const MODULOS = [
   { code: 'MOD-10', key: 'manuales',       abbr: 'MAN', icon: '🧠' },
   { code: 'MOD-11', key: 'conciliaciones', abbr: 'BNK', icon: '🏦' },
   { code: 'MOD-12', key: 'trazabilidad',   abbr: 'TRZ', icon: '📍' },
+  { code: 'MOD-13', key: 'panaderia',      abbr: 'PAN', icon: '🥖' },
 ]
+
+// Módulos que son complementos activables por tienda (no atados a ningún plan) —
+// se muestran en Hero/Módulos pero se excluyen de la tabla comparativa por plan.
+const MODULOS_ADDON = new Set(['panaderia'])
 
 // El texto (nombre/usuarios/addon) vive en PLANES_TXT (src/lib/i18n/landing.ts), por idioma.
 type Plan = {
@@ -273,7 +279,7 @@ function Nav() {
   }, [])
 
   return (
-    <nav style={{
+    <nav className="kaltor-nav" style={{
       position: 'sticky', top: 0, zIndex: 50,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '0 48px', height: 64,
@@ -289,13 +295,15 @@ function Nav() {
 
       {/* Links */}
       <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-        {[[t.nav.modulos, '#modulos'], [t.nav.planes, '#planes'], [t.nav.contacto, '#contacto']].map(([label, href]) => (
-          <a key={label} href={href} style={{ fontSize: 16, color: C.ink, textDecoration: 'none', opacity: 0.7, transition: 'opacity 0.2s' }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}>
-            {label}
-          </a>
-        ))}
+        <div className="kaltor-nav-links" style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+          {[[t.nav.modulos, '#modulos'], [t.nav.planes, '#planes'], [t.nav.contacto, '#contacto']].map(([label, href]) => (
+            <a key={label} href={href} style={{ fontSize: 16, color: C.ink, textDecoration: 'none', opacity: 0.7, transition: 'opacity 0.2s' }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}>
+              {label}
+            </a>
+          ))}
+        </div>
         <LangSwitcher />
         <a href="/login" style={{
           padding: '8px 18px', borderRadius: 8, backgroundColor: C.signal, color: '#fff',
@@ -369,7 +377,7 @@ function Modulos() {
   const { lang } = useLang()
   const t = LANDING_TXT[lang]
   return (
-    <section id="modulos" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
+    <section id="modulos" className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>{t.modulosSection.kicker}</p>
         <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 8 }}>{t.modulosSection.title(MODULOS.length)}</h2>
@@ -451,7 +459,7 @@ function Planes({ conversion, precios }: { conversion: ConversionInfo | null; pr
   const multi  = planesConPrecio.filter(p => p.familia === 'multi-tienda')
 
   return (
-    <section id="planes" style={{ padding: '96px 48px', backgroundColor: C.paper }}>
+    <section id="planes" className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: C.paper }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 56 }}>
           <div>
@@ -482,7 +490,7 @@ function Planes({ conversion, precios }: { conversion: ConversionInfo | null; pr
 
         {/* Familia básico */}
         <FamiliaLabel label={t.planes.familiaBasico} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 368px))', gap: 14, marginBottom: 40, justifyContent: 'center' }}>
+        <div className="kaltor-basic-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 368px))', gap: 14, marginBottom: 40, justifyContent: 'center' }}>
           {basic.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
         </div>
 
@@ -494,7 +502,7 @@ function Planes({ conversion, precios }: { conversion: ConversionInfo | null; pr
 
         {/* Multi-tienda */}
         <FamiliaLabel label={t.planes.familiaMulti} />
-        <div style={{ maxWidth: '50%', margin: '0 auto' }}>
+        <div style={{ maxWidth: 480, width: '100%', margin: '0 auto' }}>
           {multi.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} full />)}
         </div>
 
@@ -563,7 +571,7 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
       )}
 
       {/* Módulos en 2 columnas — solo los incluidos en el plan */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, max-content)', gap: '2px 20px', marginBottom: 24, alignContent: 'start', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '2px 20px', marginBottom: 24, alignContent: 'start', overflow: 'hidden' }}>
         {MODULOS.filter(m => plan.modulos.includes(m.key)).map(m => {
           const Icon = HERO_ICONS[m.key]
           const modTxt = MODULOS_TXT[lang][m.key]
@@ -652,7 +660,7 @@ function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conve
             </tr>
           </thead>
           <tbody>
-            {MODULOS.map((m, i) => {
+            {MODULOS.filter(m => !MODULOS_ADDON.has(m.key)).map((m, i) => {
               const Icon = HERO_ICONS[m.key]
               const modTxt = MODULOS_TXT[lang][m.key]
               return (
@@ -729,6 +737,9 @@ function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conve
         {tc.footnoteClp}
         {conversion && conversion.tipo !== 'uf' && tc.footnoteConversion}
       </p>
+      <p style={{ fontSize: 14, color: C.ink, backgroundColor: '#FFF7F2', border: `1px solid ${C.signal}44`, borderRadius: 10, padding: '12px 16px', marginTop: 20 }}>
+        {tc.addonNote}
+      </p>
     </div>
   )
 }
@@ -738,7 +749,7 @@ function MisionVision() {
   const { lang } = useLang()
   const t = LANDING_TXT[lang].misionVision
   return (
-    <section style={{ padding: '96px 48px', backgroundColor: C.navy, color: C.paper }}>
+    <section className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: C.navy, color: C.paper }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
         {/* Frase central */}
@@ -830,7 +841,7 @@ function ParaQuienEs() {
   const t = LANDING_TXT[lang].paraQuienEs
 
   return (
-    <section style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
+    <section className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>
           {t.kicker}
@@ -907,7 +918,7 @@ function VentajasKaltor() {
   const t = LANDING_TXT[lang].ventajasKaltor
 
   return (
-    <section style={{ padding: '96px 48px', backgroundColor: '#080F16' }}>
+    <section className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: '#080F16' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Cabecera */}
@@ -984,7 +995,7 @@ function ComoFunciona() {
   const { lang } = useLang()
   const t = LANDING_TXT[lang].comoFunciona
   return (
-    <section id="contacto" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
+    <section id="contacto" className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>{t.kicker}</p>
         <h2 style={{ fontFamily: FD, fontSize: 'clamp(32px, 4.6vw, 48px)', fontWeight: 700, color: C.ink, marginBottom: 56 }}>{t.title}</h2>
@@ -1011,7 +1022,7 @@ function Footer() {
   const t = LANDING_TXT[lang]
   const links: [string, string][] = [[t.nav.modulos, '#modulos'], [t.nav.planes, '#planes'], [t.footer.entrar, '/login']]
   return (
-    <footer style={{ padding: '64px 48px 40px', backgroundColor: C.navy, color: C.paper }}>
+    <footer className="kaltor-footer" style={{ padding: '64px 48px 40px', backgroundColor: C.navy, color: C.paper }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20, marginBottom: 40 }}>
           <a href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
@@ -1065,6 +1076,13 @@ export default function LandingPage({ conversion = null, lang: initialLang = 'es
           @keyframes popupIn {
             from { opacity: 0; transform: translateX(-50%) translateY(6px); }
             to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+          }
+          @media (max-width: 700px) {
+            .kaltor-nav { padding: 0 16px !important; }
+            .kaltor-nav-links { display: none !important; }
+            .kaltor-section { padding: 56px 20px !important; }
+            .kaltor-footer { padding: 40px 20px 24px !important; }
+            .kaltor-basic-grid { grid-template-columns: 1fr !important; }
           }
         `}</style>
         <Nav />
