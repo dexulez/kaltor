@@ -59,10 +59,6 @@ const MODULOS = [
   { code: 'MOD-13', key: 'panaderia',      abbr: 'PAN', icon: '🥖' },
 ]
 
-// Módulos que son complementos activables por tienda (no atados a ningún plan) —
-// se muestran en Hero/Módulos pero se excluyen de la tabla comparativa por plan.
-const MODULOS_ADDON = new Set(['panaderia'])
-
 // El texto (nombre/usuarios/addon) vive en PLANES_TXT (src/lib/i18n/landing.ts), por idioma.
 type Plan = {
   id: string
@@ -82,6 +78,9 @@ const PLANES: Plan[] = [
   { id: 'taller-multiusuario', precio_mes: 36990, precio_anual: 369900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','trazabilidad','configuracion'],                              familia: 'taller',       destacado: false },
   { id: 'taller-pro',          precio_mes: 44990, precio_anual: 449900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','conciliaciones','trazabilidad','configuracion'],             familia: 'taller',       destacado: false },
   { id: 'taller-multi-tienda', precio_mes: 84990, precio_anual: 849900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','canal_b2b','manuales','conciliaciones','trazabilidad','configuracion'], familia: 'multi-tienda', destacado: false, hasAddon: true },
+  { id: 'panaderia-basico',       precio_mes: 19990, precio_anual: 199900, modulos: ['ventas','compras','productos','informes','trazabilidad','configuracion','panaderia'],                                                       familia: 'panaderia', destacado: false },
+  { id: 'panaderia-pro',          precio_mes: 34990, precio_anual: 349900, modulos: ['ventas','compras','productos','informes','contabilidad','conciliaciones','trazabilidad','configuracion','panaderia'],                     familia: 'panaderia', destacado: true  },
+  { id: 'panaderia-multi-tienda', precio_mes: 89990, precio_anual: 899900, modulos: ['ventas','compras','productos','informes','contabilidad','conciliaciones','canal_b2b','trazabilidad','configuracion','panaderia'],         familia: 'panaderia', destacado: false, hasAddon: true },
 ]
 
 function clp(n: number) { return `$${n.toLocaleString('es-CL')}` }
@@ -326,8 +325,8 @@ function Hero() {
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduced) { setLit(12); return }
-    if (lit >= 12) return
+    if (reduced) { setLit(MODULOS.length); return }
+    if (lit >= MODULOS.length) return
     const timer = setTimeout(() => setLit(l => l + 1), 130)
     return () => clearTimeout(timer)
   }, [lit])
@@ -454,9 +453,10 @@ function Planes({ conversion, precios }: { conversion: ConversionInfo | null; pr
     const override = precios?.[p.id]
     return override ? { ...p, precio_mes: override.mensual, precio_anual: override.anual } : p
   })
-  const basic  = planesConPrecio.filter(p => p.familia === 'básico')
-  const taller = planesConPrecio.filter(p => p.familia === 'taller')
-  const multi  = planesConPrecio.filter(p => p.familia === 'multi-tienda')
+  const basic     = planesConPrecio.filter(p => p.familia === 'básico')
+  const taller    = planesConPrecio.filter(p => p.familia === 'taller')
+  const panaderia = planesConPrecio.filter(p => p.familia === 'panaderia')
+  const multi     = planesConPrecio.filter(p => p.familia === 'multi-tienda')
 
   return (
     <section id="planes" className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: C.paper }}>
@@ -498,6 +498,12 @@ function Planes({ conversion, precios }: { conversion: ConversionInfo | null; pr
         <FamiliaLabel label={t.planes.familiaTaller} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 40 }}>
           {taller.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
+        </div>
+
+        {/* Familia panadería */}
+        <FamiliaLabel label={t.planes.familiaPanaderia} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 40 }}>
+          {panaderia.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
         </div>
 
         {/* Multi-tienda */}
@@ -660,7 +666,7 @@ function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conve
             </tr>
           </thead>
           <tbody>
-            {MODULOS.filter(m => !MODULOS_ADDON.has(m.key)).map((m, i) => {
+            {MODULOS.map((m, i) => {
               const Icon = HERO_ICONS[m.key]
               const modTxt = MODULOS_TXT[lang][m.key]
               return (
