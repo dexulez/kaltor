@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, createContext, useContext } from 'react'
-import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users, Croissant } from 'lucide-react'
+import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users } from 'lucide-react'
 import ChatWidget from '@/components/chat/ChatWidget'
 import { formatConversion, type ConversionInfo } from '@/lib/currency'
 import { LANGS, LANDING_TXT, MODULOS_TXT, PLANES_TXT, type Lang } from '@/lib/i18n/landing'
@@ -26,7 +26,6 @@ const HERO_ICONS: Record<string, LucideIcon> = {
   manuales:       BookOpen,
   conciliaciones: Banknote,
   trazabilidad:   Truck,
-  panaderia:      Croissant,
 }
 
 // ── Paleta ────────────────────────────────────────────────────────────────────
@@ -56,7 +55,6 @@ const MODULOS = [
   { code: 'MOD-10', key: 'manuales',       abbr: 'MAN', icon: '🧠' },
   { code: 'MOD-11', key: 'conciliaciones', abbr: 'BNK', icon: '🏦' },
   { code: 'MOD-12', key: 'trazabilidad',   abbr: 'TRZ', icon: '📍' },
-  { code: 'MOD-13', key: 'panaderia',      abbr: 'PAN', icon: '🥖' },
 ]
 
 // El texto (nombre/usuarios/addon) vive en PLANES_TXT (src/lib/i18n/landing.ts), por idioma.
@@ -78,9 +76,6 @@ const PLANES: Plan[] = [
   { id: 'taller-multiusuario', precio_mes: 36990, precio_anual: 369900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','trazabilidad','configuracion'],                              familia: 'taller',       destacado: false },
   { id: 'taller-pro',          precio_mes: 44990, precio_anual: 449900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','manuales','conciliaciones','trazabilidad','configuracion'],             familia: 'taller',       destacado: false },
   { id: 'taller-multi-tienda', precio_mes: 84990, precio_anual: 849900, modulos: ['ventas','compras','productos','servicios','taller','informes','contabilidad','canal_b2b','manuales','conciliaciones','trazabilidad','configuracion'], familia: 'multi-tienda', destacado: false, hasAddon: true },
-  { id: 'panaderia-basico',       precio_mes: 19990, precio_anual: 199900, modulos: ['ventas','compras','productos','informes','trazabilidad','configuracion','panaderia'],                                                       familia: 'panaderia', destacado: false },
-  { id: 'panaderia-pro',          precio_mes: 34990, precio_anual: 349900, modulos: ['ventas','compras','productos','informes','contabilidad','conciliaciones','trazabilidad','configuracion','panaderia'],                     familia: 'panaderia', destacado: true  },
-  { id: 'panaderia-multi-tienda', precio_mes: 89990, precio_anual: 899900, modulos: ['ventas','compras','productos','informes','contabilidad','conciliaciones','canal_b2b','trazabilidad','configuracion','panaderia'],         familia: 'panaderia', destacado: false, hasAddon: true },
 ]
 
 function clp(n: number) { return `$${n.toLocaleString('es-CL')}` }
@@ -453,10 +448,9 @@ function Planes({ conversion, precios }: { conversion: ConversionInfo | null; pr
     const override = precios?.[p.id]
     return override ? { ...p, precio_mes: override.mensual, precio_anual: override.anual } : p
   })
-  const basic     = planesConPrecio.filter(p => p.familia === 'básico')
-  const taller    = planesConPrecio.filter(p => p.familia === 'taller')
-  const panaderia = planesConPrecio.filter(p => p.familia === 'panaderia')
-  const multi     = planesConPrecio.filter(p => p.familia === 'multi-tienda')
+  const basic  = planesConPrecio.filter(p => p.familia === 'básico')
+  const taller = planesConPrecio.filter(p => p.familia === 'taller')
+  const multi  = planesConPrecio.filter(p => p.familia === 'multi-tienda')
 
   return (
     <section id="planes" className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: C.paper }}>
@@ -498,12 +492,6 @@ function Planes({ conversion, precios }: { conversion: ConversionInfo | null; pr
         <FamiliaLabel label={t.planes.familiaTaller} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 40 }}>
           {taller.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
-        </div>
-
-        {/* Familia panadería */}
-        <FamiliaLabel label={t.planes.familiaPanaderia} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 40 }}>
-          {panaderia.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
         </div>
 
         {/* Multi-tienda */}
@@ -743,9 +731,6 @@ function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conve
         {tc.footnoteClp}
         {conversion && conversion.tipo !== 'uf' && tc.footnoteConversion}
       </p>
-      <p style={{ fontSize: 14, color: C.ink, backgroundColor: '#FFF7F2', border: `1px solid ${C.signal}44`, borderRadius: 10, padding: '12px 16px', marginTop: 20 }}>
-        {tc.addonNote}
-      </p>
     </div>
   )
 }
@@ -839,7 +824,7 @@ function MisionVision() {
 }
 
 // ── Para quién es Kaltor ─────────────────────────────────────────────────────
-const NEGOCIO_ICONS = [Wrench, Store, Package, Truck, Building2, Croissant]
+const NEGOCIO_ICONS = [Wrench, Store, Package, Truck, Building2]
 const FACIL_ICONS = [Globe, Zap, Users]
 
 function ParaQuienEs() {

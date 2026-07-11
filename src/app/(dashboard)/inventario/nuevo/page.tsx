@@ -24,7 +24,6 @@ export default async function NuevoProductoPage({
   const storeId = (perfil as { store_id?: string } | null)?.store_id
   let tieneB2B = true
   let tieneTaller = true
-  let tienePanaderia = false
   if (storeId) {
     const admin = createServiceClient()
     const { data: storeModules } = await admin
@@ -35,7 +34,6 @@ export default async function NuevoProductoPage({
     if (storeModules && storeModules.length > 0) {
       tieneB2B = storeModules.some((m: { module_key: string }) => m.module_key === 'canal_b2b')
       tieneTaller = storeModules.some((m: { module_key: string }) => m.module_key === 'taller')
-      tienePanaderia = storeModules.some((m: { module_key: string }) => m.module_key === 'panaderia')
     }
   }
 
@@ -55,7 +53,7 @@ export default async function NuevoProductoPage({
           </p>
         )}
       </div>
-      <ProductoForm categorias={categorias ?? []} proveedores={proveedores ?? []} returnTo={returnTo} puedeVerCostos={puedeVerCostos} tieneB2B={tieneB2B} tieneTaller={tieneTaller} tienePanaderia={tienePanaderia} />
+      <ProductoForm categorias={categorias ?? []} proveedores={proveedores ?? []} returnTo={returnTo} puedeVerCostos={puedeVerCostos} tieneB2B={tieneB2B} tieneTaller={tieneTaller} />
     </div>
   )
 }

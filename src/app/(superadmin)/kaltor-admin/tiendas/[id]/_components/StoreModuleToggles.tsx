@@ -16,7 +16,6 @@ const ALL_MODULES = [
   { key: 'manuales',      label: 'Manuales' },
   { key: 'conciliaciones',label: 'Conciliaciones' },
   { key: 'trazabilidad',  label: 'Trazabilidad' },
-  { key: 'panaderia',     label: 'Panadería y Repostería' },
 ]
 
 export default function StoreModuleToggles({

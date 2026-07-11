@@ -133,7 +133,7 @@ function KpiCardComp({ label, value, sub, colorIdx = 0, prev, prevLabel, href }:
 
 // ── Tab: Resumen General ──────────────────────────────────────────────────────
 
-async function TabResumen({ desde, hasta, puedeExportar, tieneTaller, tienePanaderia }: { desde: string; hasta: string; puedeExportar: boolean; tieneTaller: boolean; tienePanaderia: boolean }) {
+async function TabResumen({ desde, hasta, puedeExportar, tieneTaller }: { desde: string; hasta: string; puedeExportar: boolean; tieneTaller: boolean }) {
   const supabase = await createClient()
   const desdeIso = `${desde}T00:00:00.000Z`
   const hastaIso = `${hasta}T23:59:59.999Z`
@@ -162,20 +162,6 @@ async function TabResumen({ desde, hasta, puedeExportar, tieneTaller, tienePanad
     supabase.from('customers').select('id').gte('created_at', desdeIso).lte('created_at', hastaIso),
     supabase.from('repair_items').select('repair_order_id, cantidad, precio_costo, costo_envio').gte('created_at', desdeIso).lte('created_at', hastaIso),
   ])
-
-  // Costo de producción (Panadería y Repostería)
-  let costoProduccionTotal = 0
-  let produccionesCount = 0
-  if (tienePanaderia) {
-    const { data: produccionesAct } = await supabase
-      .from('producciones')
-      .select('costo_total')
-      .gte('created_at', desdeIso)
-      .lte('created_at', hastaIso)
-      .then(r => r.error ? { data: [] } : r)
-    costoProduccionTotal = (produccionesAct ?? []).reduce((s: number, p: Record<string, unknown>) => s + (p.costo_total as number ?? 0), 0)
-    produccionesCount = (produccionesAct ?? []).length
-  }
 
   // Ventas
   const ventaActTotal = (ventasAct ?? []).reduce((s: number, v: Record<string, unknown>) => s + (v.total as number), 0)
@@ -252,7 +238,6 @@ async function TabResumen({ desde, hasta, puedeExportar, tieneTaller, tienePanad
     ...(tieneTaller ? [['OTs recibidas', reps.length], ['Tasa de éxito', tasaP !== null ? `${tasaP}%` : '—']] : []),
     ['Clientes nuevos', (clientesNuevos ?? []).length],
     ['Stock crítico', (stockCrit ?? []).length],
-    ...(tienePanaderia ? [['Costo de producción', formatCLP(costoProduccionTotal)]] : []),
   ]
 
   return (
@@ -307,13 +292,6 @@ async function TabResumen({ desde, hasta, puedeExportar, tieneTaller, tienePanad
         )}
         <KpiCard label="Clientes nuevos" value={`${(clientesNuevos ?? []).length}`} sub="registrados en el período" colorIdx={5} href={tabHref('clientes')} />
         <KpiCard label="Stock crítico" value={`${(stockCrit ?? []).length}`} sub="productos con stock ≤ 5" colorIdx={4} href={tabHref('inventario')} />
-        {tienePanaderia && (
-          <KpiCard
-            label="Costo de producción" value={formatCLP(costoProduccionTotal)}
-            sub={`${produccionesCount} lote${produccionesCount === 1 ? '' : 's'} registrado${produccionesCount === 1 ? '' : 's'}`}
-            colorIdx={2} href="/panaderia/produccion"
-          />
-        )}
       </div>
 
       {/* Estado actual del taller */}
@@ -2807,7 +2785,6 @@ export default async function InformesPage({
     return modulo === null || modulo === undefined || tieneModulo(modulo)
   }
   const tieneTaller = tieneModulo('taller')
-  const tienePanaderia = tieneModulo('panaderia')
 
   // Tab por defecto según permisos, con fallback si el plan no incluye ese módulo
   const candidatosTab = rolAuth === 'administrador'
@@ -2841,7 +2818,7 @@ export default async function InformesPage({
       </div>
 
       <Suspense fallback={<div className="text-center py-16 text-gray-400 text-sm">Cargando datos...</div>}>
-        {tab === 'resumen'      && <TabResumen       desde={desde} hasta={hasta} puedeExportar={puedeExportar} tieneTaller={tieneTaller} tienePanaderia={tienePanaderia} />}
+        {tab === 'resumen'      && <TabResumen       desde={desde} hasta={hasta} puedeExportar={puedeExportar} tieneTaller={tieneTaller} />}
         {tab === 'ventas'       && verVentas  && tabDisponible('ventas') && <TabVentas       desde={desde} hasta={hasta} puedeExportar={puedeExportar} tieneTaller={tieneTaller} />}
         {tab === 'taller'       && tabDisponible('taller') && <TabTaller        desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}
         {tab === 'inventario'   && <TabInventario    desde={desde} hasta={hasta} puedeExportar={puedeExportar} />}

@@ -57,7 +57,6 @@ export default async function DashboardPage() {
   const tieneTaller = tieneModulo('taller')
   const tieneCompras = tieneModulo('compras')
   const tieneVentas = tieneModulo('ventas')
-  const tienePanaderia = tieneModulo('panaderia')
 
   const hoy = new Intl.DateTimeFormat('sv', { timeZone: TZ }).format(new Date())
   const hoyStart = `${hoy}T00:00:00`
@@ -95,7 +94,6 @@ export default async function DashboardPage() {
     gastosRes,
     comprasRes,
     { data: tecOTsRaw },
-    produccionesRes,
   ] = await Promise.all([
     supabase.from('repair_orders').select('*', { count: 'exact', head: true })
       .not('estado', 'in', '("entregado","cancelado","rechazado")'),
@@ -130,18 +128,12 @@ export default async function DashboardPage() {
       .not('tecnico_id', 'is', null)
       .not('estado', 'in', '("cancelado","rechazado")')
       .then(r => r.error ? { data: [] } : r),
-    supabase.from('producciones')
-      .select('id, cantidad_producida, costo_total, created_at, products(nombre, unidad_medida)')
-      .gte('created_at', hoyStart)
-      .order('created_at', { ascending: false })
-      .then(r => r.error ? { data: [] as ProduccionItem[] } : r),
   ])
 
   type GastoItem  = { id: string; concepto: string; monto: number; categoria: string; metodo_pago: string; created_at: string }
   type CompraItem = { id: string; numero_oc: string; total: number; estado: string; created_at: string; suppliers: { nombre: string } | null }
   type OTItem     = { id: string; numero_ot: string; estado: string; created_at: string; customers: { nombre: string } | null; equipment: { tipo_equipo?: string | null; marca: string; modelo: string; falla_reportada?: string | null } | null }
   type VentaItem  = { id: string; numero_venta: string; total: number; metodo_pago: string; tipo_documento: string; created_at: string; customers: { nombre: string } | null }
-  type ProduccionItem = { id: string; cantidad_producida: number; costo_total: number; created_at: string; products: { nombre: string; unidad_medida: string } | null }
 
   const gastosList  = (gastosRes.data  ?? []) as GastoItem[]
   const comprasList = (comprasRes.data ?? []) as CompraItem[]
@@ -161,12 +153,6 @@ export default async function DashboardPage() {
     ...(v as Record<string, unknown>),
     customers: normalizeJoin<{ nombre: string }>(v as Record<string, unknown>, 'customers'),
   })) as VentaItem[]
-
-  const produccionesList: ProduccionItem[] = ((produccionesRes.data ?? []) as unknown[]).map(p => ({
-    ...(p as Record<string, unknown>),
-    products: normalizeJoin<{ nombre: string; unidad_medida: string }>(p as Record<string, unknown>, 'products'),
-  })) as ProduccionItem[]
-  const totalCostoProduccionHoy = produccionesList.reduce((s, p) => s + (p.costo_total ?? 0), 0)
 
   // KPIs
   const totalVentasHoy = ventasHoyRaw?.reduce((s, v) => s + v.total, 0) ?? 0
@@ -274,14 +260,6 @@ export default async function DashboardPage() {
               colorClass="text-gray-900"
             />
           </>
-        )}
-        {tienePanaderia && (
-          <KpiCard
-            label="Producciones hoy" href="/panaderia/produccion"
-            value={String(produccionesList.length)}
-            sub={totalCostoProduccionHoy > 0 ? `Costo: ${formatCLP(totalCostoProduccionHoy)}` : 'Sin producción'}
-            colorClass="text-orange-700"
-          />
         )}
       </div>
 
@@ -442,34 +420,6 @@ export default async function DashboardPage() {
                   <div className="text-right">
                     <p className="font-bold text-gray-900">{formatCLP(c.total ?? 0)}</p>
                     <p className="text-xs text-gray-400 capitalize">{c.estado?.replace(/_/g, ' ')}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Producción de hoy ────────────────────────────────────────────────── */}
-      {tienePanaderia && produccionesList.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-semibold text-gray-800 text-sm">🥖 Producción de hoy · {formatCLP(totalCostoProduccionHoy)}</h2>
-            <Link href="/panaderia/produccion" className="text-xs text-blue-600 hover:underline">Ver producción →</Link>
-          </div>
-          <div className="bg-white rounded-xl border overflow-hidden">
-            <div className="divide-y">
-              {produccionesList.map((p) => (
-                <div key={p.id} className="px-4 py-3 flex justify-between items-center">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{p.products?.nombre ?? 'Producto eliminado'}</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(p.created_at).toLocaleTimeString('es-CL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-gray-900">{p.cantidad_producida} {p.products?.unidad_medida ?? ''}</p>
-                    <p className="text-xs text-gray-400">{formatCLP(p.costo_total)}</p>
                   </div>
                 </div>
               ))}
