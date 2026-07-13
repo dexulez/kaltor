@@ -25,6 +25,8 @@ export function labelTipoEquipo(value: string | null | undefined): string {
 const ICONO_KEYWORDS: [RegExp, string][] = [
   [/dron/, '🚁'],
   [/(bici|scooter|patinet)/, '🛴'],
+  [/(moto|scooter eléctric)/, '🏍'],
+  [/(auto|vehículo|vehiculo|carro)/, '🚗'],
   [/(cel|movil|móvil|phone|iphone)/, '📱'],
   [/tablet|ipad/, '📱'],
   [/(laptop|notebook|portátil|portatil)/, '💻'],
@@ -39,6 +41,21 @@ const ICONO_KEYWORDS: [RegExp, string][] = [
   [/(impresora|printer)/, '🖨'],
   [/(router|modem|módem)/, '📶'],
   [/(bateria|batería|power ?bank|cargador)/, '🔋'],
+  [/(refriger|heladera|nevera)/, '🧊'],
+  [/(lavadora|secadora)/, '🧺'],
+  [/(microondas|horno|cocina|estufa)/, '🍳'],
+  [/(ventilador|aire acondicionado|climatizador)/, '🌀'],
+  [/(zapat|calzado|zapatilla)/, '👟'],
+  [/(bolso|cartera|cuero)/, '👜'],
+  [/(ropa|costura|vestido|pantalón|pantalon|chaqueta)/, '🧵'],
+  [/(joya|anillo|collar)/, '💍'],
+  [/(guitarra|bajo)/, '🎸'],
+  [/(piano|teclado musical)/, '🎹'],
+  [/(bateria musical|tambor)/, '🥁'],
+  [/(bicicleta|ciclismo)/, '🚴'],
+  [/(mueble|silla|sofá|sofa)/, '🪑'],
+  [/(lente|anteojo|óptica|optica)/, '👓'],
+  [/(joyer|reloj(?:er)?ía)/, '💎'],
 ]
 
 export function sugerirIcono(nombre: string): string {
@@ -46,12 +63,63 @@ export function sugerirIcono(nombre: string): string {
   return ICONO_KEYWORDS.find(([re]) => re.test(n))?.[1] ?? '🔧'
 }
 
-// ── Íconos disponibles para elegir manualmente al crear un tipo ─────────────
-export const ICONOS_EQUIPO = [
-  '📱', '💻', '🖥', '⌚', '🎧', '🔊', '🎮', '📺',
-  '🕹', '📷', '🖨', '🔌', '🔋', '📶', '🚁', '🛴',
-  '🖱', '⌨', '🧰', '📡', '💾', '🔧',
+// ── Íconos disponibles para elegir manualmente al crear un tipo ────────────
+// Agrupados por rubro para cubrir talleres de distintos ámbitos (no solo
+// electrónica): electrodomésticos, vehículos, calzado/costura, joyería,
+// instrumentos musicales, deportes, hogar, etc.
+export const ICONOS_EQUIPO_GRUPOS: { categoria: string; iconos: string[] }[] = [
+  {
+    categoria: 'Electrónica y tecnología',
+    iconos: ['📱', '💻', '🖥', '⌚', '🎧', '🔊', '🎮', '📺', '🕹', '📷', '🖨', '🔌', '🔋', '📶', '🖱', '⌨', '💾', '📹', '🔦', '📡'],
+  },
+  {
+    categoria: 'Electrodomésticos',
+    iconos: ['🧊', '🧺', '🍳', '🌀', '☕', '🔥'],
+  },
+  {
+    categoria: 'Vehículos y bicicletas',
+    iconos: ['🚲', '🚴', '🛴', '🏍', '🚗', '🚚', '⛽', '🚁'],
+  },
+  {
+    categoria: 'Herramientas y taller general',
+    iconos: ['🔧', '🛠', '🧰', '🔩', '⚙️', '🪛', '🔨', '🪚', '🪓', '⛓'],
+  },
+  {
+    categoria: 'Calzado, costura y cuero',
+    iconos: ['👞', '👟', '👠', '🥾', '👜', '🧵', '🪡', '🧶', '👖', '👕', '🧥'],
+  },
+  {
+    categoria: 'Joyería y relojería',
+    iconos: ['💍', '💎'],
+  },
+  {
+    categoria: 'Instrumentos musicales',
+    iconos: ['🎸', '🎹', '🥁', '🎻', '🎺', '🪕', '🎷'],
+  },
+  {
+    categoria: 'Deportes',
+    iconos: ['⚽', '🏀', '🏈', '🎾', '🏓', '🛹', '⛸', '🎣', '🏄'],
+  },
+  {
+    categoria: 'Hogar y muebles',
+    iconos: ['🪑', '🛋', '🚪', '🪟', '🖼', '🕰', '💡'],
+  },
+  {
+    categoria: 'Óptica y belleza',
+    iconos: ['👓', '🕶', '💇', '💅', '✂️'],
+  },
+  {
+    categoria: 'Panadería y alimentos',
+    iconos: ['🍞', '🥐', '🧁', '🎂', '🍰'],
+  },
+  {
+    categoria: 'Jardín y exterior',
+    iconos: ['🌱', '🪴', '🧤'],
+  },
 ]
+
+// Lista plana (compatibilidad con usos que no necesitan agrupar)
+export const ICONOS_EQUIPO = ICONOS_EQUIPO_GRUPOS.flatMap(g => g.iconos)
 
 /**
  * Resuelve la plantilla de accesorios/condición a usar para un tipo de equipo
