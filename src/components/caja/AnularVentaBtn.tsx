@@ -14,6 +14,7 @@ interface Props {
   total: number
   puedeAnular: boolean   // permiso caja.anular del usuario
   pinAdmin?: string | null // PIN de autorización guardado en system_config
+  repairOrderId?: string | null // si la venta es de una OT, para revertir su estado al anular
 }
 
 const MOTIVOS = [
@@ -26,7 +27,7 @@ const MOTIVOS = [
   'Otro',
 ]
 
-export default function AnularVentaBtn({ ventaId, numeroVenta, total, puedeAnular, pinAdmin }: Props) {
+export default function AnularVentaBtn({ ventaId, numeroVenta, total, puedeAnular, pinAdmin, repairOrderId }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -94,6 +95,27 @@ export default function AnularVentaBtn({ ventaId, numeroVenta, total, puedeAnula
       // Fallback si las columnas nuevas no existen aún
       const { error: e2 } = await supabase.from('sales').update({ anulada: true }).eq('id', ventaId)
       if (e2) { toast.error('Error: ' + e2.message); setSaving(false); return }
+    }
+
+    // Si la venta era el cobro de una OT, devolverla a "listo" para que vuelva
+    // a aparecer en Listos para entregar (solo si sigue como 'entregado', para
+    // no pisar un estado distinto puesto por otro flujo mientras tanto)
+    if (repairOrderId) {
+      const { data: otActual } = await supabase.from('repair_orders').select('estado').eq('id', repairOrderId).single()
+      if (otActual?.estado === 'entregado') {
+        await supabase.from('repair_orders').update({
+          estado: 'listo',
+          fecha_entrega: null,
+        }).eq('id', repairOrderId)
+
+        await supabase.from('repair_status_history').insert({
+          repair_order_id: repairOrderId,
+          estado_anterior: 'entregado',
+          estado_nuevo: 'listo',
+          comentario: `Venta ${numeroVenta} anulada. Motivo: ${motivoFinal}`,
+          usuario_id: user?.id ?? null,
+        })
+      }
     }
 
     // Log en audit_logs

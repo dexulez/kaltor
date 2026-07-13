@@ -248,6 +248,7 @@ export default async function CajaPage() {
                                 total={v.total}
                                 puedeAnular={puedeAnular}
                                 pinAdmin={pinAdmin}
+                                repairOrderId={v.repair_order_id}
                               />
                             )}
                           </div>
