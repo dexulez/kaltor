@@ -54,6 +54,7 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
   const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
   const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
   const puedeEditar = tieneSubPermiso('compras.editar', rolNombre, permisos)
+  const puedeEditarRecibidas = tieneSubPermiso('compras.editar_recibidas', rolNombre, permisos)
   const puedeCancelar = tieneSubPermiso('compras.cancelar', rolNombre, permisos)
   const puedeRecibir = tieneSubPermiso('compras.recibir', rolNombre, permisos)
   const puedePagar = tieneSubPermiso('compras.pagar', rolNombre, permisos)
@@ -75,8 +76,11 @@ export default async function DetalleOrdenCompraPage({ params, searchParams }: {
 
   const orden = oc as OrdenDetalle
 
-  // Una vez que el proveedor registró el envío, ya no se puede corregir la OC
-  const puedeEditarAhora = puedeEditar && !['en_transito', 'recibida_parcial', 'recibida_completa', 'cancelada'].includes(orden.estado)
+  // Una vez que el proveedor registró el envío, ya no se puede corregir la OC.
+  // Excepción: si ya fue recibida (parcial o completa), el admin -o quien tenga
+  // el permiso compras.editar_recibidas- puede seguir editándola.
+  const yaRecibida = ['recibida_parcial', 'recibida_completa'].includes(orden.estado)
+  const puedeEditarAhora = puedeEditar && orden.estado !== 'cancelada' && (yaRecibida ? puedeEditarRecibidas : orden.estado !== 'en_transito')
 
   const estado = ESTADO_LABELS[orden.estado] ?? { label: orden.estado, color: 'bg-gray-100 text-gray-700' }
   const itemsRegulares = (orden.purchase_order_items ?? []).filter(i => {
