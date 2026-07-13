@@ -8,6 +8,7 @@ import CambiarEstadoOT from '@/components/reparaciones/CambiarEstadoOT'
 import AgregarFotosOT from '@/components/reparaciones/AgregarFotosOT'
 import EliminarFotoOT from '@/components/reparaciones/EliminarFotoOT'
 import AgregarComentarioOT from '@/components/reparaciones/AgregarComentarioOT'
+import EliminarComentarioOT from '@/components/reparaciones/EliminarComentarioOT'
 import OTBotonesCompartir from '@/components/reparaciones/OTBotonesCompartir'
 import RepuestosOT from '@/components/reparaciones/RepuestosOT'
 import ServiciosAplicadosOT from '@/components/reparaciones/ServiciosAplicadosOT'
@@ -433,6 +434,7 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
                     </div>
                   )}
                 </div>
+                {esComentario && <EliminarComentarioOT otId={otDetalle.id} historialId={h.id} />}
               </div>
             )
           })}
