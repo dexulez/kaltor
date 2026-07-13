@@ -14,8 +14,9 @@ import { soundSave, soundError } from '@/lib/sounds'
 import TipoEquipoSelector from '@/components/reparaciones/TipoEquipoSelector'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
 import AccesoriosCondicionFields from '@/components/reparaciones/AccesoriosCondicionFields'
-import { getConfigTipoEquipo } from '@/lib/tipoEquipo'
+import { getConfigTipoEquipo, resolveTemplate } from '@/lib/tipoEquipo'
 import { buildAccesorios, buildCondicion, parseAccesorios, parseCondicion, type AccState, type CondState } from '@/lib/recepcionEquipo'
+import { useTiposEquipo } from '@/hooks/useTiposEquipo'
 
 const TIPOS_REP = [
   { value: 'pantalla', label: '📱 Pantalla' }, { value: 'bateria', label: '🔋 Batería' },
@@ -63,6 +64,8 @@ export default function EditarOTCompleto({
   const eq = ot.equipment
 
   // ── Estados ──────────────────────────────────────────────────────────────
+  const { tipos: tiposEquipo } = useTiposEquipo()
+  const configTipoEquipo = (tipo: string) => getConfigTipoEquipo(resolveTemplate(tiposEquipo, tipo))
   const [loading, setLoading] = useState(false)
   const [equipo, setEquipo] = useState({
     tipo_equipo: eq?.tipo_equipo ?? '',
@@ -76,8 +79,8 @@ export default function EditarOTCompleto({
   })
   const [imei2, setImei2] = useState(eq?.imei2 ?? '')
   const [numeroSerie, setNumeroSerie] = useState(eq?.numero_serie ?? '')
-  const [acc, setAcc] = useState<AccState>(() => parseAccesorios(eq?.accesorios ?? null, getConfigTipoEquipo(eq?.tipo_equipo)))
-  const [cond, setCond] = useState<CondState>(() => parseCondicion(eq?.condicion_visual ?? null, getConfigTipoEquipo(eq?.tipo_equipo)))
+  const [acc, setAcc] = useState<AccState>(() => parseAccesorios(eq?.accesorios ?? null, configTipoEquipo(eq?.tipo_equipo ?? '')))
+  const [cond, setCond] = useState<CondState>(() => parseCondicion(eq?.condicion_visual ?? null, configTipoEquipo(eq?.tipo_equipo ?? '')))
   const [tecnicoId, setTecnicoId] = useState(ot.tecnico_id ?? '')
   const [tipoReparacion, setTipoReparacion] = useState(ot.tipo_reparacion ?? '')
   const [presupuesto, setPresupuesto] = useState(String(ot.presupuesto_estimado ?? ''))
@@ -118,7 +121,7 @@ export default function EditarOTCompleto({
     setLoading(true)
 
     // 1. Actualizar equipo
-    const configTipo = getConfigTipoEquipo(equipo.tipo_equipo)
+    const configTipo = configTipoEquipo(equipo.tipo_equipo)
     const { error: eqErr } = await supabase.from('equipment').update({
       tipo_equipo: equipo.tipo_equipo || null,
       marca: equipo.marca.trim(),
@@ -162,7 +165,7 @@ export default function EditarOTCompleto({
     router.refresh()
   }
 
-  const configTipoActual = getConfigTipoEquipo(equipo.tipo_equipo)
+  const configTipoActual = configTipoEquipo(equipo.tipo_equipo)
 
   return (
     <div className="space-y-5">
@@ -186,6 +189,7 @@ export default function EditarOTCompleto({
         <TipoEquipoSelector
           value={equipo.tipo_equipo}
           onChange={v => setEquipo(e => ({ ...e, tipo_equipo: v }))}
+          tipos={tiposEquipo}
         />
         <div className="grid grid-cols-2 gap-3">
           <MarcaSelector value={equipo.marca} onChange={(v: string) => setEquipo(e => ({ ...e, marca: v }))} />
@@ -218,7 +222,7 @@ export default function EditarOTCompleto({
       <div className="bg-white rounded-xl border p-5 space-y-4">
         <h2 className="font-semibold text-gray-800">2. Accesorios y condición del equipo</h2>
         <AccesoriosCondicionFields
-          tipoEquipo={equipo.tipo_equipo}
+          tipoEquipo={resolveTemplate(tiposEquipo, equipo.tipo_equipo)}
           acc={acc} onAccChange={setAcc}
           cond={cond} onCondChange={setCond}
         />

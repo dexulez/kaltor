@@ -21,6 +21,52 @@ export function labelTipoEquipo(value: string | null | undefined): string {
     ?? value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+// ── Sugerencia de icono para tipos de equipo personalizados ─────────────────
+const ICONO_KEYWORDS: [RegExp, string][] = [
+  [/dron/, '🚁'],
+  [/(bici|scooter|patinet)/, '🛴'],
+  [/(cel|movil|móvil|phone|iphone)/, '📱'],
+  [/tablet|ipad/, '📱'],
+  [/(laptop|notebook|portátil|portatil)/, '💻'],
+  [/(pc|computador|desktop|torre)/, '🖥'],
+  [/(reloj|watch)/, '⌚'],
+  [/(auricular|audífono|audifono|earbud)/, '🎧'],
+  [/(parlante|bocina|altavoz)/, '🔊'],
+  [/(consola|xbox|playstation|nintendo|switch)/, '🎮'],
+  [/(tv|televisor|pantalla)/, '📺'],
+  [/(mando|control|joystick)/, '🕹'],
+  [/(camara|cámara|gopro)/, '📷'],
+  [/(impresora|printer)/, '🖨'],
+  [/(router|modem|módem)/, '📶'],
+  [/(bateria|batería|power ?bank|cargador)/, '🔋'],
+]
+
+export function sugerirIcono(nombre: string): string {
+  const n = nombre.toLowerCase()
+  return ICONO_KEYWORDS.find(([re]) => re.test(n))?.[1] ?? '🔧'
+}
+
+/**
+ * Resuelve la plantilla de accesorios/condición a usar para un tipo de equipo
+ * dado, consultando el catálogo cargado desde `equipment_types`. Si el tipo no
+ * está en el catálogo (aún no cargó o es libre), usa el valor tal cual.
+ */
+export function resolveTemplate(
+  tipos: { value: string; template: string }[],
+  tipoEquipo: string
+): string
+export function resolveTemplate(
+  tipos: { value: string; template: string }[],
+  tipoEquipo: string | null | undefined
+): string | null | undefined
+export function resolveTemplate(
+  tipos: { value: string; template: string }[],
+  tipoEquipo: string | null | undefined
+): string | null | undefined {
+  if (!tipoEquipo) return tipoEquipo
+  return tipos.find(t => t.value === tipoEquipo)?.template ?? tipoEquipo
+}
+
 // ── Configuración de accesorios/condición por tipo de equipo ─────────────────
 // Define qué campos de "Accesorios entregados" y "Condición visual y física"
 // se muestran en la recepción/edición de OT según el tipo de equipo elegido.

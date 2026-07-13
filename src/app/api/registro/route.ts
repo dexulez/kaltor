@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { TIPOS_EQUIPO } from '@/lib/tipoEquipo'
 
 export async function POST(req: NextRequest) {
   let body: {
@@ -148,6 +149,20 @@ export async function POST(req: NextRequest) {
       if (error) console.error('[registro] error store_modules:', error.message)
     })
   }
+
+  // 8. Sembrar catálogo de tipos de equipo por defecto
+  await admin.from('equipment_types').insert(
+    TIPOS_EQUIPO.map((t, i) => ({
+      store_id: store.id,
+      value:    t.value,
+      label:    t.label,
+      icon:     t.icon,
+      template: t.value,
+      orden:    i,
+    }))
+  ).then(({ error }) => {
+    if (error) console.error('[registro] error equipment_types:', error.message)
+  })
 
   return NextResponse.json({ ok: true })
 }

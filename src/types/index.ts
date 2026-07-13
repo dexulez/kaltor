@@ -91,6 +91,16 @@ export interface Customer {
   updated_at: string
 }
 
+export interface EquipmentType {
+  id: string
+  store_id: string
+  value: string
+  label: string
+  icon: string
+  template: string
+  orden: number
+}
+
 export interface Equipment {
   id: string
   customer_id: string

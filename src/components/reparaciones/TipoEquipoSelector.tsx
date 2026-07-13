@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { TIPOS_EQUIPO } from '@/lib/tipoEquipo'
+import type { EquipmentType } from '@/types'
 
 export { TIPOS_EQUIPO } from '@/lib/tipoEquipo'
 export { labelTipoEquipo } from '@/lib/tipoEquipo'
@@ -10,13 +10,14 @@ export { labelTipoEquipo } from '@/lib/tipoEquipo'
 interface Props {
   value: string
   onChange: (v: string) => void
+  tipos: Pick<EquipmentType, 'value' | 'label' | 'icon'>[]
 }
 
-export default function TipoEquipoSelector({ value, onChange }: Props) {
+export default function TipoEquipoSelector({ value, onChange, tipos }: Props) {
   const [customOpen, setCustomOpen] = useState(false)
   const [custom, setCustom] = useState('')
 
-  const isCustom = value !== '' && !TIPOS_EQUIPO.find(t => t.value === value)
+  const isCustom = value !== '' && !tipos.find(t => t.value === value)
 
   function handleSelect(v: string) {
     if (v === 'otro') {
@@ -36,7 +37,7 @@ export default function TipoEquipoSelector({ value, onChange }: Props) {
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-1.5">
-        {TIPOS_EQUIPO.map(t => (
+        {tipos.map(t => (
           <button
             key={t.value}
             type="button"
@@ -61,6 +62,9 @@ export default function TipoEquipoSelector({ value, onChange }: Props) {
           className="mt-1"
         />
       )}
+      <p className="text-xs text-gray-400">
+        ¿Falta un tipo? Agrégalo desde Configuración → Tipos de equipo.
+      </p>
     </div>
   )
 }

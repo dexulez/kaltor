@@ -16,7 +16,8 @@ import { formatRut, formatCLP, validarRut } from '@/lib/calculations'
 import { MarcaSelector, ModeloSelector } from '@/components/reparaciones/MarcaModeloCombo'
 import TipoEquipoSelector from '@/components/reparaciones/TipoEquipoSelector'
 import AccesoriosCondicionFields from '@/components/reparaciones/AccesoriosCondicionFields'
-import { getConfigTipoEquipo } from '@/lib/tipoEquipo'
+import { getConfigTipoEquipo, resolveTemplate } from '@/lib/tipoEquipo'
+import { useTiposEquipo } from '@/hooks/useTiposEquipo'
 import { ACC_INICIAL, COND_INICIAL, buildAccesorios, buildCondicion, type AccState, type CondState } from '@/lib/recepcionEquipo'
 
 import Link from 'next/link'
@@ -147,6 +148,8 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     tipo_equipo: '', marca: '', modelo: '', imei: '', color: '', capacidad: '',
     observaciones: '', falla_reportada: '',
   })
+  const { tipos: tiposEquipo } = useTiposEquipo()
+  const configTipoEquipo = (tipo: string) => getConfigTipoEquipo(resolveTemplate(tiposEquipo, tipo))
   const [ot, setOt] = useState({
     tecnico_id: '', tipo_reparacion: '', presupuesto_estimado: '', fecha_estimada_entrega: '',
   })
@@ -229,7 +232,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     setLoading(true)
 
     // Intentar con imei2/numero_serie (requiere SQL migración 14)
-    const configTipo = getConfigTipoEquipo(equipo.tipo_equipo)
+    const configTipo = configTipoEquipo(equipo.tipo_equipo)
     const basePayload = {
       customer_id: clienteId,
       tipo_equipo: equipo.tipo_equipo || null,
@@ -493,6 +496,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
           <TipoEquipoSelector
             value={equipo.tipo_equipo}
             onChange={v => setEquipo(eq => ({ ...eq, tipo_equipo: v }))}
+            tipos={tiposEquipo}
           />
         </div>
 
@@ -523,9 +527,9 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         </div>
 
         {/* IMEI y N° Serie — visibles según el tipo de equipo */}
-        {(getConfigTipoEquipo(equipo.tipo_equipo).identificacion.imei || getConfigTipoEquipo(equipo.tipo_equipo).identificacion.numeroSerie) && (
+        {(configTipoEquipo(equipo.tipo_equipo).identificacion.imei || configTipoEquipo(equipo.tipo_equipo).identificacion.numeroSerie) && (
           <div className="space-y-3">
-            {getConfigTipoEquipo(equipo.tipo_equipo).identificacion.imei && (
+            {configTipoEquipo(equipo.tipo_equipo).identificacion.imei && (
               <div className="flex items-center gap-3">
                 <Label>IMEI</Label>
                 <div className="flex rounded-lg overflow-hidden border text-xs">
@@ -539,7 +543,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {getConfigTipoEquipo(equipo.tipo_equipo).identificacion.imei && (
+              {configTipoEquipo(equipo.tipo_equipo).identificacion.imei && (
                 <>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-gray-500">IMEI {imeiCount === 2 ? '1' : ''}</Label>
@@ -555,7 +559,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
                   )}
                 </>
               )}
-              {getConfigTipoEquipo(equipo.tipo_equipo).identificacion.numeroSerie && (
+              {configTipoEquipo(equipo.tipo_equipo).identificacion.numeroSerie && (
                 <div className="space-y-1.5">
                   <Label className="text-xs text-gray-500">N° Serie (SN)</Label>
                   <Input placeholder="Número de serie" value={numeroSerie} onChange={e => setNumeroSerie(e.target.value)} />
@@ -566,7 +570,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
         )}
 
         <AccesoriosCondicionFields
-          tipoEquipo={equipo.tipo_equipo}
+          tipoEquipo={resolveTemplate(tiposEquipo, equipo.tipo_equipo)}
           acc={acc} onAccChange={setAcc}
           cond={cond} onCondChange={setCond}
         />
