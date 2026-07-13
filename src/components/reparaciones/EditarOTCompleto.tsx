@@ -191,6 +191,7 @@ export default function EditarOTCompleto({
           onChange={v => setEquipo(e => ({ ...e, tipo_equipo: v }))}
           tipos={tiposEquipo}
           onTipoCreado={t => setTiposEquipo(prev => [...prev, t])}
+          onTipoEliminado={id => setTiposEquipo(prev => prev.filter(t => t.id !== id))}
         />
         <div className="grid grid-cols-2 gap-3">
           <MarcaSelector value={equipo.marca} onChange={(v: string) => setEquipo(e => ({ ...e, marca: v }))} />

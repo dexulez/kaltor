@@ -498,6 +498,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             onChange={v => setEquipo(eq => ({ ...eq, tipo_equipo: v }))}
             tipos={tiposEquipo}
             onTipoCreado={t => setTiposEquipo(prev => [...prev, t])}
+            onTipoEliminado={id => setTiposEquipo(prev => prev.filter(t => t.id !== id))}
           />
         </div>
 

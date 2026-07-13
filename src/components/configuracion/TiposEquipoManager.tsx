@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TIPOS_EQUIPO, sugerirIcono } from '@/lib/tipoEquipo'
 import { useTiposEquipo } from '@/hooks/useTiposEquipo'
+import IconoPicker from '@/components/configuracion/IconoPicker'
 
 export default function TiposEquipoManager() {
   const { tipos, setTipos, loading } = useTiposEquipo()
@@ -80,24 +81,18 @@ export default function TiposEquipoManager() {
 
       {showForm ? (
         <div className="bg-white rounded-xl border p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-3 items-end">
-            <div className="space-y-1.5 w-20">
-              <Label>Ícono</Label>
-              <Input
-                value={iconoActual}
-                onChange={e => { setIcono(e.target.value); setIconoTocado(true) }}
-                className="text-center text-lg"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nombre del tipo de equipo</Label>
-              <Input
-                value={nombre}
-                onChange={e => handleNombreChange(e.target.value)}
-                placeholder="Ej: Dron, Monitor, Router..."
-                autoFocus
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label>Nombre del tipo de equipo</Label>
+            <Input
+              value={nombre}
+              onChange={e => handleNombreChange(e.target.value)}
+              placeholder="Ej: Dron, Monitor, Router..."
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Ícono</Label>
+            <IconoPicker value={iconoActual} onChange={icon => { setIcono(icon); setIconoTocado(true) }} />
           </div>
           <div className="space-y-1.5">
             <Label>Hereda accesorios y condición de</Label>

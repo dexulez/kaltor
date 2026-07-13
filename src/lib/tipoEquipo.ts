@@ -46,6 +46,13 @@ export function sugerirIcono(nombre: string): string {
   return ICONO_KEYWORDS.find(([re]) => re.test(n))?.[1] ?? '🔧'
 }
 
+// ── Íconos disponibles para elegir manualmente al crear un tipo ─────────────
+export const ICONOS_EQUIPO = [
+  '📱', '💻', '🖥', '⌚', '🎧', '🔊', '🎮', '📺',
+  '🕹', '📷', '🖨', '🔌', '🔋', '📶', '🚁', '🛴',
+  '🖱', '⌨', '🧰', '📡', '💾', '🔧',
+]
+
 /**
  * Resuelve la plantilla de accesorios/condición a usar para un tipo de equipo
  * dado, consultando el catálogo cargado desde `equipment_types`. Si el tipo no
