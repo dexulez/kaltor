@@ -64,7 +64,7 @@ export default function EditarOTCompleto({
   const eq = ot.equipment
 
   // ── Estados ──────────────────────────────────────────────────────────────
-  const { tipos: tiposEquipo } = useTiposEquipo()
+  const { tipos: tiposEquipo, setTipos: setTiposEquipo } = useTiposEquipo()
   const configTipoEquipo = (tipo: string) => getConfigTipoEquipo(resolveTemplate(tiposEquipo, tipo))
   const [loading, setLoading] = useState(false)
   const [equipo, setEquipo] = useState({
@@ -190,6 +190,7 @@ export default function EditarOTCompleto({
           value={equipo.tipo_equipo}
           onChange={v => setEquipo(e => ({ ...e, tipo_equipo: v }))}
           tipos={tiposEquipo}
+          onTipoCreado={t => setTiposEquipo(prev => [...prev, t])}
         />
         <div className="grid grid-cols-2 gap-3">
           <MarcaSelector value={equipo.marca} onChange={(v: string) => setEquipo(e => ({ ...e, marca: v }))} />

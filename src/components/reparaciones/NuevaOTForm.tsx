@@ -148,7 +148,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
     tipo_equipo: '', marca: '', modelo: '', imei: '', color: '', capacidad: '',
     observaciones: '', falla_reportada: '',
   })
-  const { tipos: tiposEquipo } = useTiposEquipo()
+  const { tipos: tiposEquipo, setTipos: setTiposEquipo } = useTiposEquipo()
   const configTipoEquipo = (tipo: string) => getConfigTipoEquipo(resolveTemplate(tiposEquipo, tipo))
   const [ot, setOt] = useState({
     tecnico_id: '', tipo_reparacion: '', presupuesto_estimado: '', fecha_estimada_entrega: '',
@@ -497,6 +497,7 @@ export default function NuevaOTForm({ clientes, tecnicos, clienteIdInicial }: Pr
             value={equipo.tipo_equipo}
             onChange={v => setEquipo(eq => ({ ...eq, tipo_equipo: v }))}
             tipos={tiposEquipo}
+            onTipoCreado={t => setTiposEquipo(prev => [...prev, t])}
           />
         </div>
 
