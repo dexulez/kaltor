@@ -69,14 +69,24 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
     return mensualRedondeado * 10
   }
 
-  // Referencia en vivo: precio local que resultaría de convertir el USD actual del plan, para
-  // que el admin compare contra el valor manual antes de decidir si sube o baja el precio.
-  function autoEnVivo(planId: string, pais: string): string | null {
-    const usd = Number(valoresUsd[planId])
+  // Precio que hoy se ve en el landing para ese país (el manual si hay uno cargado, si no la
+  // conversión automática desde el USD del plan) junto a su equivalente en USD, para que el
+  // admin compare antes de decidir si sube o baja el precio manual.
+  function precioActualPais(planId: string, pais: string): { local: string; usd: string } | null {
     const moneda = PAIS_MONEDA[pais]
     const tasa = tasas?.[moneda?.codigo]
-    if (!Number.isFinite(usd) || usd <= 0 || !moneda || !tasa) return null
-    return formatPrecioPais(usd * tasa, pais)
+    if (!moneda || !tasa) return null
+
+    const manual = Number(precioPorPais[planId]?.[pais])
+    let valorLocal: number
+    if (Number.isFinite(manual) && manual > 0) {
+      valorLocal = manual
+    } else {
+      const usd = Number(valoresUsd[planId])
+      if (!Number.isFinite(usd) || usd <= 0) return null
+      valorLocal = usd * tasa
+    }
+    return { local: formatPrecioPais(valorLocal, pais), usd: (valorLocal / tasa).toFixed(2) }
   }
 
   async function guardar(plan: Plan) {
@@ -215,14 +225,14 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
                             <div key={region} className="space-y-1.5">
                               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{region}</p>
                               {items.map(item => {
-                                const auto = autoEnVivo(p.id, item.pais)
+                                const actual = precioActualPais(p.id, item.pais)
                                 return (
                                 <div key={item.pais} className="flex items-center justify-between gap-2 text-xs">
                                   <span className="text-gray-500">{item.nombre}</span>
                                   <div className="flex items-center gap-1.5">
-                                    {auto && (
-                                      <span className="text-gray-400 whitespace-nowrap" title="Referencia automática según el USD actual">
-                                        ({auto})
+                                    {actual && (
+                                      <span className="text-gray-400 whitespace-nowrap" title="Precio actual en el landing (manual o automático) y su equivalente en USD">
+                                        {actual.local} · US${actual.usd}
                                       </span>
                                     )}
                                     <input
