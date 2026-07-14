@@ -1,8 +1,9 @@
 'use client'
 
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { PAIS_MONEDA, formatPrecioPais } from '@/lib/currency'
 
 type Plan = {
   id: string
@@ -53,11 +54,29 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [busyPaises, setBusyPaises] = useState<string | null>(null)
   const [expandido, setExpandido] = useState<string | null>(null)
+  const [tasas, setTasas] = useState<Record<string, number> | null>(null)
+
+  useEffect(() => {
+    fetch('/api/superadmin/plans/tasas-pais')
+      .then(res => res.json())
+      .then(data => { if (data?.tasas) setTasas(data.tasas) })
+      .catch(() => {})
+  }, [])
 
   function anualEnVivo(planId: string): number {
     const precio = Number(valoresClp[planId]) || 0
     const mensualRedondeado = Math.round(precio / 10) * 10
     return mensualRedondeado * 10
+  }
+
+  // Referencia en vivo: precio local que resultaría de convertir el USD actual del plan, para
+  // que el admin compare contra el valor manual antes de decidir si sube o baja el precio.
+  function autoEnVivo(planId: string, pais: string): string | null {
+    const usd = Number(valoresUsd[planId])
+    const moneda = PAIS_MONEDA[pais]
+    const tasa = tasas?.[moneda?.codigo]
+    if (!Number.isFinite(usd) || usd <= 0 || !moneda || !tasa) return null
+    return formatPrecioPais(usd * tasa, pais)
   }
 
   async function guardar(plan: Plan) {
@@ -195,21 +214,31 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
                           return (
                             <div key={region} className="space-y-1.5">
                               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{region}</p>
-                              {items.map(item => (
+                              {items.map(item => {
+                                const auto = autoEnVivo(p.id, item.pais)
+                                return (
                                 <div key={item.pais} className="flex items-center justify-between gap-2 text-xs">
                                   <span className="text-gray-500">{item.nombre}</span>
-                                  <input
-                                    type="number" min="0" step="any"
-                                    placeholder="auto"
-                                    value={precioPorPais[p.id]?.[item.pais] ?? ''}
-                                    onChange={e => setPrecioPorPais(v => ({
-                                      ...v,
-                                      [p.id]: { ...v[p.id], [item.pais]: e.target.value },
-                                    }))}
-                                    className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF7A1A]/30 focus:border-[#FF7A1A]"
-                                  />
+                                  <div className="flex items-center gap-1.5">
+                                    {auto && (
+                                      <span className="text-gray-400 whitespace-nowrap" title="Referencia automática según el USD actual">
+                                        ({auto})
+                                      </span>
+                                    )}
+                                    <input
+                                      type="number" min="0" step="any"
+                                      placeholder="auto"
+                                      value={precioPorPais[p.id]?.[item.pais] ?? ''}
+                                      onChange={e => setPrecioPorPais(v => ({
+                                        ...v,
+                                        [p.id]: { ...v[p.id], [item.pais]: e.target.value },
+                                      }))}
+                                      className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF7A1A]/30 focus:border-[#FF7A1A]"
+                                    />
+                                  </div>
                                 </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           )
                         })}

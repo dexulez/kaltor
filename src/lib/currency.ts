@@ -47,6 +47,12 @@ export async function obtenerDolarClp(): Promise<number | null> {
   return typeof valor === 'number' ? valor : null
 }
 
+// Tabla de tasas USD → resto de monedas (para calcular referencias en vivo en el panel de superadmin)
+export async function obtenerTasasUsd(): Promise<Record<string, number> | null> {
+  const tasas = await fetchJson('https://open.er-api.com/v6/latest/USD')
+  return tasas?.rates ?? null
+}
+
 export async function obtenerConversion(countryCode: string | null): Promise<ConversionInfo | null> {
   const pais = (countryCode || 'CL').toUpperCase()
 
