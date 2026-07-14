@@ -97,6 +97,31 @@ export default function AnularVentaBtn({ ventaId, numeroVenta, total, puedeAnula
       if (e2) { toast.error('Error: ' + e2.message); setSaving(false); return }
     }
 
+    // Devolver al inventario los productos vendidos en esta venta
+    const { data: itemsProducto } = await supabase
+      .from('sale_items')
+      .select('product_id, cantidad')
+      .eq('sale_id', ventaId)
+      .not('product_id', 'is', null)
+
+    for (const item of itemsProducto ?? []) {
+      const { data: producto } = await supabase.from('products').select('stock_actual').eq('id', item.product_id).single()
+      if (!producto) continue
+      const nuevoStock = producto.stock_actual + item.cantidad
+      await supabase.from('products').update({ stock_actual: nuevoStock }).eq('id', item.product_id)
+      await supabase.from('stock_movements').insert({
+        product_id: item.product_id,
+        tipo: 'entrada',
+        cantidad: item.cantidad,
+        stock_anterior: producto.stock_actual,
+        stock_nuevo: nuevoStock,
+        razon: `Anulación venta ${numeroVenta}`,
+        referencia_id: ventaId,
+        referencia_tipo: 'sale',
+        usuario_id: user?.id ?? null,
+      })
+    }
+
     // Si la venta era el cobro de una OT, devolverla a "listo" para que vuelva
     // a aparecer en Listos para entregar (solo si sigue como 'entregado', para
     // no pisar un estado distinto puesto por otro flujo mientras tanto)
@@ -122,9 +147,8 @@ export default function AnularVentaBtn({ ventaId, numeroVenta, total, puedeAnula
     await supabase.from('audit_logs').insert({
       modulo: 'caja',
       accion: 'venta_anulada',
-      entidad_tipo: 'sale',
       entidad_id: ventaId,
-      descripcion: `${numeroVenta} anulada. Motivo: ${motivoFinal}`,
+      entidad_desc: `${numeroVenta} anulada. Motivo: ${motivoFinal}`,
       usuario_id: user?.id ?? null,
     }).then(r => r)
 

@@ -466,6 +466,7 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
       comision_bancaria: comisionBancaria,
       tipo_documento: tipoDoc,
       usuario_id: currentUser?.id ?? null,
+      repair_order_id: serviciosOT[0]?.id ?? null,
     }).select().single()
 
     if (ve) { soundError(); toast.error('Error al crear venta: ' + ve.message); setLoading(false); return }
