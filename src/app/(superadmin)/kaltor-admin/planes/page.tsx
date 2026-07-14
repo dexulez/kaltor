@@ -15,9 +15,10 @@ export default async function PlanesPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Precios de planes</h1>
         <p className="text-gray-500 text-sm mt-1 max-w-2xl">
-          Define el precio en dólares (USD) de cada plan. El precio en CLP se recalcula
-          automáticamente según el tipo de cambio vigente, y los visitantes de otros países
-          ven el equivalente convertido a su moneda local en la landing page.
+          Define el precio en pesos chilenos (CLP) de cada plan. El precio en USD (usado para
+          el cobro por PayPal) se calcula automáticamente según el tipo de cambio vigente, y
+          los visitantes de otros países ven el equivalente convertido a su moneda local en
+          la landing page.
         </p>
       </div>
       <PlanesEditor plans={plans ?? []} />

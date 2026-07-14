@@ -10,7 +10,7 @@ export type ConversionInfo = {
   factor: number // precio_local = precio_clp * factor
 }
 
-const PAIS_MONEDA: Record<string, { codigo: string; simbolo: string; locale: string }> = {
+export const PAIS_MONEDA: Record<string, { codigo: string; simbolo: string; locale: string }> = {
   AR: { codigo: 'ARS', simbolo: 'AR$',   locale: 'es-AR' },
   BO: { codigo: 'BOB', simbolo: 'Bs',    locale: 'es-BO' },
   BR: { codigo: 'BRL', simbolo: 'R$',    locale: 'pt-BR' },
@@ -29,7 +29,30 @@ const PAIS_MONEDA: Record<string, { codigo: string; simbolo: string; locale: str
 }
 
 // Países dolarizados o donde el dólar es la referencia más clara, con su locale para formato de número
-const PAISES_USD: Record<string, string> = { US: 'en-US', EC: 'es-EC', SV: 'es-SV', PA: 'es-PA' }
+export const PAISES_USD: Record<string, string> = { US: 'en-US', EC: 'es-EC', SV: 'es-SV', PA: 'es-PA' }
+
+// Países de referencia para la vista previa de precios por región (panel de superadmin)
+export const PAISES_PREVIEW: { region: string; pais: string; nombre: string }[] = [
+  { region: 'Sudamérica',    pais: 'AR', nombre: 'Argentina' },
+  { region: 'Sudamérica',    pais: 'BO', nombre: 'Bolivia' },
+  { region: 'Sudamérica',    pais: 'CO', nombre: 'Colombia' },
+  { region: 'Sudamérica',    pais: 'EC', nombre: 'Ecuador' },
+  { region: 'Sudamérica',    pais: 'PY', nombre: 'Paraguay' },
+  { region: 'Sudamérica',    pais: 'PE', nombre: 'Perú' },
+  { region: 'Sudamérica',    pais: 'UY', nombre: 'Uruguay' },
+  { region: 'Sudamérica',    pais: 'VE', nombre: 'Venezuela' },
+  { region: 'Brasil',        pais: 'BR', nombre: 'Brasil' },
+  { region: 'Centroamérica', pais: 'GT', nombre: 'Guatemala' },
+  { region: 'Centroamérica', pais: 'HN', nombre: 'Honduras' },
+  { region: 'Centroamérica', pais: 'NI', nombre: 'Nicaragua' },
+  { region: 'Centroamérica', pais: 'CR', nombre: 'Costa Rica' },
+  { region: 'Centroamérica', pais: 'SV', nombre: 'El Salvador' },
+  { region: 'Centroamérica', pais: 'PA', nombre: 'Panamá' },
+  { region: 'Centroamérica', pais: 'DO', nombre: 'Rep. Dominicana' },
+  { region: 'Norteamérica',  pais: 'MX', nombre: 'México' },
+  { region: 'Norteamérica',  pais: 'US', nombre: 'Estados Unidos' },
+  { region: 'Europa',        pais: 'ES', nombre: 'Europa (EUR)' },
+]
 
 async function fetchJson(url: string): Promise<any | null> {
   try {
@@ -39,6 +62,12 @@ async function fetchJson(url: string): Promise<any | null> {
   } catch {
     return null
   }
+}
+
+export async function obtenerDolarClp(): Promise<number | null> {
+  const indicadores = await fetchJson('https://mindicador.cl/api')
+  const valor = indicadores?.dolar?.valor
+  return typeof valor === 'number' ? valor : null
 }
 
 export async function obtenerConversion(countryCode: string | null): Promise<ConversionInfo | null> {
@@ -72,6 +101,51 @@ export async function obtenerConversion(countryCode: string | null): Promise<Con
   }
 
   return { tipo: 'local', codigo: moneda.codigo, simbolo: moneda.simbolo, locale: moneda.locale, factor: (1 / dolarClp) * tasaLocal }
+}
+
+export type PrevisualizacionPrecio = {
+  region: string
+  pais: string
+  nombre: string
+  codigo: string
+  formateado: string
+}
+
+// Convierte un precio CLP a todos los países de referencia (PAISES_PREVIEW) en una
+// sola pasada, reutilizando el dólar (mindicador.cl) y la tabla de tasas (open.er-api.com)
+// en vez de una llamada por país.
+export async function previsualizarPrecios(precioClp: number): Promise<PrevisualizacionPrecio[]> {
+  const [indicadores, tasas] = await Promise.all([
+    fetchJson('https://mindicador.cl/api'),
+    fetchJson('https://open.er-api.com/v6/latest/USD'),
+  ])
+  const dolarClp = indicadores?.dolar?.valor
+  if (!dolarClp || typeof dolarClp !== 'number') return []
+
+  const usd = precioClp / dolarClp
+
+  return PAISES_PREVIEW.map(({ region, pais, nombre }) => {
+    const localeUsd = PAISES_USD[pais]
+    if (localeUsd) {
+      const formateado = new Intl.NumberFormat(localeUsd, { style: 'currency', currency: 'USD' }).format(usd)
+      return { region, pais, nombre, codigo: 'USD', formateado }
+    }
+    const moneda = PAIS_MONEDA[pais]
+    const tasaLocal = moneda ? tasas?.rates?.[moneda.codigo] : null
+    if (moneda && typeof tasaLocal === 'number') {
+      const valor = usd * tasaLocal
+      let formateado: string
+      try {
+        formateado = new Intl.NumberFormat(moneda.locale, { style: 'currency', currency: moneda.codigo }).format(valor)
+      } catch {
+        formateado = `${moneda.simbolo} ${Math.round(valor).toLocaleString('es-CL')}`
+      }
+      return { region, pais, nombre, codigo: moneda.codigo, formateado }
+    }
+    // Sin tasa disponible: se muestra en USD como respaldo
+    const formateado = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(usd)
+    return { region, pais, nombre, codigo: 'USD', formateado }
+  })
 }
 
 export function formatConversion(precioClp: number, conversion: ConversionInfo): string {

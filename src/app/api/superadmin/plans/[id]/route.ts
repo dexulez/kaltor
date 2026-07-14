@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { obtenerDolarClp } from '@/lib/currency'
 
 const SUPER_ADMIN_EMAIL = process.env.KALTOR_SUPER_ADMIN_EMAIL
 
@@ -8,18 +9,6 @@ async function verifySuperAdmin(): Promise<boolean> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   return !!user && user.email === SUPER_ADMIN_EMAIL
-}
-
-async function obtenerDolarClp(): Promise<number | null> {
-  try {
-    const res = await fetch('https://mindicador.cl/api', { cache: 'no-store' })
-    if (!res.ok) return null
-    const data = await res.json()
-    const valor = data?.dolar?.valor
-    return typeof valor === 'number' ? valor : null
-  } catch {
-    return null
-  }
 }
 
 export async function PATCH(
@@ -31,9 +20,9 @@ export async function PATCH(
   }
 
   const body = await req.json().catch(() => null)
-  const precioUsd = Number(body?.precio_mensual_usd)
-  if (!body || !Number.isFinite(precioUsd) || precioUsd <= 0) {
-    return NextResponse.json({ error: 'precio_mensual_usd inválido' }, { status: 400 })
+  const precioClp = Number(body?.precio_mensual)
+  if (!body || !Number.isFinite(precioClp) || precioClp <= 0) {
+    return NextResponse.json({ error: 'precio_mensual inválido' }, { status: 400 })
   }
 
   const dolarClp = await obtenerDolarClp()
@@ -48,8 +37,9 @@ export async function PATCH(
   const admin = createServiceClient()
 
   // Redondea a la decena más cercana y mantiene el patrón anual = mensual × 10 (2 meses gratis)
-  const precioMensual = Math.round((precioUsd * dolarClp) / 10) * 10
+  const precioMensual = Math.round(precioClp / 10) * 10
   const precioAnual = precioMensual * 10
+  const precioUsd = Math.round((precioMensual / dolarClp) * 100) / 100
 
   const { data, error } = await admin
     .from('plans')
