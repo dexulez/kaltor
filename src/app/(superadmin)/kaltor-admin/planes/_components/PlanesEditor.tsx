@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -11,39 +11,64 @@ type Plan = {
   precio_mensual: number
   precio_anual: number
   precio_mensual_usd: number
+  precios_pais: Record<string, number>
   activo: boolean
 }
 
-type PrevisualizacionPrecio = {
-  region: string
-  pais: string
-  nombre: string
-  codigo: string
-  formateado: string
-}
+const PAISES_TABLA: { region: string; pais: string; nombre: string }[] = [
+  { region: 'Sudamérica',    pais: 'AR', nombre: 'Argentina' },
+  { region: 'Sudamérica',    pais: 'BO', nombre: 'Bolivia' },
+  { region: 'Sudamérica',    pais: 'CO', nombre: 'Colombia' },
+  { region: 'Sudamérica',    pais: 'PY', nombre: 'Paraguay' },
+  { region: 'Sudamérica',    pais: 'PE', nombre: 'Perú' },
+  { region: 'Sudamérica',    pais: 'UY', nombre: 'Uruguay' },
+  { region: 'Sudamérica',    pais: 'VE', nombre: 'Venezuela' },
+  { region: 'Brasil',        pais: 'BR', nombre: 'Brasil' },
+  { region: 'Centroamérica', pais: 'GT', nombre: 'Guatemala' },
+  { region: 'Centroamérica', pais: 'HN', nombre: 'Honduras' },
+  { region: 'Centroamérica', pais: 'NI', nombre: 'Nicaragua' },
+  { region: 'Centroamérica', pais: 'CR', nombre: 'Costa Rica' },
+  { region: 'Centroamérica', pais: 'DO', nombre: 'Rep. Dominicana' },
+  { region: 'Norteamérica',  pais: 'MX', nombre: 'México' },
+  { region: 'Europa',        pais: 'ES', nombre: 'Europa (EUR)' },
+]
+
+// Países dolarizados (sin fila propia: siempre usan el campo USD directamente) y Ecuador/El
+// Salvador/Panamá/EEUU se omiten de la tabla editable por esa razón.
 
 export default function PlanesEditor({ plans }: { plans: Plan[] }) {
   const router = useRouter()
-  const [valores, setValores] = useState<Record<string, string>>(
+  const [valoresClp, setValoresClp] = useState<Record<string, string>>(
     Object.fromEntries(plans.map(p => [p.id, String(p.precio_mensual)]))
   )
-  const [dolarClp, setDolarClp] = useState<number | null>(null)
+  const [valoresUsd, setValoresUsd] = useState<Record<string, string>>(
+    Object.fromEntries(plans.map(p => [p.id, String(p.precio_mensual_usd)]))
+  )
+  const [precioPorPais, setPrecioPorPais] = useState<Record<string, Record<string, string>>>(
+    Object.fromEntries(plans.map(p => [
+      p.id,
+      Object.fromEntries(PAISES_TABLA.map(({ pais }) => [pais, String(p.precios_pais?.[pais] ?? '')])),
+    ]))
+  )
   const [busy, setBusy] = useState<string | null>(null)
-  const [previewPlanId, setPreviewPlanId] = useState<string | null>(null)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewData, setPreviewData] = useState<PrevisualizacionPrecio[] | null>(null)
+  const [busyPaises, setBusyPaises] = useState<string | null>(null)
+  const [expandido, setExpandido] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch('/api/superadmin/plans/tasa-dolar')
-      .then(res => res.json())
-      .then(data => { if (typeof data?.dolarClp === 'number') setDolarClp(data.dolarClp) })
-      .catch(() => {})
-  }, [])
+  function anualEnVivo(planId: string): number {
+    const precio = Number(valoresClp[planId]) || 0
+    const mensualRedondeado = Math.round(precio / 10) * 10
+    return mensualRedondeado * 10
+  }
 
   async function guardar(plan: Plan) {
-    const precio = Number(valores[plan.id])
-    if (!Number.isFinite(precio) || precio <= 0) {
+    const precioClp = Number(valoresClp[plan.id])
+    const precioUsd = Number(valoresUsd[plan.id])
+    if (!Number.isFinite(precioClp) || precioClp <= 0) {
       toast.error('Precio CLP inválido')
+      return
+    }
+    if (!Number.isFinite(precioUsd) || precioUsd <= 0) {
+      toast.error('Precio USD inválido')
       return
     }
     setBusy(plan.id)
@@ -51,11 +76,17 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
       const res = await fetch(`/api/superadmin/plans/${plan.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ precio_mensual: precio }),
+        body: JSON.stringify({ precio_mensual: precioClp, precio_mensual_usd: precioUsd }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Error'); return }
-      toast.success(`${plan.nombre} → US$${data.plan.precio_mensual_usd} /mes`)
+      if (data.plan?.precios_pais) {
+        setPrecioPorPais(prev => ({
+          ...prev,
+          [plan.id]: Object.fromEntries(PAISES_TABLA.map(({ pais }) => [pais, String(data.plan.precios_pais?.[pais] ?? '')])),
+        }))
+      }
+      toast.success(`${plan.nombre} actualizado`)
       router.refresh()
     } catch {
       toast.error('Error de conexión')
@@ -64,43 +95,28 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
     }
   }
 
-  async function verConversiones(plan: Plan) {
-    if (previewPlanId === plan.id) {
-      setPreviewPlanId(null)
-      return
+  async function guardarPorPais(plan: Plan) {
+    const precios: Record<string, number> = {}
+    for (const { pais } of PAISES_TABLA) {
+      const valor = Number(precioPorPais[plan.id]?.[pais])
+      if (Number.isFinite(valor) && valor > 0) precios[pais] = valor
     }
-    const precio = Number(valores[plan.id])
-    if (!Number.isFinite(precio) || precio <= 0) {
-      toast.error('Precio CLP inválido')
-      return
-    }
-    setPreviewPlanId(plan.id)
-    setPreviewData(null)
-    setPreviewLoading(true)
+    setBusyPaises(plan.id)
     try {
-      const res = await fetch(`/api/superadmin/plans/conversiones?clp=${precio}`)
+      const res = await fetch(`/api/superadmin/plans/${plan.id}/precios-pais`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ precios_pais: precios }),
+      })
       const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? 'Error'); setPreviewPlanId(null); return }
-      setPreviewData(data.precios)
+      if (!res.ok) { toast.error(data.error ?? 'Error'); return }
+      toast.success(`Precios por país de ${plan.nombre} guardados`)
+      router.refresh()
     } catch {
       toast.error('Error de conexión')
-      setPreviewPlanId(null)
     } finally {
-      setPreviewLoading(false)
+      setBusyPaises(null)
     }
-  }
-
-  function usdEnVivo(planId: string): string {
-    const precio = Number(valores[planId])
-    if (!dolarClp || !Number.isFinite(precio) || precio <= 0) return '—'
-    return (precio / dolarClp).toFixed(2)
-  }
-
-  // Mismo redondeo que aplica la API al guardar (mensual a la decena más cercana, anual = mensual × 10)
-  function anualEnVivo(planId: string): number {
-    const precio = Number(valores[planId]) || 0
-    const mensualRedondeado = Math.round(precio / 10) * 10
-    return mensualRedondeado * 10
   }
 
   return (
@@ -112,7 +128,7 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
               <th className="px-4 py-3 font-medium">Plan</th>
               <th className="px-4 py-3 font-medium">Precio CLP /mes</th>
               <th className="px-4 py-3 font-medium">CLP /año (calculado)</th>
-              <th className="px-4 py-3 font-medium">US$ /mes (automático)</th>
+              <th className="px-4 py-3 font-medium">Precio USD /mes</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -126,21 +142,31 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
                       <span className="text-gray-400 text-xs">$</span>
                       <input
                         type="number" min="0" step="10"
-                        value={valores[p.id] ?? ''}
-                        onChange={e => setValores(v => ({ ...v, [p.id]: e.target.value }))}
+                        value={valoresClp[p.id] ?? ''}
+                        onChange={e => setValoresClp(v => ({ ...v, [p.id]: e.target.value }))}
                         className="w-28 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF7A1A]/30 focus:border-[#FF7A1A]"
                       />
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">${anualEnVivo(p.id).toLocaleString('es-CL')}</td>
-                  <td className="px-4 py-3 text-gray-600">US${usdEnVivo(p.id)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-gray-400 text-xs">US$</span>
+                      <input
+                        type="number" min="0" step="0.5"
+                        value={valoresUsd[p.id] ?? ''}
+                        onChange={e => setValoresUsd(v => ({ ...v, [p.id]: e.target.value }))}
+                        className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF7A1A]/30 focus:border-[#FF7A1A]"
+                      />
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => verConversiones(p)}
+                        onClick={() => setExpandido(expandido === p.id ? null : p.id)}
                         className="text-[#C05010] hover:underline text-xs font-medium"
                       >
-                        {previewPlanId === p.id ? 'Ocultar' : 'Ver por país'}
+                        {expandido === p.id ? 'Ocultar' : 'Ver por país'}
                       </button>
                       <button
                         onClick={() => guardar(p)}
@@ -152,29 +178,49 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
                     </div>
                   </td>
                 </tr>
-                {previewPlanId === p.id && (
+                {expandido === p.id && (
                   <tr className="border-b border-gray-100 bg-gray-50/60">
                     <td colSpan={5} className="px-4 py-4">
-                      {previewLoading && <p className="text-xs text-gray-400">Calculando conversiones...</p>}
-                      {!previewLoading && previewData && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-4">
-                          {['Sudamérica', 'Brasil', 'Centroamérica', 'Norteamérica', 'Europa'].map(region => {
-                            const items = previewData.filter(d => d.region === region)
-                            if (items.length === 0) return null
-                            return (
-                              <div key={region} className="space-y-1">
-                                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{region}</p>
-                                {items.map(item => (
-                                  <div key={item.pais} className="flex items-center justify-between gap-2 text-xs">
-                                    <span className="text-gray-500">{item.nombre}</span>
-                                    <span className="font-medium text-gray-700">{item.formateado}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
+                      <p className="text-xs text-gray-500 mb-3">
+                        Precio manual por país (moneda local). Estos valores son el precio real
+                        que verá el visitante de ese país. Si se deja vacío, se usa la conversión
+                        automática hasta que guardes un valor. Chile y los países dolarizados
+                        (EE.UU., Ecuador, El Salvador, Panamá) no aparecen aquí porque usan
+                        directamente el precio en CLP o USD de arriba.
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-4 mb-4">
+                        {['Sudamérica', 'Brasil', 'Centroamérica', 'Norteamérica', 'Europa'].map(region => {
+                          const items = PAISES_TABLA.filter(d => d.region === region)
+                          if (items.length === 0) return null
+                          return (
+                            <div key={region} className="space-y-1.5">
+                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{region}</p>
+                              {items.map(item => (
+                                <div key={item.pais} className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="text-gray-500">{item.nombre}</span>
+                                  <input
+                                    type="number" min="0" step="any"
+                                    placeholder="auto"
+                                    value={precioPorPais[p.id]?.[item.pais] ?? ''}
+                                    onChange={e => setPrecioPorPais(v => ({
+                                      ...v,
+                                      [p.id]: { ...v[p.id], [item.pais]: e.target.value },
+                                    }))}
+                                    className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF7A1A]/30 focus:border-[#FF7A1A]"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <button
+                        onClick={() => guardarPorPais(p)}
+                        disabled={busyPaises === p.id}
+                        className="bg-[#FF7A1A]/10 hover:bg-[#FF7A1A]/20 text-[#C05010] border border-[#FF7A1A]/25 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                      >
+                        {busyPaises === p.id ? '...' : 'Guardar precios por país'}
+                      </button>
                     </td>
                   </tr>
                 )}
@@ -184,9 +230,10 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
         </table>
       </div>
       <p className="text-xs text-gray-400 px-4 py-3 border-t border-gray-100">
-        El precio en CLP es el precio base. El precio en USD (usado para el cobro por PayPal) se
-        calcula automáticamente con el tipo de cambio vigente (mindicador.cl) y se guarda al hacer clic
-        en &quot;Guardar&quot;. Usa &quot;Ver por país&quot; para previsualizar cómo se ve el precio actual en otras monedas.
+        El precio en CLP y el precio en USD se editan de forma independiente. Al cambiar y
+        guardar el precio en USD, todos los precios manuales por país se recalculan desde ese
+        nuevo valor (se pierden los ajustes manuales anteriores) — luego puedes volver a
+        ajustarlos país por país en &quot;Ver por país&quot;.
       </p>
     </div>
   )

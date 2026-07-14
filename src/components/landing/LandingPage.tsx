@@ -440,7 +440,7 @@ function ModuloCard({ m, idx }: { m: typeof MODULOS[0]; idx: number }) {
 // ── Planes ────────────────────────────────────────────────────────────────────
 type PreciosPorPlan = Record<string, { mensual: number; anual: number }>
 
-function Planes({ conversion, precios }: { conversion: ConversionInfo | null; precios?: PreciosPorPlan }) {
+function Planes({ conversion, precios, conversionPorPlan }: { conversion: ConversionInfo | null; precios?: PreciosPorPlan; conversionPorPlan?: Record<string, ConversionInfo | null> }) {
   const { lang } = useLang()
   const t = LANDING_TXT[lang]
   const [anual, setAnual] = useState(false)
@@ -485,23 +485,23 @@ function Planes({ conversion, precios }: { conversion: ConversionInfo | null; pr
         {/* Familia básico */}
         <FamiliaLabel label={t.planes.familiaBasico} />
         <div className="kaltor-basic-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 368px))', gap: 14, marginBottom: 40, justifyContent: 'center' }}>
-          {basic.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
+          {basic.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} conversionPorPlan={conversionPorPlan} />)}
         </div>
 
         {/* Familia taller */}
         <FamiliaLabel label={t.planes.familiaTaller} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 40 }}>
-          {taller.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} />)}
+          {taller.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} conversionPorPlan={conversionPorPlan} />)}
         </div>
 
         {/* Multi-tienda */}
         <FamiliaLabel label={t.planes.familiaMulti} />
         <div style={{ maxWidth: 480, width: '100%', margin: '0 auto' }}>
-          {multi.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} full />)}
+          {multi.map(p => <PlanCard key={p.id} plan={p} anual={anual} conversion={conversion} conversionPorPlan={conversionPorPlan} full />)}
         </div>
 
         {/* Tabla comparativa */}
-        <TablaComparativa anual={anual} conversion={conversion} planes={planesConPrecio} />
+        <TablaComparativa anual={anual} conversion={conversion} planes={planesConPrecio} conversionPorPlan={conversionPorPlan} />
       </div>
     </section>
   )
@@ -515,14 +515,15 @@ function FamiliaLabel({ label }: { label: string }) {
   )
 }
 
-function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual: boolean; conversion: ConversionInfo | null; full?: boolean }) {
+function PlanCard({ plan, anual, conversion, conversionPorPlan, full = false }: { plan: Plan; anual: boolean; conversion: ConversionInfo | null; conversionPorPlan?: Record<string, ConversionInfo | null>; full?: boolean }) {
   const { lang } = useLang()
   const t = LANDING_TXT[lang]
   const planTxt = PLANES_TXT[lang][plan.id]
   const [hov, setHov] = useState(false)
   const precio = anual ? plan.precio_anual : plan.precio_mes
   const sufijo = anual ? t.planes.sufijoAnio : t.planes.sufijoMes
-  const clpPrimero = !conversion || conversion.tipo === 'uf'
+  const effectiveConversion = conversionPorPlan?.[plan.id] ?? conversion
+  const clpPrimero = !effectiveConversion || effectiveConversion.tipo === 'uf'
 
   return (
     <div
@@ -552,15 +553,15 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
       <p style={{ fontSize: 14, color: C.ink, opacity: 0.5, marginBottom: 16, textAlign: 'center' }}>{planTxt.usuarios}</p>
 
       {/* Precio */}
-      <p style={{ marginBottom: conversion ? 4 : 24, textAlign: 'center' }}>
+      <p style={{ marginBottom: effectiveConversion ? 4 : 24, textAlign: 'center' }}>
         <span style={{ fontFamily: FM, fontSize: 30, fontWeight: 700, color: C.ink }}>
-          {clpPrimero ? clp(precio) : formatConversion(precio, conversion!)}
+          {clpPrimero ? clp(precio) : formatConversion(precio, effectiveConversion!)}
         </span>
         <span style={{ fontSize: 14, color: C.ink, opacity: 0.45, marginLeft: 4 }}>{sufijo}</span>
       </p>
-      {conversion && (
+      {effectiveConversion && (
         <p style={{ fontFamily: FM, fontSize: 13, color: C.ink, opacity: 0.45, textAlign: 'center', marginBottom: 24 }}>
-          {clpPrimero ? `≈ ${formatConversion(precio, conversion)}` : `${t.planes.cobroReal} ${clp(precio)} CLP`}
+          {clpPrimero ? `≈ ${formatConversion(precio, effectiveConversion)}` : `${t.planes.cobroReal} ${clp(precio)} CLP`}
         </p>
       )}
 
@@ -611,11 +612,10 @@ function PlanCard({ plan, anual, conversion, full = false }: { plan: Plan; anual
 }
 
 // ── Tabla comparativa de planes ───────────────────────────────────────────────
-function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conversion: ConversionInfo | null; planes: Plan[] }) {
+function TablaComparativa({ anual, conversion, planes, conversionPorPlan }: { anual: boolean; conversion: ConversionInfo | null; planes: Plan[]; conversionPorPlan?: Record<string, ConversionInfo | null> }) {
   const { lang } = useLang()
   const t = LANDING_TXT[lang]
   const tc = t.planes.comparativa
-  const clpPrimero = !conversion || conversion.tipo === 'uf'
   return (
     <div style={{ marginTop: 72, paddingTop: 48, borderTop: `2px solid ${C.line}` }}>
       <p style={{ fontFamily: FM, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.2em', color: C.signal, marginBottom: 12 }}>{tc.kicker}</p>
@@ -628,6 +628,8 @@ function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conve
               <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600, color: C.ink, opacity: 0.45, minWidth: 140 }}>{tc.modulo}</th>
               {planes.map(p => {
                 const planTxt = PLANES_TXT[lang][p.id]
+                const effectiveConversion = conversionPorPlan?.[p.id] ?? conversion
+                const clpPrimero = !effectiveConversion || effectiveConversion.tipo === 'uf'
                 return (
                 <th key={p.id} style={{
                   textAlign: 'center', padding: '12px 6px',
@@ -639,12 +641,12 @@ function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conve
                   <p style={{ margin: '2px 0 0', fontFamily: FM, fontSize: 12, fontWeight: 400, color: C.ink, opacity: 0.5 }}>
                     {clpPrimero
                       ? `${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)}${tc.mesSufijo}`
-                      : `${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion!)}${tc.mesSufijo}`}
+                      : `${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, effectiveConversion!)}${tc.mesSufijo}`}
                   </p>
-                  {conversion && (
+                  {effectiveConversion && (
                     <p style={{ margin: '1px 0 0', fontFamily: FM, fontSize: 11, fontWeight: 400, color: C.ink, opacity: 0.4 }}>
                       {clpPrimero
-                        ? `≈ ${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}`
+                        ? `≈ ${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, effectiveConversion)}`
                         : `${t.planes.cobroReal} ${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)} CLP`}
                     </p>
                   )}
@@ -699,17 +701,20 @@ function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conve
             {/* Fila precio / CTA */}
             <tr style={{ borderTop: `2px solid ${C.line}`, backgroundColor: '#fff' }}>
               <td style={{ padding: '16px 12px', fontWeight: 700, color: C.ink }}>{tc.precioMes}</td>
-              {planes.map(p => (
+              {planes.map(p => {
+                const effectiveConversion = conversionPorPlan?.[p.id] ?? conversion
+                const clpPrimero = !effectiveConversion || effectiveConversion.tipo === 'uf'
+                return (
                 <td key={p.id} style={{ textAlign: 'center', padding: '16px 6px', borderLeft: `1px solid ${C.line}33` }}>
-                  <p style={{ margin: conversion ? '0 0 2px' : '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 16, color: p.destacado ? C.signal : C.ink }}>
+                  <p style={{ margin: effectiveConversion ? '0 0 2px' : '0 0 8px', fontFamily: FM, fontWeight: 700, fontSize: 16, color: p.destacado ? C.signal : C.ink }}>
                     {clpPrimero
                       ? clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)
-                      : formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion!)}
+                      : formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, effectiveConversion!)}
                   </p>
-                  {conversion && (
+                  {effectiveConversion && (
                     <p style={{ margin: '0 0 8px', fontFamily: FM, fontSize: 11, fontWeight: 400, color: C.ink, opacity: 0.45 }}>
                       {clpPrimero
-                        ? `≈ ${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, conversion)}`
+                        ? `≈ ${formatConversion(anual ? Math.round(p.precio_anual / 12) : p.precio_mes, effectiveConversion)}`
                         : `${t.planes.cobroReal} ${clp(anual ? Math.round(p.precio_anual / 12) : p.precio_mes)} CLP`}
                     </p>
                   )}
@@ -722,7 +727,8 @@ function TablaComparativa({ anual, conversion, planes }: { anual: boolean; conve
                     {tc.elegir}
                   </a>
                 </td>
-              ))}
+                )
+              })}
             </tr>
           </tbody>
         </table>
@@ -1057,7 +1063,7 @@ function Footer() {
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
-export default function LandingPage({ conversion = null, lang: initialLang = 'es', precios }: { conversion?: ConversionInfo | null; lang?: Lang; precios?: PreciosPorPlan }) {
+export default function LandingPage({ conversion = null, lang: initialLang = 'es', precios, conversionPorPlan }: { conversion?: ConversionInfo | null; lang?: Lang; precios?: PreciosPorPlan; conversionPorPlan?: Record<string, ConversionInfo | null> }) {
   const [lang, setLang] = useState<Lang>(initialLang)
   const t = LANDING_TXT[lang]
   return (
@@ -1082,7 +1088,7 @@ export default function LandingPage({ conversion = null, lang: initialLang = 'es
         <VentajasKaltor />
         <Modulos />
         <MisionVision />
-        <Planes conversion={conversion} precios={precios} />
+        <Planes conversion={conversion} precios={precios} conversionPorPlan={conversionPorPlan} />
         <ComoFunciona />
         <Footer />
         <ChatWidget
