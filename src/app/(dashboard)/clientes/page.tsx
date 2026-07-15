@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import ClientesBuscador from '@/components/clientes/ClientesBuscador'
 import { tieneSubPermiso } from '@/lib/modulos'
+import { formatCLP } from '@/lib/calculations'
 
 export default async function ClientesPage({
   searchParams,
@@ -35,13 +36,19 @@ export default async function ClientesPage({
   }
 
   const { data: clientes } = await query.limit(50)
+  const totalDeuda = (clientes ?? []).reduce((s, c) => s + (c.saldo_deudor ?? 0), 0)
 
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{clientes?.length ?? 0} cliente(s) encontrado(s)</p>
+          <p className="text-gray-500 text-sm mt-0.5">
+            {clientes?.length ?? 0} cliente(s) encontrado(s)
+            {totalDeuda > 0 && (
+              <span className="ml-2 text-red-600 font-medium">· Deuda por fiado: {formatCLP(totalDeuda)}</span>
+            )}
+          </p>
         </div>
         {puedeCrear && (
           <Link href="/clientes/nuevo">
@@ -67,6 +74,7 @@ export default async function ClientesPage({
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Teléfono</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">RUT</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">Crédito</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Registro</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -78,6 +86,15 @@ export default async function ClientesPage({
                   <td className="px-4 py-3 text-gray-600">{c.telefono}</td>
                   <td className="px-4 py-3 text-gray-500">{c.email ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{c.rut ?? '—'}</td>
+                  <td className="px-4 py-3 text-right">
+                    {(c.saldo_deudor ?? 0) > 0 ? (
+                      <span className="font-bold text-red-600">{formatCLP(c.saldo_deudor)}</span>
+                    ) : c.permite_credito ? (
+                      <span className="text-xs text-green-600 font-medium">💳 Habilitado</span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-gray-400">
                     {new Date(c.created_at).toLocaleDateString('es-CL')}
                   </td>

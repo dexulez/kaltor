@@ -74,6 +74,8 @@ export const SUB_PERMISOS: Partial<Record<ModuloKey, { key: string; label: strin
     { key: 'clientes.crear',    label: 'Crear clientes',    desc: 'Registrar nuevos clientes' },
     { key: 'clientes.editar',   label: 'Editar clientes',   desc: 'Modificar los datos de un cliente existente' },
     { key: 'clientes.eliminar', label: 'Eliminar clientes', desc: 'Dar de baja a un cliente (no borra su historial de OTs/ventas)' },
+    { key: 'clientes.otorgar_credito', label: 'Otorgar crédito',   desc: 'Habilitar el fiado y fijar el límite de crédito de un cliente' },
+    { key: 'clientes.cobrar_credito',  label: 'Cobrar/abonar crédito', desc: 'Vender a crédito (fiado) y registrar abonos a la deuda del cliente' },
   ],
   reparaciones: [
     { key: 'reparaciones.ver_todas',       label: 'Ver todas las OTs',       desc: 'Sin esto, el técnico solo ve sus OTs asignadas y las disponibles' },
@@ -140,6 +142,7 @@ export const MODULOS_ROL_DEFAULT: Record<string, ModuloKey[]> = {
 const SUB_DEFAULT: Record<string, Record<string, boolean>> = {
   administrador: {
     'clientes.crear': true, 'clientes.editar': true, 'clientes.eliminar': true,
+    'clientes.otorgar_credito': true, 'clientes.cobrar_credito': true,
     'reparaciones.ver_todas': true, 'reparaciones.adjudicar': false, 'reparaciones.crear': true, 'reparaciones.cobrar': true,
     'reparaciones.descuento': true, 'reparaciones.eliminar': true, 'reparaciones.ver_costos': true, 'reparaciones.cambiar_tecnico': true,
     'inventario.editar': true, 'inventario.ajustar_stock': true,
@@ -152,6 +155,7 @@ const SUB_DEFAULT: Record<string, Record<string, boolean>> = {
   },
   tecnico: {
     'clientes.crear': false, 'clientes.editar': false, 'clientes.eliminar': false,
+    'clientes.otorgar_credito': false, 'clientes.cobrar_credito': false,
     'reparaciones.ver_todas': false, 'reparaciones.adjudicar': true, 'reparaciones.crear': false, 'reparaciones.cobrar': false,
     'reparaciones.descuento': false, 'reparaciones.eliminar': false, 'reparaciones.ver_costos': true, 'reparaciones.cambiar_tecnico': false,
     'inventario.editar': false, 'inventario.ajustar_stock': false,
@@ -164,6 +168,7 @@ const SUB_DEFAULT: Record<string, Record<string, boolean>> = {
   },
   vendedor: {
     'clientes.crear': true, 'clientes.editar': true, 'clientes.eliminar': false,
+    'clientes.otorgar_credito': false, 'clientes.cobrar_credito': true,
     'reparaciones.ver_todas': true, 'reparaciones.adjudicar': false, 'reparaciones.crear': true, 'reparaciones.cobrar': true,
     'reparaciones.descuento': false, 'reparaciones.eliminar': false, 'reparaciones.ver_costos': false, 'reparaciones.cambiar_tecnico': false,
     'inventario.editar': false, 'inventario.ajustar_stock': false,
@@ -176,6 +181,7 @@ const SUB_DEFAULT: Record<string, Record<string, boolean>> = {
   },
   supervisor_ventas: {
     'clientes.crear': true, 'clientes.editar': true, 'clientes.eliminar': true,
+    'clientes.otorgar_credito': true, 'clientes.cobrar_credito': true,
     'reparaciones.ver_todas': true, 'reparaciones.adjudicar': false, 'reparaciones.crear': true, 'reparaciones.cobrar': true,
     'reparaciones.descuento': true, 'reparaciones.eliminar': false, 'reparaciones.ver_costos': true, 'reparaciones.cambiar_tecnico': true,
     'inventario.editar': false, 'inventario.ajustar_stock': true,

@@ -14,9 +14,10 @@ import { formatRut, validarRut } from '@/lib/calculations'
 interface Props {
   cliente?: Customer
   returnTo?: string
+  puedeOtorgarCredito?: boolean
 }
 
-export default function ClienteForm({ cliente, returnTo }: Props) {
+export default function ClienteForm({ cliente, returnTo, puedeOtorgarCredito = false }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -30,6 +31,8 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
     direccion: cliente?.direccion ?? '',
     notas: cliente?.notas ?? '',
   })
+  const [permiteCredito, setPermiteCredito] = useState(cliente?.permite_credito ?? false)
+  const [limiteCredito, setLimiteCredito] = useState(String(cliente?.limite_credito ?? ''))
 
   function handleRutChange(value: string) {
     setForm(f => ({ ...f, rut: esRutChileno ? formatRut(value) : value }))
@@ -47,13 +50,18 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
     }
     setLoading(true)
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       nombre: form.nombre.trim(),
       telefono: form.telefono.trim(),
       email: form.email.trim() || null,
       rut: form.rut.trim() || null,
       direccion: form.direccion.trim() || null,
       notas: form.notas.trim() || null,
+    }
+
+    if (puedeOtorgarCredito) {
+      payload.permite_credito = permiteCredito
+      payload.limite_credito = permiteCredito ? (parseInt(limiteCredito) || 0) : 0
     }
 
     if (cliente) {
@@ -154,6 +162,38 @@ export default function ClienteForm({ cliente, returnTo }: Props) {
             rows={3}
           />
         </div>
+
+        {puedeOtorgarCredito && (
+          <div className="sm:col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={permiteCredito}
+                onChange={e => setPermiteCredito(e.target.checked)}
+                className="w-4 h-4 accent-amber-600"
+              />
+              <span className="text-sm font-semibold text-amber-800">💳 Habilitar fiado (crédito a cliente)</span>
+            </label>
+            {permiteCredito && (
+              <div className="space-y-1.5">
+                <Label htmlFor="limite_credito">Límite de crédito (CLP)</Label>
+                <Input
+                  id="limite_credito"
+                  type="number"
+                  min={0}
+                  value={limiteCredito}
+                  onChange={e => setLimiteCredito(e.target.value)}
+                  placeholder="Ej: 100000"
+                />
+                {cliente && (cliente.saldo_deudor ?? 0) > 0 && (
+                  <p className="text-xs text-amber-700">
+                    Deuda actual: ${cliente.saldo_deudor.toLocaleString('es-CL')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 pt-2">

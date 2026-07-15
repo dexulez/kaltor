@@ -18,7 +18,7 @@ export type RepairType =
 
 export type UserRole = 'administrador' | 'tecnico' | 'vendedor' | 'supervisor_ventas'
 
-export type PaymentMethod = 'efectivo' | 'transferencia' | 'debito' | 'credito'
+export type PaymentMethod = 'efectivo' | 'transferencia' | 'debito' | 'credito' | 'fiado'
 
 export type DocumentType = 'boleta' | 'factura' | 'presupuesto'
 
@@ -87,8 +87,22 @@ export interface Customer {
   direccion?: string
   notas?: string
   activo: boolean
+  permite_credito: boolean
+  limite_credito: number
+  saldo_deudor: number
   created_at: string
   updated_at: string
+}
+
+export interface CustomerCreditPayment {
+  id: string
+  customer_id: string
+  monto: number
+  metodo_pago: string
+  nota?: string
+  fecha: string
+  usuario_id?: string
+  created_at: string
 }
 
 export interface EquipmentType {

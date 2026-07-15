@@ -29,7 +29,7 @@ export default async function VentaDirectaPage({
   const [{ data: productos }, { data: config }, { data: clientes }, { data: sesion }, { data: servicios }] = await Promise.all([
     supabase.from('products').select('*, product_categories(*)').eq('activo', true).order('nombre'),
     supabase.from('system_config').select('*').single(),
-    supabase.from('customers').select('id, nombre, telefono, rut').order('nombre'),
+    supabase.from('customers').select('id, nombre, telefono, rut, permite_credito, limite_credito, saldo_deudor').order('nombre'),
     supabase.from('sesiones_caja').select('id, estado').eq('estado', 'abierta').order('apertura_at', { ascending: false }).limit(1).maybeSingle()
       .then(r => r.error ? { data: null } : r),
     supabase.from('repair_services').select('id, nombre, precio_base, tipo_reparacion').eq('activo', true).order('nombre'),

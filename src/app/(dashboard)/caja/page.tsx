@@ -84,7 +84,7 @@ export default async function CajaPage() {
   const ultimasVentasList = (ultimasVentas ?? []) as unknown as VentaRow[]
   const otsPendientesList: OtPendienteCaja[] = (otsPendientes ?? []) as OtPendienteCaja[]
 
-  const METODOS = ['efectivo', 'transferencia', 'debito', 'credito']
+  const METODOS = ['efectivo', 'transferencia', 'debito', 'credito', 'fiado']
   const totalesPorMetodo = METODOS.map(m => ({
     metodo: m,
     total: ventasHoy?.filter(v => v.metodo_pago === m).reduce((s, v) => s + v.total, 0) ?? 0,
@@ -92,7 +92,7 @@ export default async function CajaPage() {
 
   const METODO_LABELS: Record<string, string> = {
     efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia',
-    debito: '💳 Débito', credito: '💳 Crédito',
+    debito: '💳 Débito', credito: '💳 Crédito', fiado: '📒 Fiado',
   }
 
   return (

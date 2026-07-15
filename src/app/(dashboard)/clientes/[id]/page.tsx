@@ -8,6 +8,7 @@ import { Equipment, RepairOrder } from '@/types'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
 import { tieneSubPermiso } from '@/lib/modulos'
 import EliminarClienteBtn from '@/components/clientes/EliminarClienteBtn'
+import AbonarClienteBtn from '@/components/clientes/AbonarClienteBtn'
 
 const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
   recibido:           { label: 'Recibido',           color: 'bg-gray-100 text-gray-700' },
@@ -51,8 +52,9 @@ export default async function ClienteDetallePage({
   const permisos = perfilUsuario?.permisos_modulos as Record<string, boolean> | null
   const puedeEditar = tieneSubPermiso('clientes.editar', rolNombre, permisos)
   const puedeEliminar = tieneSubPermiso('clientes.eliminar', rolNombre, permisos)
+  const puedeCobrarCredito = tieneSubPermiso('clientes.cobrar_credito', rolNombre, permisos)
 
-  const [{ data: cliente }, { data: ots }, { data: ventas }] = await Promise.all([
+  const [{ data: cliente }, { data: ots }, { data: ventas }, { data: abonos }] = await Promise.all([
     supabase.from('customers').select('*').eq('id', id).single(),
     supabase.from('repair_orders')
       .select('*, equipment(tipo_equipo, marca, modelo)')
@@ -63,12 +65,40 @@ export default async function ClienteDetallePage({
       .eq('customer_id', id)
       .eq('anulada', false)
       .order('created_at', { ascending: false }),
+    supabase.from('customer_credit_payments')
+      .select('*')
+      .eq('customer_id', id)
+      .order('fecha', { ascending: false }),
   ])
 
   if (!cliente) notFound()
 
   const otsList = (ots ?? []) as ClienteOT[]
   const ventasList = ventas ?? []
+  const abonosList = abonos ?? []
+
+  // Ledger de crédito: ventas fiado (deuda) + abonos (pago)
+  const montoFiadoDeVenta = (v: typeof ventasList[number]) => {
+    if (v.metodo_pago === 'fiado') return v.total - (v.monto_pago_2 ?? 0)
+    if (v.metodo_pago_2 === 'fiado') return v.monto_pago_2 ?? 0
+    return 0
+  }
+  const movimientosCredito = [
+    ...ventasList
+      .filter(v => montoFiadoDeVenta(v) > 0)
+      .map(v => ({
+        tipo: 'deuda' as const,
+        monto: montoFiadoDeVenta(v),
+        referencia: v.numero_venta,
+        fecha: v.created_at,
+      })),
+    ...abonosList.map(a => ({
+      tipo: 'abono' as const,
+      monto: a.monto,
+      referencia: a.nota || 'Abono',
+      fecha: a.created_at ?? a.fecha,
+    })),
+  ].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 
   // KPIs
   const otsActivas = otsList.filter(o => !['entregado', 'cancelado'].includes(o.estado))
@@ -84,6 +114,9 @@ export default async function ClienteDetallePage({
   const TABS = [
     { key: 'reparaciones', label: `🔧 Reparaciones (${otsList.length})` },
     { key: 'ventas',       label: `🧾 Ventas (${ventasList.length})` },
+    ...(cliente.permite_credito || cliente.saldo_deudor > 0
+      ? [{ key: 'credito', label: `💳 Crédito${cliente.saldo_deudor > 0 ? ' ⚠' : ''}` }]
+      : []),
   ]
 
   return (
@@ -111,6 +144,9 @@ export default async function ClienteDetallePage({
             </Link>
           )}
           {puedeEliminar && <EliminarClienteBtn clienteId={id} nombreCliente={cliente.nombre} />}
+          {puedeCobrarCredito && (
+            <AbonarClienteBtn customerId={id} nombreCliente={cliente.nombre} saldoActual={cliente.saldo_deudor} />
+          )}
           <Link href={`/reparaciones/nueva?cliente=${id}`}>
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700">+ Nueva OT</Button>
           </Link>
@@ -280,6 +316,72 @@ export default async function ClienteDetallePage({
               </tfoot>
             </table>
           )
+        )}
+
+        {/* Tab Crédito */}
+        {tab === 'credito' && (
+          <div className="p-5 space-y-5">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Límite</p>
+                <p className="text-lg font-bold text-gray-700 mt-0.5">{formatCLP(cliente.limite_credito)}</p>
+              </div>
+              <div className={`rounded-xl p-3 text-center ${cliente.saldo_deudor > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Deuda actual</p>
+                <p className={`text-lg font-bold mt-0.5 ${cliente.saldo_deudor > 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                  {formatCLP(cliente.saldo_deudor)}
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Disponible</p>
+                <p className="text-lg font-bold text-green-700 mt-0.5">
+                  {formatCLP(Math.max(0, cliente.limite_credito - cliente.saldo_deudor))}
+                </p>
+              </div>
+            </div>
+
+            {!cliente.permite_credito && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Este cliente tiene fiado deshabilitado. Actívalo desde &quot;Editar&quot; para poder venderle a crédito.
+              </p>
+            )}
+
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Historial de movimientos</p>
+              {movimientosCredito.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">Sin movimientos de crédito registrados</div>
+              ) : (
+                <table className="w-full text-sm border rounded-xl overflow-hidden">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-medium text-gray-600">Tipo</th>
+                      <th className="text-left px-4 py-2 font-medium text-gray-600">Referencia</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-600">Monto</th>
+                      <th className="text-left px-4 py-2 font-medium text-gray-600">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {movimientosCredito.map((m, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-2">
+                          {m.tipo === 'deuda' ? (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Venta fiado</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Abono</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-gray-600 font-mono text-xs">{m.referencia}</td>
+                        <td className={`px-4 py-2 text-right font-bold ${m.tipo === 'deuda' ? 'text-red-600' : 'text-green-600'}`}>
+                          {m.tipo === 'deuda' ? '+' : '−'} {formatCLP(m.monto)}
+                        </td>
+                        <td className="px-4 py-2 text-gray-400 text-xs">{new Date(m.fecha).toLocaleDateString('es-CL')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

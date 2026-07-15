@@ -71,7 +71,7 @@ interface ServicioRapido {
 
 interface Props {
   productos: Product[]
-  clientes: Pick<Customer, 'id' | 'nombre' | 'telefono' | 'rut'>[]
+  clientes: Pick<Customer, 'id' | 'nombre' | 'telefono' | 'rut' | 'permite_credito' | 'limite_credito' | 'saldo_deudor'>[]
   servicios?: ServicioRapido[]
   IVA: number
   PPM: number
@@ -83,7 +83,7 @@ interface Props {
   puedeAplicarDescuento: boolean
 }
 
-const METODO_LABELS = { efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia', debito: '💳 Débito', credito: '💳 Crédito' }
+const METODO_LABELS = { efectivo: '💵 Efectivo', transferencia: '🏦 Transferencia', debito: '💳 Débito', credito: '💳 Crédito', fiado: '📒 Fiado' }
 
 export default function PosVentaDirecta({ productos, clientes, servicios = [], IVA, PPM, comisionDebito, comisionCredito, otPreload, ticketConfig, puedeCrearProductoRapido, puedeAplicarDescuento }: Props) {
   const router = useRouter()
@@ -116,7 +116,7 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
   const [npStock, setNpStock]       = useState('0')
   const [npCatId, setNpCatId]       = useState('')
   const [npSaving, setNpSaving]     = useState(false)
-  const [metodo, setMetodo] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
+  const [metodo, setMetodo] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito' | 'fiado'>('efectivo')
   const [tipoDoc, setTipoDoc] = useState<'boleta' | 'factura' | 'presupuesto'>('boleta')
   const [busqueda, setBusqueda] = useState('')
   const [showScanner, setShowScanner] = useState(false)
@@ -131,7 +131,7 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
   const [tipoDescuento, setTipoDescuento] = useState<'monto' | 'pct'>('monto')
   // Cobro mixto
   const [cobromixto, setCobromixto] = useState(false)
-  const [metodo2, setMetodo2] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito'>('efectivo')
+  const [metodo2, setMetodo2] = useState<'efectivo' | 'transferencia' | 'debito' | 'credito' | 'fiado'>('efectivo')
   const [monto2Input, setMonto2Input] = useState('')
   // Post-venta
   const [ventaCompletada, setVentaCompletada] = useState<TicketVentaData | null>(null)
@@ -390,6 +390,24 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
   const monto1 = Math.max(0, totalFinalConDesc - monto2)
   const clienteSeleccionado = clientesList.find(c => c.id === clienteId)
   const clienteValue = clienteSeleccionado ? clienteId : ''
+  const creditoDisponible = clienteSeleccionado ? (clienteSeleccionado.limite_credito ?? 0) - (clienteSeleccionado.saldo_deudor ?? 0) : 0
+
+  function validarFiado(): boolean {
+    if (!clienteSeleccionado) { toast.error('Selecciona un cliente para vender a fiado'); return false }
+    if (!clienteSeleccionado.permite_credito) { toast.error(`${clienteSeleccionado.nombre} no tiene fiado habilitado`); return false }
+    return true
+  }
+
+  function seleccionarMetodo(m: typeof metodo) {
+    if (m === 'fiado' && !validarFiado()) return
+    setMetodo(m)
+    if (m === 'fiado' && tipoDoc === 'presupuesto') setTipoDoc('boleta')
+  }
+
+  function seleccionarMetodo2(m: typeof metodo2) {
+    if (m === 'fiado' && !validarFiado()) return
+    setMetodo2(m)
+  }
 
   async function crearClienteDesdePopup() {
     if (!nuevoCliente.nombre.trim()) {
@@ -423,6 +441,9 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
       nombre: data.nombre as string,
       telefono: (data.telefono as string) ?? '',
       rut: (data.rut as string | null) ?? undefined,
+      permite_credito: false,
+      limite_credito: 0,
+      saldo_deudor: 0,
     }
 
     setClientesList(prev => [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre)))
@@ -448,6 +469,19 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
 
   async function handleVenta() {
     if (!carrito.length && !serviciosOT.length && !serviciosRapidos.length) { toast.error('Agrega al menos un producto, servicio u OT'); return }
+
+    const montoFiado = cobromixto
+      ? (metodo === 'fiado' ? monto1 : metodo2 === 'fiado' ? monto2 : 0)
+      : (metodo === 'fiado' ? totalFinal : 0)
+
+    if (montoFiado > 0) {
+      if (!validarFiado()) return
+      if (montoFiado > creditoDisponible) {
+        toast.error(`El monto a fiado (${formatCLP(montoFiado)}) supera el crédito disponible (${formatCLP(Math.max(0, creditoDisponible))})`)
+        return
+      }
+    }
+
     setLoading(true)
 
     const tipoVenta = serviciosOT.length > 0 && carrito.length === 0 ? 'reparacion' : 'directa'
@@ -470,6 +504,11 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
     }).select().single()
 
     if (ve) { soundError(); toast.error('Error al crear venta: ' + ve.message); setLoading(false); return }
+
+    if (montoFiado > 0 && clienteId && clienteSeleccionado) {
+      const nuevoSaldo = (clienteSeleccionado.saldo_deudor ?? 0) + montoFiado
+      await supabase.from('customers').update({ saldo_deudor: nuevoSaldo }).eq('id', clienteId)
+    }
 
     const items = carrito.map(i => {
       const pu = i.precioCustom ?? i.product.precio_venta
@@ -1240,13 +1279,18 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
               <Label>Método de pago</Label>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(METODO_LABELS).map(([k, v]) => (
-                  <button key={k} type="button" onClick={() => setMetodo(k as typeof metodo)}
+                  <button key={k} type="button" onClick={() => seleccionarMetodo(k as typeof metodo)}
                     className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors
                       ${metodo === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'}`}>
                     {v}
                   </button>
                 ))}
               </div>
+              {metodo === 'fiado' && clienteSeleccionado && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                  📒 Crédito disponible de {clienteSeleccionado.nombre}: {formatCLP(Math.max(0, creditoDisponible))}
+                </p>
+              )}
             </div>
 
             {/* Cobro mixto */}
@@ -1260,12 +1304,17 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
                   <p className="text-xs text-blue-700 font-medium">Segundo método de pago</p>
                   <div className="grid grid-cols-2 gap-1.5">
                     {Object.entries(METODO_LABELS).filter(([k]) => k !== metodo).map(([k, v]) => (
-                      <button key={k} type="button" onClick={() => setMetodo2(k as typeof metodo2)}
+                      <button key={k} type="button" onClick={() => seleccionarMetodo2(k as typeof metodo2)}
                         className={`px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${metodo2 === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}>
                         {v}
                       </button>
                     ))}
                   </div>
+                  {metodo2 === 'fiado' && clienteSeleccionado && (
+                    <p className="text-xs text-amber-700">
+                      📒 Crédito disponible: {formatCLP(Math.max(0, creditoDisponible))}
+                    </p>
+                  )}
                   <div>
                     <Label className="text-xs">Monto con {METODO_LABELS[metodo2]}</Label>
                     <Input type="number" min={0} max={totalFinal}
@@ -1290,12 +1339,12 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
             <div className="space-y-1.5">
               <Label>Documento</Label>
               {/* Presupuesto solo disponible para Efectivo y Transferencia */}
-              {(metodo === 'debito' || metodo === 'credito') && tipoDoc === 'presupuesto' && (() => { setTimeout(() => setTipoDoc('boleta'), 0); return null })()}
+              {(metodo === 'debito' || metodo === 'credito' || metodo === 'fiado') && tipoDoc === 'presupuesto' && (() => { setTimeout(() => setTipoDoc('boleta'), 0); return null })()}
               <Select
                 value={tipoDoc}
                 onValueChange={v => {
                   const val = v as typeof tipoDoc
-                  if (val === 'presupuesto' && (metodo === 'debito' || metodo === 'credito')) return
+                  if (val === 'presupuesto' && (metodo === 'debito' || metodo === 'credito' || metodo === 'fiado')) return
                   setTipoDoc(val)
                 }}
               >
@@ -1312,8 +1361,8 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
                   )}
                 </SelectContent>
               </Select>
-              {(metodo === 'debito' || metodo === 'credito') && (
-                <p className="text-xs text-gray-400">Débito/Crédito solo admite Boleta o Factura</p>
+              {(metodo === 'debito' || metodo === 'credito' || metodo === 'fiado') && (
+                <p className="text-xs text-gray-400">Débito/Crédito/Fiado solo admite Boleta o Factura</p>
               )}
               {esPresupuesto && (
                 <p className="text-xs text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg">
