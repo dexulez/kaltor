@@ -37,6 +37,8 @@ export default function ReimprimirCierreBtn({
   const [verVentas, setVerVentas] = useState(false)
   const [verCompras, setVerCompras] = useState(false)
   const [verGastos, setVerGastos] = useState(false)
+  const [verCategorias, setVerCategorias] = useState(false)
+  const [verPorMetodo, setVerPorMetodo] = useState(false)
 
   async function reimprimir() {
     setLoading(true)
@@ -150,9 +152,48 @@ export default function ReimprimirCierreBtn({
       gastos = (gd ?? []) as GastoRow[]
     }
 
+    // Detalle de ventas por categoría de producto/servicio (opcional)
+    type CategoriaDetalle = { categoria: string; qty: number; total: number }
+    let detalleCategorias: CategoriaDetalle[] = []
+    if (verCategorias) {
+      const { data: catData } = await supabase.from('sale_items')
+        .select('cantidad, subtotal, product_id, products(product_categories(nombre)), sales!inner(anulada)')
+        .gte('created_at', aperturaAt).lte('created_at', cierreAt)
+        .eq('sales.anulada', false)
+      const acc: Record<string, { qty: number; total: number }> = {}
+      ;(catData ?? []).forEach((it: Record<string, unknown>) => {
+        let nombreCat = 'Servicios'
+        if (it.product_id) {
+          const prod = it.products as { product_categories?: { nombre?: string } | { nombre?: string }[] | null } | null
+          const catRel = prod?.product_categories
+          const cat = Array.isArray(catRel) ? catRel[0] : catRel
+          nombreCat = cat?.nombre ?? 'Sin categoría'
+        }
+        if (!acc[nombreCat]) acc[nombreCat] = { qty: 0, total: 0 }
+        acc[nombreCat].qty += (it.cantidad as number) ?? 1
+        acc[nombreCat].total += (it.subtotal as number) ?? 0
+      })
+      detalleCategorias = Object.entries(acc).map(([categoria, v]) => ({ categoria, qty: v.qty, total: v.total })).sort((a, b) => b.total - a.total)
+    }
+
+    // Detalle de todo lo vendido por medio de pago (opcional)
+    type MetodoDetalle = { metodo: string; label: string; count: number; total: number }
+    const METODO_LABELS: Record<string, string> = { efectivo: '💵 Efectivo', debito: '💳 Débito', credito: '💳 Crédito', transferencia: '🏦 Transferencia' }
+    let detallePorMetodo: MetodoDetalle[] = []
+    if (verPorMetodo) {
+      const acc: Record<string, { count: number; total: number }> = {}
+      ;(ventasData ?? []).forEach(v => {
+        const m = (v.metodo_pago ?? 'otros').toLowerCase()
+        if (!acc[m]) acc[m] = { count: 0, total: 0 }
+        acc[m].count++
+        acc[m].total += v.total ?? 0
+      })
+      detallePorMetodo = Object.entries(acc).map(([m, v]) => ({ metodo: m, label: METODO_LABELS[m] ?? m, count: v.count, total: v.total })).sort((a, b) => b.total - a.total)
+    }
+
     setLoading(false)
     setOpen(false)
-    imprimirCierre({ fecha, aperturaAt, cierreAt, fondoApertura, ventas, ef: efectivoCierre, tb: transbankCierre, tr: transferenciaCierre, ot: otrosCierre, difEf: diferenciaEfectivo, cierreObs: observacionesCierre ?? '', comisiones, formato, detalleVentas, detalleCompras, gastos })
+    imprimirCierre({ fecha, aperturaAt, cierreAt, fondoApertura, ventas, ef: efectivoCierre, tb: transbankCierre, tr: transferenciaCierre, ot: otrosCierre, difEf: diferenciaEfectivo, cierreObs: observacionesCierre ?? '', comisiones, formato, detalleVentas, detalleCompras, gastos, detalleCategorias, detallePorMetodo })
   }
 
   return (
@@ -189,9 +230,11 @@ export default function ReimprimirCierreBtn({
             <div className="space-y-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Incluir detalle de</p>
               {[
-                { key: 'ventas',  label: '📋 Transacciones de venta',  val: verVentas,  set: setVerVentas },
-                { key: 'compras', label: '📦 Compras recibidas',        val: verCompras, set: setVerCompras },
-                { key: 'gastos',  label: '💸 Gastos del día',           val: verGastos,  set: setVerGastos },
+                { key: 'ventas',     label: '📋 Transacciones de venta',        val: verVentas,     set: setVerVentas },
+                { key: 'compras',    label: '📦 Compras recibidas',              val: verCompras,    set: setVerCompras },
+                { key: 'gastos',     label: '💸 Gastos del día',                 val: verGastos,     set: setVerGastos },
+                { key: 'categorias', label: '🏷️ Ventas por categoría',           val: verCategorias, set: setVerCategorias },
+                { key: 'metodo',     label: '💳 Detalle por medio de pago',      val: verPorMetodo,  set: setVerPorMetodo },
               ].map(t => (
                 <label key={t.key} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
                   <input
@@ -229,6 +272,8 @@ interface CierreData {
   detalleVentas?: { numero: string; cliente: string; items: string; metodo: string; total: number }[]
   detalleCompras?: { numero: string; proveedor: string; items: number; total: number }[]
   gastos?: { concepto: string; categoria: string; monto: number }[]
+  detalleCategorias?: { categoria: string; qty: number; total: number }[]
+  detallePorMetodo?: { metodo: string; label: string; count: number; total: number }[]
 }
 
 function imprimirCierre(d: CierreData) {
@@ -291,6 +336,20 @@ function imprimirCierre(d: CierreData) {
       })()
     : ''
 
+  // Detalle por categoría de producto/servicio
+  const detalleCategoriasH = (d.detalleCategorias?.length ?? 0) > 0
+    ? (isTicket
+        ? d.detalleCategorias!.map(c => `<div style="display:flex;justify-content:space-between;font-size:8pt;margin-bottom:1mm"><span>${c.categoria} (${c.qty})</span><span style="font-weight:bold">${fmt(c.total)}</span></div>`).join('')
+        : `<table style="width:100%;font-size:8pt;border-collapse:collapse"><thead style="background:#fdf4ff"><tr><th style="text-align:left;padding:1.5mm 2mm">Categoría</th><th style="text-align:right;padding:1.5mm 2mm">Unidades</th><th style="text-align:right;padding:1.5mm 2mm">Total</th></tr></thead><tbody>${d.detalleCategorias!.map(c => `<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${c.categoria}</td><td style="text-align:right;padding:1.5mm 2mm">${c.qty}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold">${fmt(c.total)}</td></tr>`).join('')}<tfoot style="background:#fdf4ff;font-weight:bold"><tr><td style="padding:1.5mm 2mm">TOTAL</td><td></td><td style="text-align:right;padding:1.5mm 2mm">${fmt(d.detalleCategorias!.reduce((s, c) => s + c.total, 0))}</td></tr></tfoot></table>`)
+    : ''
+
+  // Detalle de todo lo vendido por medio de pago
+  const detallePorMetodoH = (d.detallePorMetodo?.length ?? 0) > 0
+    ? (isTicket
+        ? d.detallePorMetodo!.map(m => `<div style="display:flex;justify-content:space-between;font-size:8pt;margin-bottom:1mm"><span>${m.label} (${m.count})</span><span style="font-weight:bold">${fmt(m.total)}</span></div>`).join('')
+        : `<table style="width:100%;font-size:8pt;border-collapse:collapse"><thead style="background:#eff6ff"><tr><th style="text-align:left;padding:1.5mm 2mm">Método</th><th style="text-align:right;padding:1.5mm 2mm">N° ventas</th><th style="text-align:right;padding:1.5mm 2mm">Total</th></tr></thead><tbody>${d.detallePorMetodo!.map(m => `<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${m.label}</td><td style="text-align:right;padding:1.5mm 2mm">${m.count}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold">${fmt(m.total)}</td></tr>`).join('')}<tfoot style="background:#eff6ff;font-weight:bold"><tr><td style="padding:1.5mm 2mm">TOTAL</td><td style="text-align:right;padding:1.5mm 2mm">${d.detallePorMetodo!.reduce((s, m) => s + m.count, 0)}</td><td style="text-align:right;padding:1.5mm 2mm">${fmt(d.detallePorMetodo!.reduce((s, m) => s + m.total, 0))}</td></tr></tfoot></table>`)
+    : ''
+
   const body = header
     + sec('Ventas del día', ventasH)
     + sec('Cierre físico', cierreH)
@@ -299,6 +358,8 @@ function imprimirCierre(d: CierreData) {
     + (detalleVentasH ? sec('📋 Detalle de transacciones de venta', detalleVentasH) : '')
     + (detalleComprasH ? sec('📦 Detalle de compras recibidas', detalleComprasH) : '')
     + (gastosH ? sec('💸 Gastos del día', gastosH) : '')
+    + (detalleCategoriasH ? sec('🏷️ Ventas por categoría', detalleCategoriasH) : '')
+    + (detallePorMetodoH ? sec('💳 Detalle por medio de pago', detallePorMetodoH) : '')
     + (d.cierreObs ? sec('Observaciones', obsH) : '')
     + firmas
 

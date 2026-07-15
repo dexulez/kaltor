@@ -6,8 +6,8 @@ import ExportButtons from './ExportButtons'
 type TipoCampo = 'texto' | 'numero' | 'clp' | 'fecha' | 'bool'
 
 interface CampoFuente { key: string; label: string; tipo: TipoCampo }
-interface FiltroFuente { label: string; opciones: { value: string; label: string }[] }
-interface FuenteMeta { key: string; label: string; campos: CampoFuente[]; filtro: FiltroFuente | null }
+interface FiltroFuente { columna: string; label: string; opciones: { value: string; label: string }[] }
+interface FuenteMeta { key: string; label: string; campos: CampoFuente[]; filtros: FiltroFuente[] }
 interface Resultado { campos: CampoFuente[]; rows: Record<string, unknown>[]; truncado: boolean }
 
 const MAX_FILAS_PREVIEW = 200
@@ -46,7 +46,7 @@ export default function ReportBuilder() {
   const [columnas, setColumnas] = useState<string[]>([])
   const [desde, setDesde] = useState(hace30Dias())
   const [hasta, setHasta] = useState(hoy())
-  const [filtroValor, setFiltroValor] = useState('')
+  const [filtroValores, setFiltroValores] = useState<Record<string, string>>({})
 
   const [generando, setGenerando] = useState(false)
   const [resultado, setResultado] = useState<Resultado | null>(null)
@@ -71,7 +71,7 @@ export default function ReportBuilder() {
 
   function handleFuenteChange(key: string) {
     setFuenteKey(key)
-    setFiltroValor('')
+    setFiltroValores({})
     setResultado(null)
     const f = fuentes.find(x => x.key === key)
     setColumnas(f ? f.campos.map(c => c.key) : [])
@@ -89,7 +89,7 @@ export default function ReportBuilder() {
       const res = await fetch('/api/informes/personalizado', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fuente: fuente.key, columnas, desde, hasta, filtroValor: filtroValor || undefined }),
+        body: JSON.stringify({ fuente: fuente.key, columnas, desde, hasta, filtros: filtroValores }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -160,15 +160,19 @@ export default function ReportBuilder() {
             <label className="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
             <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="border rounded-lg px-2 py-1.5 text-sm" />
           </div>
-          {fuente?.filtro && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{fuente.filtro.label}</label>
-              <select value={filtroValor} onChange={e => setFiltroValor(e.target.value)} className="border rounded-lg px-2 py-1.5 text-sm">
+          {fuente?.filtros.map(flt => (
+            <div key={flt.columna}>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{flt.label}</label>
+              <select
+                value={filtroValores[flt.columna] ?? ''}
+                onChange={e => setFiltroValores(prev => ({ ...prev, [flt.columna]: e.target.value }))}
+                className="border rounded-lg px-2 py-1.5 text-sm"
+              >
                 <option value="">Todos</option>
-                {fuente.filtro.opciones.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {flt.opciones.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-          )}
+          ))}
           <button
             type="button"
             onClick={generar}

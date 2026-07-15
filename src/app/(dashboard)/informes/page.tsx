@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { formatCLP, calcularPrecioSinIva, calcularIva } from '@/lib/calculations'
 import { Suspense, type ReactNode } from 'react'
 import FiltroFechas from '@/components/informes/FiltroFechas'
+import ToggleSection from '@/components/informes/ToggleSection'
 import {
   GraficoBarrasCLP,
   GraficoBarrasNum,
@@ -369,7 +370,7 @@ async function TabVentas({ desde, hasta, puedeExportar, tieneTaller }: { desde: 
 
   const [{ data: ventas }, { data: saleItemsRaw }] = await Promise.all([
     supabase.from('sales').select('id, numero_venta, tipo, total, metodo_pago, tipo_documento, created_at, anulada, repair_order_id, comision_bancaria, customer_id, customers(nombre)').gte('created_at', desdeIso).lte('created_at', hastaIso),
-    supabase.from('sale_items').select('sale_id, nombre, cantidad, precio_unitario, precio_costo, subtotal').gte('created_at', desdeIso).lte('created_at', hastaIso),
+    supabase.from('sale_items').select('sale_id, nombre, cantidad, precio_unitario, precio_costo, subtotal, product_id, products(categoria_id, product_categories(nombre))').gte('created_at', desdeIso).lte('created_at', hastaIso),
   ])
 
   const activas = (ventas ?? []).filter((v: Record<string, unknown>) => !v.anulada)
@@ -450,6 +451,24 @@ async function TabVentas({ desde, hasta, puedeExportar, tieneTaller }: { desde: 
   })
   const topProdRows = Object.values(topProd).sort((a, b) => b.total - a.total).slice(0, 10)
     .map(p => [p.nombre, p.qty, formatCLP(p.total)])
+
+  // ── Ventas por categoría de producto ─────────────────────────────────────
+  const porCategoria: Record<string, { qty: number; total: number }> = {}
+  ;(saleItemsRaw ?? []).forEach(it => {
+    let nombreCat = 'Servicios'
+    if (it.product_id) {
+      const prod = it.products as { categoria_id?: string | null; product_categories?: { nombre?: string } | { nombre?: string }[] | null } | null
+      const catRel = prod?.product_categories
+      const cat = Array.isArray(catRel) ? catRel[0] : catRel
+      nombreCat = cat?.nombre ?? 'Sin categoría'
+    }
+    if (!porCategoria[nombreCat]) porCategoria[nombreCat] = { qty: 0, total: 0 }
+    porCategoria[nombreCat].qty += it.cantidad ?? 1
+    porCategoria[nombreCat].total += it.subtotal ?? 0
+  })
+  const categoriaData = Object.entries(porCategoria).sort((a, b) => b[1].total - a[1].total)
+    .map(([nombre, v]) => ({ nombre, qty: v.qty, total: v.total }))
+  const categoriaRows = categoriaData.map(c => [c.nombre, c.qty, formatCLP(c.total)])
 
   // ── Taller vs Venta directa con costos reales ────────────────────────────
   const reparaciones = activas.filter((v: Record<string, unknown>) => v.tipo === 'reparacion')
@@ -738,6 +757,14 @@ async function TabVentas({ desde, hasta, puedeExportar, tieneTaller }: { desde: 
       <Section title="Top 10 productos más vendidos">
         <Tabla headers={['Producto', 'Unidades', 'Total']} rows={topProdRows} />
       </Section>
+
+      <ToggleSection title="📊 Ventas por categoría de producto" subtitle="Detalle de lo vendido agrupado por categoría, para monitorear cómo va cada línea">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <GraficoBarrasCLP data={categoriaData} dataKey="total" nameKey="nombre" height={260} />
+          <Tabla headers={['Categoría', 'Unidades', 'Total']} rows={categoriaRows} />
+        </div>
+      </ToggleSection>
+
       {anuladas.length > 0 && (
         <Section title={`Ventas anuladas (${anuladas.length})`}>
           <Tabla headers={['Fecha', 'Monto', 'Método']} rows={anuladasRows} />

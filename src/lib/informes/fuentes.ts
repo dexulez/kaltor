@@ -13,6 +13,8 @@ export interface FiltroFuente {
   columna: string
   label: string
   opciones: { value: string; label: string }[]
+  /** Si está presente, las opciones se cargan en tiempo real desde esta tabla en vez de usar `opciones`. */
+  fuenteDinamica?: { tabla: string; valorCampo: string; labelCampo: string }
 }
 
 export interface FuenteReporte {
@@ -22,7 +24,7 @@ export interface FuenteReporte {
   select: string
   /** Columna usada para el filtro de rango de fechas (desde/hasta). */
   campoFecha?: string
-  filtro?: FiltroFuente
+  filtros?: FiltroFuente[]
   campos: CampoFuente[]
   /** Sub-permiso adicional (además de acceso al módulo "informes") requerido para usar esta fuente. */
   permiso?: string
@@ -39,10 +41,10 @@ export const FUENTES: FuenteReporte[] = [
     campoFecha: 'created_at',
     permiso: 'informes.ver_ventas',
     soloPropiosColumna: 'usuario_id',
-    filtro: {
+    filtros: [{
       columna: 'tipo', label: 'Tipo de venta',
       opciones: [{ value: 'reparacion', label: 'Reparación' }, { value: 'directa', label: 'Venta directa' }],
-    },
+    }],
     campos: [
       { key: 'numero_venta', label: 'N° Venta', tipo: 'texto' },
       { key: 'created_at', label: 'Fecha', tipo: 'fecha' },
@@ -66,13 +68,13 @@ export const FUENTES: FuenteReporte[] = [
     select: 'numero_ot, created_at, estado, tipo_reparacion, precio_servicio, presupuesto_estimado, resultado, metodo_pago, fecha_entrega, fecha_estimada_entrega, tecnico_id, customers(nombre), equipment(marca, modelo), tecnico:user_profiles(nombre_completo)',
     campoFecha: 'created_at',
     soloPropiosColumna: 'tecnico_id',
-    filtro: {
+    filtros: [{
       columna: 'estado', label: 'Estado',
       opciones: [
         'recibido', 'en_diagnostico', 'presupuestado', 'aprobado', 'rechazado',
         'esperando_repuesto', 'en_reparacion', 'listo', 'entregado', 'en_garantia', 'cancelado',
       ].map(v => ({ value: v, label: v.replace(/_/g, ' ') })),
-    },
+    }],
     campos: [
       { key: 'numero_ot', label: 'N° OT', tipo: 'texto' },
       { key: 'created_at', label: 'Fecha recepción', tipo: 'fecha' },
@@ -95,10 +97,10 @@ export const FUENTES: FuenteReporte[] = [
     tabla: 'customers',
     select: 'nombre, telefono, email, rut, direccion, activo, created_at',
     campoFecha: 'created_at',
-    filtro: {
+    filtros: [{
       columna: 'activo', label: 'Estado',
       opciones: [{ value: 'true', label: 'Activo' }, { value: 'false', label: 'Inactivo' }],
-    },
+    }],
     campos: [
       { key: 'nombre', label: 'Nombre', tipo: 'texto' },
       { key: 'telefono', label: 'Teléfono', tipo: 'texto' },
@@ -113,12 +115,18 @@ export const FUENTES: FuenteReporte[] = [
     key: 'productos',
     label: 'Productos / Inventario',
     tabla: 'products',
-    select: 'sku, nombre, descripcion, stock_actual, stock_minimo, precio_costo, precio_venta, activo, created_at, categoria:product_categories(nombre), proveedor:suppliers(nombre)',
+    select: 'sku, nombre, descripcion, stock_actual, stock_minimo, precio_costo, precio_venta, activo, created_at, categoria_id, categoria:product_categories(nombre), proveedor:suppliers(nombre)',
     campoFecha: 'created_at',
-    filtro: {
-      columna: 'activo', label: 'Estado',
-      opciones: [{ value: 'true', label: 'Activo' }, { value: 'false', label: 'Inactivo' }],
-    },
+    filtros: [
+      {
+        columna: 'activo', label: 'Estado',
+        opciones: [{ value: 'true', label: 'Activo' }, { value: 'false', label: 'Inactivo' }],
+      },
+      {
+        columna: 'categoria_id', label: 'Categoría', opciones: [],
+        fuenteDinamica: { tabla: 'product_categories', valorCampo: 'id', labelCampo: 'nombre' },
+      },
+    ],
     campos: [
       { key: 'sku', label: 'SKU', tipo: 'texto' },
       { key: 'nombre', label: 'Nombre', tipo: 'texto' },
@@ -138,10 +146,10 @@ export const FUENTES: FuenteReporte[] = [
     tabla: 'stock_movements',
     select: 'created_at, tipo, cantidad, stock_anterior, stock_nuevo, razon, products(nombre), usuario:user_profiles(nombre_completo)',
     campoFecha: 'created_at',
-    filtro: {
+    filtros: [{
       columna: 'tipo', label: 'Tipo de movimiento',
       opciones: [{ value: 'entrada', label: 'Entrada' }, { value: 'salida', label: 'Salida' }, { value: 'ajuste', label: 'Ajuste' }],
-    },
+    }],
     campos: [
       { key: 'created_at', label: 'Fecha', tipo: 'fecha' },
       { key: 'tipo', label: 'Tipo', tipo: 'texto' },
@@ -159,10 +167,10 @@ export const FUENTES: FuenteReporte[] = [
     tabla: 'purchase_orders',
     select: 'numero_oc, created_at, estado, total, costo_envio_total, fecha_estimada_llegada, fecha_recepcion, suppliers(nombre)',
     campoFecha: 'created_at',
-    filtro: {
+    filtros: [{
       columna: 'estado', label: 'Estado',
       opciones: ['pendiente', 'en_transito', 'recibida_parcial', 'recibida_completa', 'cancelada'].map(v => ({ value: v, label: v.replace(/_/g, ' ') })),
-    },
+    }],
     campos: [
       { key: 'numero_oc', label: 'N° OC', tipo: 'texto' },
       { key: 'created_at', label: 'Fecha', tipo: 'fecha' },
@@ -196,10 +204,10 @@ export const FUENTES: FuenteReporte[] = [
     campoFecha: 'created_at',
     permiso: 'informes.ver_rentabilidad',
     soloPropiosColumna: 'tecnico_id',
-    filtro: {
+    filtros: [{
       columna: 'pagada', label: 'Estado de pago',
       opciones: [{ value: 'true', label: 'Pagada' }, { value: 'false', label: 'Pendiente' }],
-    },
+    }],
     campos: [
       { key: 'created_at', label: 'Fecha', tipo: 'fecha' },
       { key: 'repair_orders.numero_ot', label: 'N° OT', tipo: 'texto' },

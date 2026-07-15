@@ -30,11 +30,18 @@ export async function GET() {
     return NextResponse.json({ error: 'Sin acceso al módulo de informes' }, { status: 403 })
   }
 
-  const fuentes = fuentesPermitidas(ctx.rol, ctx.permisos).map(f => ({
-    key: f.key,
-    label: f.label,
-    campos: f.campos,
-    filtro: f.filtro ? { label: f.filtro.label, opciones: f.filtro.opciones } : null,
+  const fuentes = await Promise.all(fuentesPermitidas(ctx.rol, ctx.permisos).map(async f => {
+    const filtros = await Promise.all((f.filtros ?? []).map(async flt => {
+      if (!flt.fuenteDinamica) return { columna: flt.columna, label: flt.label, opciones: flt.opciones }
+      const { tabla, valorCampo, labelCampo } = flt.fuenteDinamica
+      const { data } = await ctx.supabase.from(tabla).select('*').order(labelCampo)
+      const opciones = (data ?? []).map((r) => {
+        const fila = r as Record<string, unknown>
+        return { value: String(fila[valorCampo]), label: String(fila[labelCampo]) }
+      })
+      return { columna: flt.columna, label: flt.label, opciones }
+    }))
+    return { key: f.key, label: f.label, campos: f.campos, filtros }
   }))
 
   return NextResponse.json({ fuentes })
@@ -45,7 +52,7 @@ interface BodyPersonalizado {
   columnas?: string[]
   desde?: string
   hasta?: string
-  filtroValor?: string
+  filtros?: Record<string, string>
 }
 
 export async function POST(req: NextRequest) {
@@ -84,12 +91,13 @@ export async function POST(req: NextRequest) {
     query = query.gte(fuente.campoFecha, desdeVal).lte(fuente.campoFecha, hastaVal)
   }
 
-  if (fuente.filtro && body.filtroValor) {
-    const opcionValida = fuente.filtro.opciones.some(o => o.value === body.filtroValor)
-    if (opcionValida) {
-      const valor: string | boolean = body.filtroValor === 'true' ? true : body.filtroValor === 'false' ? false : body.filtroValor
-      query = query.eq(fuente.filtro.columna, valor)
-    }
+  for (const flt of fuente.filtros ?? []) {
+    const valorRecibido = body.filtros?.[flt.columna]
+    if (!valorRecibido) continue
+    const opcionValida = flt.fuenteDinamica ? true : flt.opciones.some(o => o.value === valorRecibido)
+    if (!opcionValida) continue
+    const valor: string | boolean = valorRecibido === 'true' ? true : valorRecibido === 'false' ? false : valorRecibido
+    query = query.eq(flt.columna, valor)
   }
 
   const soloPropios = ctx.rol !== 'administrador' && tieneSubPermiso('informes.solo_propios', ctx.rol, ctx.permisos)

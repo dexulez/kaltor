@@ -84,10 +84,13 @@ export default function SesionCajaPanel({ puedeGestionar = true }: Props) {
   }
   const [comisionData, setComisionData] = useState<ComisionTec[]>([])
   const [cierreData, setCierreData] = useState<{
-    fecha: string; apertura: string; fondoApertura: number
+    fecha: string; apertura: string; cierreAt: string; fondoApertura: number
     ventas: VentasDia; ef: number; tb: number; tr: number; ot: number
     difEf: number; cuentas: CuentaBancaria[]; cierreObs: string
   } | null>(null)
+  const [verCategorias, setVerCategorias] = useState(false)
+  const [verPorMetodo, setVerPorMetodo] = useState(false)
+  const [imprimiendo, setImprimiendo] = useState(false)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -272,7 +275,7 @@ export default function SesionCajaPanel({ puedeGestionar = true }: Props) {
     // ─────────────────────────────────────────────────────────────────────────
 
     const datos = {
-      fecha: hoy, apertura: sesion.apertura_at,
+      fecha: hoy, apertura: sesion.apertura_at, cierreAt: cierreIso,
       fondoApertura: sesion.efectivo_apertura,
       ventas, ef, tb, tr, ot,
       difEf, cuentas, cierreObs,
@@ -287,7 +290,9 @@ export default function SesionCajaPanel({ puedeGestionar = true }: Props) {
     fecha: string; apertura: string; fondoApertura: number
     ventas: VentasDia; ef: number; tb: number; tr: number; ot: number
     difEf: number; cuentas: CuentaBancaria[]; cierreObs: string
-  }, formato: TicketFormato = 'a4', comisiones: ComisionTec[] = []) {
+  }, formato: TicketFormato = 'a4', comisiones: ComisionTec[] = [],
+     detalleCategorias: { categoria: string; qty: number; total: number }[] = [],
+     detallePorMetodo: { metodo: string; label: string; count: number; total: number }[] = []) {
     const fmt = (n: number) => n.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })
     const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-CL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
     const totalCierre = d.ef + d.tb + d.tr + d.ot
@@ -429,17 +434,50 @@ export default function SesionCajaPanel({ puedeGestionar = true }: Props) {
         <p style="font-size:7pt;color:#666;margin-top:2mm">Base = Neto − Repuestos − Com.banco · Comisión = Base × % por tipo</p>`)
     })() : ''
 
+    // Detalle por categoría de producto/servicio
+    const categoriasHtml = detalleCategorias.length > 0 ? (() => {
+      const totalCat = detalleCategorias.reduce((s, c) => s + c.total, 0)
+      if (isTicket) {
+        return section('🏷️ Ventas por categoría', detalleCategorias.map(c =>
+          `<div style="display:flex;justify-content:space-between;font-size:7.5pt;margin-bottom:1mm"><span>${c.categoria} (${c.qty})</span><span style="font-weight:bold">${fmt(c.total)}</span></div>`).join('') +
+          `<div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #000;margin-top:1mm;padding-top:1mm"><span>TOTAL</span><span>${fmt(totalCat)}</span></div>`)
+      }
+      return section('🏷️ Ventas por categoría', `
+        <table style="width:100%;font-size:8pt;border-collapse:collapse">
+          <thead style="background:#fdf4ff"><tr><th style="text-align:left;padding:1.5mm 2mm">Categoría</th><th style="text-align:right;padding:1.5mm 2mm">Unidades</th><th style="text-align:right;padding:1.5mm 2mm">Total</th></tr></thead>
+          <tbody>${detalleCategorias.map(c => `<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${c.categoria}</td><td style="text-align:right;padding:1.5mm 2mm">${c.qty}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold">${fmt(c.total)}</td></tr>`).join('')}</tbody>
+          <tfoot style="background:#fdf4ff;font-weight:bold"><tr><td style="padding:1.5mm 2mm">TOTAL</td><td></td><td style="text-align:right;padding:1.5mm 2mm">${fmt(totalCat)}</td></tr></tfoot>
+        </table>`)
+    })() : ''
+
+    // Detalle de todo lo vendido por medio de pago
+    const porMetodoHtml = detallePorMetodo.length > 0 ? (() => {
+      const totalCount = detallePorMetodo.reduce((s, m) => s + m.count, 0)
+      const totalMonto = detallePorMetodo.reduce((s, m) => s + m.total, 0)
+      if (isTicket) {
+        return section('💳 Detalle por medio de pago', detallePorMetodo.map(m =>
+          `<div style="display:flex;justify-content:space-between;font-size:7.5pt;margin-bottom:1mm"><span>${m.label} (${m.count})</span><span style="font-weight:bold">${fmt(m.total)}</span></div>`).join('') +
+          `<div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #000;margin-top:1mm;padding-top:1mm"><span>TOTAL</span><span>${fmt(totalMonto)}</span></div>`)
+      }
+      return section('💳 Detalle por medio de pago', `
+        <table style="width:100%;font-size:8pt;border-collapse:collapse">
+          <thead style="background:#eff6ff"><tr><th style="text-align:left;padding:1.5mm 2mm">Método</th><th style="text-align:right;padding:1.5mm 2mm">N° ventas</th><th style="text-align:right;padding:1.5mm 2mm">Total</th></tr></thead>
+          <tbody>${detallePorMetodo.map(m => `<tr style="border-bottom:1px solid #eee"><td style="padding:1.5mm 2mm">${m.label}</td><td style="text-align:right;padding:1.5mm 2mm">${m.count}</td><td style="text-align:right;padding:1.5mm 2mm;font-weight:bold">${fmt(m.total)}</td></tr>`).join('')}</tbody>
+          <tfoot style="background:#eff6ff;font-weight:bold"><tr><td style="padding:1.5mm 2mm">TOTAL</td><td style="text-align:right;padding:1.5mm 2mm">${totalCount}</td><td style="text-align:right;padding:1.5mm 2mm">${fmt(totalMonto)}</td></tr></tfoot>
+        </table>`)
+    })() : ''
+
     const body = isTicket
       ? `${headerTicket}
          ${section('Ventas del día', ventasHtml)}
          ${section('Cierre físico', cierreHtml)}
          ${section('Cuadre', cuadreHtml)}
-         ${cuentasHtml}${comisionesHtml}${obs}${firmasTicket}`
+         ${cuentasHtml}${comisionesHtml}${categoriasHtml}${porMetodoHtml}${obs}${firmasTicket}`
       : `${headerA4}
          ${section('Ventas del día', ventasHtml)}
          ${section('Cierre físico', cierreHtml)}
          ${section('Cuadre', cuadreHtml)}
-         ${cuentasHtml}${comisionesHtml}${obs}${firmasA4}`
+         ${cuentasHtml}${comisionesHtml}${categoriasHtml}${porMetodoHtml}${obs}${firmasA4}`
 
     const winW = formato === 'ticket57' ? '400' : formato === 'ticket80' ? '500' : '700'
     const win = window.open('', '_blank', `width=${winW},height=900`)
@@ -453,6 +491,53 @@ export default function SesionCajaPanel({ puedeGestionar = true }: Props) {
 </style></head><body>${body}</body></html>`)
     win.document.close()
     setTimeout(() => { win.focus(); win.print() }, 400)
+  }
+
+  async function imprimirClick() {
+    if (!cierreData) return
+    setImprimiendo(true)
+    let detalleCategorias: { categoria: string; qty: number; total: number }[] = []
+    let detallePorMetodo: { metodo: string; label: string; count: number; total: number }[] = []
+
+    if (verCategorias) {
+      const { data: catData } = await supabase.from('sale_items')
+        .select('cantidad, subtotal, product_id, products(product_categories(nombre)), sales!inner(anulada)')
+        .gte('created_at', cierreData.apertura).lte('created_at', cierreData.cierreAt)
+        .eq('sales.anulada', false)
+      const acc: Record<string, { qty: number; total: number }> = {}
+      ;(catData ?? []).forEach((it: Record<string, unknown>) => {
+        let nombreCat = 'Servicios'
+        if (it.product_id) {
+          const prod = it.products as { product_categories?: { nombre?: string } | { nombre?: string }[] | null } | null
+          const catRel = prod?.product_categories
+          const cat = Array.isArray(catRel) ? catRel[0] : catRel
+          nombreCat = cat?.nombre ?? 'Sin categoría'
+        }
+        if (!acc[nombreCat]) acc[nombreCat] = { qty: 0, total: 0 }
+        acc[nombreCat].qty += (it.cantidad as number) ?? 1
+        acc[nombreCat].total += (it.subtotal as number) ?? 0
+      })
+      detalleCategorias = Object.entries(acc).map(([categoria, v]) => ({ categoria, qty: v.qty, total: v.total })).sort((a, b) => b.total - a.total)
+    }
+
+    if (verPorMetodo) {
+      const METODO_LABELS: Record<string, string> = { efectivo: '💵 Efectivo', debito: '💳 Débito', credito: '💳 Crédito', transferencia: '🏦 Transferencia' }
+      const { data: metodoData } = await supabase.from('sales')
+        .select('total, metodo_pago')
+        .gte('created_at', cierreData.apertura).lte('created_at', cierreData.cierreAt)
+        .eq('anulada', false)
+      const acc: Record<string, { count: number; total: number }> = {}
+      ;(metodoData ?? []).forEach(v => {
+        const m = (v.metodo_pago ?? 'otros').toLowerCase()
+        if (!acc[m]) acc[m] = { count: 0, total: 0 }
+        acc[m].count++
+        acc[m].total += v.total ?? 0
+      })
+      detallePorMetodo = Object.entries(acc).map(([m, v]) => ({ metodo: m, label: METODO_LABELS[m] ?? m, count: v.count, total: v.total })).sort((a, b) => b.total - a.total)
+    }
+
+    imprimirCierreCaja(cierreData, formatoTicket, comisionData, detalleCategorias, detallePorMetodo)
+    setImprimiendo(false)
   }
 
   if (loading || sesion === undefined) {
@@ -534,12 +619,26 @@ export default function SesionCajaPanel({ puedeGestionar = true }: Props) {
           </div>
         </div>
 
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Incluir detalle de</p>
+          {[
+            { key: 'categorias', label: '🏷️ Ventas por categoría',      val: verCategorias, set: setVerCategorias },
+            { key: 'metodo',     label: '💳 Detalle por medio de pago', val: verPorMetodo,  set: setVerPorMetodo },
+          ].map(t => (
+            <label key={t.key} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" checked={t.val} onChange={e => t.set(e.target.checked)} className="w-4 h-4 accent-gray-800" />
+              <span className="text-sm text-gray-700">{t.label}</span>
+            </label>
+          ))}
+        </div>
+
         <div className="flex gap-2">
           <button
-            onClick={() => imprimirCierreCaja(cierreData, formatoTicket, comisionData)}
-            className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold transition-colors"
+            onClick={imprimirClick}
+            disabled={imprimiendo}
+            className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
-            🖨️ Imprimir ticket de cierre
+            {imprimiendo ? 'Preparando...' : '🖨️ Imprimir ticket de cierre'}
           </button>
           <button
             onClick={() => { setView('panel'); setCierreData(null); setComisionData([]) }}
