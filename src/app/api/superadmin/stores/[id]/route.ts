@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createPlan as createFlowPlan } from '@/lib/flow/client'
+import { createPlan as createPaypalPlan } from '@/lib/paypal/client'
 
 const SUPER_ADMIN_EMAIL = process.env.KALTOR_SUPER_ADMIN_EMAIL
 
@@ -8,6 +10,42 @@ async function verifySuperAdmin(): Promise<boolean> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   return !!user && user.email === SUPER_ADMIN_EMAIL
+}
+
+// Intenta generar el plan de cobro gemelo en Flow y PayPal para un plan especial.
+// Best-effort: cada pasarela falla de forma independiente (p. ej. credenciales aún
+// no configuradas) sin abortar la operación completa. Devuelve advertencias legibles.
+async function generarCobroPlanEspecial(
+  admin: ReturnType<typeof createServiceClient>,
+  plan: { id: string; slug: string; nombre: string; precio_mensual: number; precio_mensual_usd: number }
+): Promise<string[]> {
+  const warnings: string[] = []
+
+  try {
+    const flowPlan = await createFlowPlan({
+      planId: `kaltor_especial_${plan.slug}`,
+      name: plan.nombre,
+      amount: Math.round(plan.precio_mensual),
+    })
+    await admin.from('plans').update({ flow_plan_id: flowPlan.planId }).eq('id', plan.id)
+  } catch (err) {
+    warnings.push(`Flow: ${err instanceof Error ? err.message : 'error desconocido'}`)
+  }
+
+  try {
+    const productId = process.env.PAYPAL_PRODUCT_ID
+    if (!productId) throw new Error('Falta PAYPAL_PRODUCT_ID en las variables de entorno')
+    const paypalPlan = await createPaypalPlan({
+      productId,
+      name: plan.nombre,
+      amountUsd: plan.precio_mensual_usd,
+    })
+    await admin.from('plans').update({ paypal_plan_id: paypalPlan.id }).eq('id', plan.id)
+  } catch (err) {
+    warnings.push(`PayPal: ${err instanceof Error ? err.message : 'error desconocido'}`)
+  }
+
+  return warnings
 }
 
 export async function PATCH(
@@ -114,6 +152,102 @@ export async function PATCH(
           .upsert({ store_id: storeId, module_key, activo }, { onConflict: 'store_id,module_key' })
         if (error) throw error
         break
+      }
+
+      case 'create_special_plan': {
+        const nombre = String(body.nombre ?? '').trim()
+        const precioMensual = Number(body.precio_mensual)
+        const precioMensualUsd = Number(body.precio_mensual_usd)
+        const maxUsuarios = body.max_usuarios !== undefined && body.max_usuarios !== null && body.max_usuarios !== ''
+          ? Number(body.max_usuarios)
+          : null
+        const sesionUnica = !!body.sesion_unica
+        const basadoEnPlanId = body.basado_en_plan_id as string | undefined
+
+        if (!nombre) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 })
+        if (!Number.isFinite(precioMensual) || precioMensual <= 0) {
+          return NextResponse.json({ error: 'precio_mensual inválido' }, { status: 400 })
+        }
+        if (!Number.isFinite(precioMensualUsd) || precioMensualUsd <= 0) {
+          return NextResponse.json({ error: 'precio_mensual_usd inválido' }, { status: 400 })
+        }
+        if (!basadoEnPlanId) {
+          return NextResponse.json({ error: 'Selecciona en qué plan basar los módulos' }, { status: 400 })
+        }
+
+        const { data: storeFull } = await admin.from('stores').select('slug').eq('id', storeId).single()
+        const slug = `especial-${storeFull?.slug ?? storeId}-${Date.now().toString(36)}`
+        const precioMensualRedondeado = Math.round(precioMensual)
+        const precioUsdRedondeado = Math.round(precioMensualUsd * 100) / 100
+
+        const { data: newPlan, error: planInsertErr } = await admin
+          .from('plans')
+          .insert({
+            nombre,
+            slug,
+            precio_mensual: precioMensualRedondeado,
+            precio_anual: precioMensualRedondeado * 10,
+            precio_mensual_usd: precioUsdRedondeado,
+            precios_pais: {},
+            max_usuarios: maxUsuarios,
+            sesion_unica: sesionUnica,
+            activo: false,
+            es_especial: true,
+            store_especial_id: storeId,
+          })
+          .select('id, slug')
+          .single()
+
+        if (planInsertErr || !newPlan) {
+          return NextResponse.json({ error: planInsertErr?.message ?? 'No se pudo crear el plan' }, { status: 500 })
+        }
+
+        // Clonar módulos del plan de referencia elegido
+        const { data: refMods } = await admin
+          .from('plan_modules').select('module_key').eq('plan_id', basadoEnPlanId)
+
+        if (refMods && refMods.length > 0) {
+          await admin.from('plan_modules').insert(
+            refMods.map(m => ({ plan_id: newPlan.id, module_key: m.module_key }))
+          )
+        }
+
+        const { error: assignErr } = await admin.from('stores').update({ plan_id: newPlan.id }).eq('id', storeId)
+        if (assignErr) throw assignErr
+
+        // Reasignar módulos de la tienda (mismo patrón que change_plan)
+        if (refMods && refMods.length > 0) {
+          await admin.from('store_modules').delete().eq('store_id', storeId)
+          const { error: modsErr } = await admin.from('store_modules').insert(
+            refMods.map(m => ({ store_id: storeId, module_key: m.module_key, activo: true }))
+          )
+          if (modsErr) console.error('[superadmin] store_modules update error:', modsErr.message)
+        }
+
+        const warnings = await generarCobroPlanEspecial(admin, {
+          id: newPlan.id,
+          slug: newPlan.slug,
+          nombre,
+          precio_mensual: precioMensualRedondeado,
+          precio_mensual_usd: precioUsdRedondeado,
+        })
+
+        return NextResponse.json({ ok: true, plan_id: newPlan.id, warnings })
+      }
+
+      case 'retry_special_plan_billing': {
+        const { data: plan, error: planErr } = await admin
+          .from('plans')
+          .select('id, slug, nombre, precio_mensual, precio_mensual_usd, es_especial')
+          .eq('id', store.plan_id)
+          .single()
+
+        if (planErr || !plan || !plan.es_especial) {
+          return NextResponse.json({ error: 'Esta tienda no tiene un plan especial asignado' }, { status: 400 })
+        }
+
+        const warnings = await generarCobroPlanEspecial(admin, plan)
+        return NextResponse.json({ ok: true, warnings })
       }
 
       default:

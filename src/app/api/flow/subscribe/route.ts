@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const { data: store } = await admin
     .from('stores')
-    .select('id, nombre, email, plan_id, flow_customer_id, flow_subscription_id, billing_status, plans(slug)')
+    .select('id, nombre, email, plan_id, flow_customer_id, flow_subscription_id, billing_status, plans(slug, flow_plan_id)')
     .eq('id', profile.store_id)
     .single()
 
@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const planSlug = (store.plans as any)?.slug as string
-  const flowPlanId = FLOW_PLAN_IDS[planSlug]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const flowPlanId = ((store.plans as any)?.flow_plan_id as string | null) || FLOW_PLAN_IDS[planSlug]
 
   if (!flowPlanId) {
     return NextResponse.json({ error: `Plan '${planSlug}' no configurado en Flow` }, { status: 400 })

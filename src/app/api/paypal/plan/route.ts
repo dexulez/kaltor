@@ -31,13 +31,15 @@ export async function GET() {
 
   const { data: store } = await admin
     .from('stores')
-    .select('plans(slug, precio_mensual_usd)')
+    .select('plans(slug, precio_mensual_usd, paypal_plan_id)')
     .eq('id', profile.store_id)
     .single()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const planSlug = (store?.plans as any)?.slug as string | undefined
-  const planId = planSlug ? PAYPAL_PLAN_IDS[planSlug] : undefined
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paypalPlanId = (store?.plans as any)?.paypal_plan_id as string | null | undefined
+  const planId = paypalPlanId || (planSlug ? PAYPAL_PLAN_IDS[planSlug] : undefined)
 
   if (!planId) {
     return NextResponse.json({ error: `Plan '${planSlug}' no configurado en PayPal` }, { status: 400 })

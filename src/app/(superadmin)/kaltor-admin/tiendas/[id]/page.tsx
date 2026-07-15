@@ -35,7 +35,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
       .eq('store_id', id)
       .order('created_at', { ascending: true }),
     admin.from('plans')
-      .select('id, nombre, slug, precio_mensual')
+      .select('id, nombre, slug, precio_mensual, precio_mensual_usd, es_especial, flow_plan_id, paypal_plan_id')
       .order('precio_mensual', { ascending: true }),
     admin.from('store_modules')
       .select('module_key, activo')
@@ -48,6 +48,11 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
   const planInfo = (plans ?? []).find((p: { id: string }) => p.id === storeBase.plan_id) ?? null
 
   const store = { ...storeBase, plans: planInfo }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const catalogPlans = (plans ?? []).filter((p: any) => !p.es_especial)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const planEspecialActual = (planInfo as any)?.es_especial ? planInfo : null
 
   // Eventos de pago (tabla opcional — requiere kaltor_flow_billing.sql)
   let flowEvents: Record<string, unknown>[] = []
@@ -185,7 +190,11 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
             currentPlanId={s.plan_id ?? null}
             billingStatus={billingStatus}
             activo={s.activo}
-            plans={(plans ?? []) as { id: string; nombre: string; precio_mensual: number }[]}
+            plans={catalogPlans as { id: string; nombre: string; precio_mensual: number }[]}
+            planEspecialActual={planEspecialActual as {
+              nombre: string; precio_mensual: number; precio_mensual_usd: number
+              flow_plan_id: string | null; paypal_plan_id: string | null
+            } | null}
           />
 
           {/* Eventos de pago */}
