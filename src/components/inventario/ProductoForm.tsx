@@ -19,12 +19,13 @@ interface Props {
   categorias: ProductCategory[]
   proveedores: Pick<Supplier, 'id' | 'nombre'>[]
   returnTo?: string
+  nombreInicial?: string
   puedeVerCostos?: boolean
   tieneB2B?: boolean
   tieneTaller?: boolean
 }
 
-export default function ProductoForm({ producto, categorias, proveedores, returnTo, puedeVerCostos = true, tieneB2B = true, tieneTaller = true }: Props) {
+export default function ProductoForm({ producto, categorias, proveedores, returnTo, nombreInicial, puedeVerCostos = true, tieneB2B = true, tieneTaller = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -41,9 +42,9 @@ export default function ProductoForm({ producto, categorias, proveedores, return
   const fotoFileRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState({
-    nombre: producto?.nombre ?? '',
+    nombre: producto?.nombre ?? nombreInicial ?? '',
     descripcion: producto?.descripcion ?? '',
-    categoria_id: producto?.categoria_id ?? '',
+    categoria_id: producto?.categoria_id ?? (nombreInicial ? (categorias.find(c => c.nombre.toLowerCase().includes('repuesto'))?.id ?? '') : ''),
     proveedor_id: producto?.proveedor_id ?? '',
     codigo_barras: producto?.codigo_barras ?? '',
     sku: producto?.sku ?? '',

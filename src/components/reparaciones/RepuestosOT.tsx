@@ -228,7 +228,16 @@ export default function RepuestosOT({ otId, otNumero, repuestosIniciales }: { ot
             </div>
           )}
           {(q.length >= 1 || filtroStock !== 'todos') && filtrados.length === 0 && (
-            <p className="text-xs text-gray-400 px-1 mt-1">Sin resultados. Prueba otro nombre o cambia el filtro.</p>
+            <div className="flex items-center justify-between gap-2 px-1 mt-1">
+              <p className="text-xs text-gray-400">Sin resultados. Prueba otro nombre o cambia el filtro.</p>
+              {q.length >= 1 && (
+                <Link href={`/inventario/nuevo?returnTo=/reparaciones/${otId}&nombre=${encodeURIComponent(busqueda.trim())}`} className="shrink-0">
+                  <Button size="sm" variant="outline" className="gap-1 text-green-700 border-green-300 hover:bg-green-50">
+                    ➕ Crear &quot;{busqueda.trim()}&quot;
+                  </Button>
+                </Link>
+              )}
+            </div>
           )}
         </div>
       )}

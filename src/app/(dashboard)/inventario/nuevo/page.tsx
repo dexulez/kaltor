@@ -6,9 +6,9 @@ import { tieneSubPermiso } from '@/lib/modulos'
 export default async function NuevoProductoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ returnTo?: string }>
+  searchParams: Promise<{ returnTo?: string; nombre?: string }>
 }) {
-  const { returnTo } = await searchParams
+  const { returnTo, nombre } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: perfil } = await supabase
@@ -53,7 +53,7 @@ export default async function NuevoProductoPage({
           </p>
         )}
       </div>
-      <ProductoForm categorias={categorias ?? []} proveedores={proveedores ?? []} returnTo={returnTo} puedeVerCostos={puedeVerCostos} tieneB2B={tieneB2B} tieneTaller={tieneTaller} />
+      <ProductoForm categorias={categorias ?? []} proveedores={proveedores ?? []} returnTo={returnTo} nombreInicial={nombre} puedeVerCostos={puedeVerCostos} tieneB2B={tieneB2B} tieneTaller={tieneTaller} />
     </div>
   )
 }
