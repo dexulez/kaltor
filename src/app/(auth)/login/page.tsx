@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,13 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  useEffect(() => {
+    const motivo = new URLSearchParams(window.location.search).get('motivo')
+    if (motivo === 'sesion_reemplazada') {
+      toast.info('Tu sesión se cerró porque iniciaste sesión en otro dispositivo (máx. 1 celular/tablet + 1 computador a la vez).')
+    }
+  }, [])
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -27,6 +34,9 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+
+    // Registra este dispositivo como la sesión vigente de su tipo (móvil/computador)
+    await fetch('/api/auth/registrar-sesion', { method: 'POST' })
 
     // Si el usuario pertenece a más de una empresa, se le pide elegir con cuál entrar
     const res = await fetch('/api/auth/mis-empresas')

@@ -1,14 +1,21 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+
+// La pantalla de venta directa maneja su propio refresh tras cobrar y no debe
+// recargarse por cambios de fondo en otras tablas (interrumpiría una venta en curso).
+const RUTAS_EXCLUIDAS = ['/caja/venta-directa']
 
 export default function RealtimeRefresh() {
   const router = useRouter()
+  const pathname = usePathname()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (RUTAS_EXCLUIDAS.includes(pathname)) return
+
     const supabase = createClient()
 
     function refresh() {
@@ -30,7 +37,7 @@ export default function RealtimeRefresh() {
       if (timerRef.current) clearTimeout(timerRef.current)
       supabase.removeChannel(channel)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null
 }
