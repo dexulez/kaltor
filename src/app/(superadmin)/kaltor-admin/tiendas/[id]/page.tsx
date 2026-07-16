@@ -64,6 +64,26 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
     .limit(20)
   if (evData) flowEvents = evData as Record<string, unknown>[]
 
+  // Actividad de usuarios (tabla opcional — requiere kaltor_metricas_usuarios.sql)
+  type ResumenAcceso = { total: number; ultimo: string | null }
+  const accesosPorUsuario = new Map<string, ResumenAcceso>()
+  let metricasDisponibles = true
+  const { data: loginEvents, error: loginEventsErr } = await admin
+    .from('user_login_events')
+    .select('user_id, created_at')
+    .eq('store_id', id)
+    .order('created_at', { ascending: true })
+  if (loginEventsErr) {
+    metricasDisponibles = false
+  } else {
+    for (const ev of loginEvents ?? []) {
+      const actual = accesosPorUsuario.get(ev.user_id) ?? { total: 0, ultimo: null }
+      actual.total += 1
+      actual.ultimo = ev.created_at
+      accesosPorUsuario.set(ev.user_id, actual)
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s = store as any
   const billingStatus: string = s.billing_status ?? 'trial'
@@ -155,16 +175,36 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
               Usuarios
               <span className="ml-2 text-sm font-normal text-gray-400">({users?.length ?? 0})</span>
             </h2>
+            {!metricasDisponibles && (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                Falta ejecutar <code className="font-mono">supabase/kaltor_metricas_usuarios.sql</code> para ver
+                accesos y último uso de cada usuario.
+              </p>
+            )}
             {!users || users.length === 0 ? (
               <p className="text-gray-400 text-sm">Sin usuarios registrados aún.</p>
             ) : (
               <div className="divide-y divide-gray-50">
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {users.map((u: any) => (
+                {users.map((u: any) => {
+                  const accesos = accesosPorUsuario.get(u.id)
+                  return (
                   <div key={u.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                     <div>
                       <p className="text-sm font-medium text-gray-800">{u.nombre_completo}</p>
                       <p className="text-xs text-gray-400">{u.email}</p>
+                      {metricasDisponibles && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {accesos ? (
+                            <>
+                              {accesos.total} acceso{accesos.total === 1 ? '' : 's'} · último:{' '}
+                              {new Date(accesos.ultimo!).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })}
+                            </>
+                          ) : (
+                            'Sin accesos registrados'
+                          )}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-gray-500 capitalize bg-gray-100 px-2 py-0.5 rounded-full">
@@ -177,7 +217,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
                       )}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
