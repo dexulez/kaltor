@@ -75,7 +75,14 @@ export default async function UsuariosPage() {
           <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
           <p className="text-gray-500 text-sm">{total} usuario(s) en el sistema</p>
         </div>
-        {puedeCrear && <InvitarUsuarioDialog roles={rolesStaff} />}
+        <div className="flex items-center gap-2">
+          {rolNombrePropio === 'administrador' && (
+            <Link href="/usuarios/metricas">
+              <Button variant="outline" size="sm">📊 Actividad de usuarios</Button>
+            </Link>
+          )}
+          {puedeCrear && <InvitarUsuarioDialog roles={rolesStaff} />}
+        </div>
       </div>
 
       {puedeCrear && <SolicitudesB2BPanel solicitudes={solicitudesB2B ?? []} rolCompradorId={rolCompradorId} />}

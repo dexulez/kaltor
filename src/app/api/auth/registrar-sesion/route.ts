@@ -25,6 +25,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
+  // Métricas internas: registra este acceso (best-effort, no bloquea el login
+  // si la tabla `user_login_events` aún no existe).
+  const { data: perfil } = await admin.from('user_profiles').select('store_id').eq('id', user.id).single()
+  const storeId = (perfil as { store_id?: string } | null)?.store_id ?? null
+  await admin.from('user_login_events').insert({
+    user_id: user.id,
+    store_id: storeId,
+    tipo_dispositivo: tipoDispositivo,
+    user_agent: userAgent,
+  })
+
   if (!error) {
     const cookieStore = await cookies()
     cookieStore.set('kaltor_session_token', sessionToken, {
