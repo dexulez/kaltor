@@ -42,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_credit_payments_customer ON customer_credit_payme
 CREATE INDEX IF NOT EXISTS idx_credit_payments_fecha ON customer_credit_payments (fecha);
 
 -- 4. Multi-tenant: trigger de store_id + RLS kaltor_v1
+DROP TRIGGER IF EXISTS trig_store_id_customer_credit_payments ON customer_credit_payments;
 CREATE TRIGGER trig_store_id_customer_credit_payments
 BEFORE INSERT ON customer_credit_payments
 FOR EACH ROW EXECUTE FUNCTION kaltor_auto_store_id();
