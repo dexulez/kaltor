@@ -111,7 +111,7 @@ export type LandingTxt = {
   modulosSection: { kicker: string; title: (n: number) => string; subtitle: string }
   paraQuienEs: {
     kicker: string; title: string; subtitle: string
-    negocios: { titulo: string; texto: string }[]
+    negocios: { titulo: string; texto: string; beneficio: string }[]
     facilTitle1: string; facilTitle2: string
     facil: { texto: string }[]
     recomendacionPre: string; recomendacionBold: string; recomendacionLink: string
@@ -149,11 +149,11 @@ export const LANDING_TXT: Record<Lang, LandingTxt> = {
       title: 'Hecho para negocios que compran, venden o reparan.',
       subtitle: 'No importa el rubro: si necesitas orden en tu inventario, tus ventas y tus números, Kaltor calza con tu negocio.',
       negocios: [
-        { titulo: 'Talleres de reparación', texto: 'Celulares, notebooks, electrodomésticos o motos — controla cada orden de trabajo de principio a fin.' },
-        { titulo: 'Tiendas y minimarkets', texto: 'Punto de venta rápido, boletas al instante y stock siempre bajo control.' },
-        { titulo: 'Ferreterías y bodegas', texto: 'Miles de productos, cero descuadres. Alertas antes de quedarte sin stock.' },
-        { titulo: 'Distribuidoras y mayoristas', texto: 'Vende al por mayor con catálogo B2B y precios diferenciados por cliente.' },
-        { titulo: 'Pymes y emprendimientos', texto: 'Si compras, vendes o entregas un servicio, necesitas saber cuánto ganas. Kaltor te lo muestra.' },
+        { titulo: 'Talleres de reparación', texto: 'Celulares, notebooks, electrodomésticos o motos — controla cada orden de trabajo de principio a fin.', beneficio: 'Cada equipo que entra queda con su propia orden de trabajo: fotos, clave de acceso y estado en tiempo real. Tu cliente sigue el avance desde un link sin llamarte, y tú controlas repuestos, tiempos y la ganancia real de cada reparación.' },
+        { titulo: 'Tiendas y minimarkets', texto: 'Punto de venta rápido, boletas al instante y stock siempre bajo control.', beneficio: 'El punto de venta cobra en segundos y emite boleta o factura al instante. Cada venta descuenta el stock automáticamente, así que siempre sabes qué se está vendiendo y qué reponer antes de quedarte sin nada.' },
+        { titulo: 'Ferreterías y bodegas', texto: 'Miles de productos, cero descuadres. Alertas antes de quedarte sin stock.', beneficio: 'Con miles de productos es fácil perder el control: Kaltor te avisa antes de que se acabe el stock, valoriza todo tu inventario y te muestra qué rota más, para comprar mejor y no descuadrar la caja.' },
+        { titulo: 'Distribuidoras y mayoristas', texto: 'Vende al por mayor con catálogo B2B y precios diferenciados por cliente.', beneficio: 'Tu catálogo queda disponible para que tus clientes pidan solos, con precios distintos por cliente o volumen. Tú apruebas, despachas y controlas los cobros sin perder tiempo tomando pedidos por WhatsApp.' },
+        { titulo: 'Pymes y emprendimientos', texto: 'Si compras, vendes o entregas un servicio, necesitas saber cuánto ganas. Kaltor te lo muestra.', beneficio: 'Aunque seas un equipo chico, sabrás cuánto ganas de verdad: ventas, costos, IVA y punto de equilibrio en un panel simple. Partes gratis y activas solo los módulos que tu negocio necesita hoy.' },
       ],
       facilTitle1: 'Fácil desde', facilTitle2: 'el primer día.',
       facil: [
@@ -218,11 +218,11 @@ export const LANDING_TXT: Record<Lang, LandingTxt> = {
       title: 'Feito para negócios que compram, vendem ou consertam.',
       subtitle: 'Não importa o ramo: se você precisa de ordem no seu estoque, nas suas vendas e nos seus números, o Kaltor combina com seu negócio.',
       negocios: [
-        { titulo: 'Assistências técnicas', texto: 'Celulares, notebooks, eletrodomésticos ou motos — controle cada ordem de serviço do início ao fim.' },
-        { titulo: 'Lojas e mercadinhos', texto: 'PDV rápido, recibos na hora e estoque sempre sob controle.' },
-        { titulo: 'Lojas de material e depósitos', texto: 'Milhares de produtos, zero divergências. Alertas antes de faltar estoque.' },
-        { titulo: 'Distribuidoras e atacadistas', texto: 'Venda no atacado com catálogo B2B e preços diferenciados por cliente.' },
-        { titulo: 'PMEs e empreendedores', texto: 'Se você compra, vende ou presta um serviço, precisa saber quanto ganha. O Kaltor mostra isso.' },
+        { titulo: 'Assistências técnicas', texto: 'Celulares, notebooks, eletrodomésticos ou motos — controle cada ordem de serviço do início ao fim.', beneficio: 'Cada aparelho que entra ganha sua própria ordem de serviço: fotos, senha de acesso e status em tempo real. Seu cliente acompanha o andamento por um link, sem precisar te ligar, e você controla peças, prazos e o lucro real de cada conserto.' },
+        { titulo: 'Lojas e mercadinhos', texto: 'PDV rápido, recibos na hora e estoque sempre sob controle.', beneficio: 'O PDV recebe pagamentos em segundos e emite o recibo ou nota fiscal na hora. Cada venda baixa o estoque automaticamente, então você sempre sabe o que está vendendo e o que repor antes de faltar.' },
+        { titulo: 'Lojas de material e depósitos', texto: 'Milhares de produtos, zero divergências. Alertas antes de faltar estoque.', beneficio: 'Com milhares de produtos é fácil perder o controle: o Kaltor avisa antes de faltar estoque, valoriza todo o seu inventário e mostra o que mais gira, para comprar melhor e não ter divergência de caixa.' },
+        { titulo: 'Distribuidoras e atacadistas', texto: 'Venda no atacado com catálogo B2B e preços diferenciados por cliente.', beneficio: 'Seu catálogo fica disponível para os clientes pedirem sozinhos, com preços diferentes por cliente ou volume. Você aprova, despacha e controla os pagamentos sem perder tempo anotando pedido por WhatsApp.' },
+        { titulo: 'PMEs e empreendedores', texto: 'Se você compra, vende ou presta um serviço, precisa saber quanto ganha. O Kaltor mostra isso.', beneficio: 'Mesmo sendo uma equipe pequena, você vai saber quanto realmente ganha: vendas, custos, impostos e ponto de equilíbrio num painel simples. Comece grátis e ative só os módulos que seu negócio precisa hoje.' },
       ],
       facilTitle1: 'Fácil desde', facilTitle2: 'o primeiro dia.',
       facil: [
@@ -287,11 +287,11 @@ export const LANDING_TXT: Record<Lang, LandingTxt> = {
       title: 'Built for businesses that buy, sell or repair.',
       subtitle: 'No matter your industry: if you need order in your inventory, your sales and your numbers, Kaltor fits your business.',
       negocios: [
-        { titulo: 'Repair shops', texto: 'Phones, laptops, appliances or motorcycles — track every work order from start to finish.' },
-        { titulo: 'Stores and minimarkets', texto: 'Fast point of sale, instant receipts and stock always under control.' },
-        { titulo: 'Hardware stores and warehouses', texto: 'Thousands of products, zero mismatches. Alerts before you run out of stock.' },
-        { titulo: 'Distributors and wholesalers', texto: 'Sell wholesale with a B2B catalog and tiered pricing per customer.' },
-        { titulo: 'SMBs and entrepreneurs', texto: 'If you buy, sell or deliver a service, you need to know how much you make. Kaltor shows you.' },
+        { titulo: 'Repair shops', texto: 'Phones, laptops, appliances or motorcycles — track every work order from start to finish.', beneficio: 'Every device that comes in gets its own work order: photos, an access code and real-time status. Your customer tracks progress through a link without calling you, while you control parts, turnaround times and the real profit on every repair.' },
+        { titulo: 'Stores and minimarkets', texto: 'Fast point of sale, instant receipts and stock always under control.', beneficio: "The point of sale charges in seconds and prints a receipt or invoice instantly. Every sale deducts stock automatically, so you always know what's selling and what to restock before you run out." },
+        { titulo: 'Hardware stores and warehouses', texto: 'Thousands of products, zero mismatches. Alerts before you run out of stock.', beneficio: "With thousands of products it's easy to lose control: Kaltor warns you before you run out of stock, values your entire inventory and shows what sells fastest, so you buy smarter and never come up short at closing." },
+        { titulo: 'Distributors and wholesalers', texto: 'Sell wholesale with a B2B catalog and tiered pricing per customer.', beneficio: 'Your catalog is available for customers to order on their own, with different prices by customer or volume. You approve, ship and track payments without wasting time taking orders over WhatsApp.' },
+        { titulo: 'SMBs and entrepreneurs', texto: 'If you buy, sell or deliver a service, you need to know how much you make. Kaltor shows you.', beneficio: "Even as a small team, you'll know exactly how much you make: sales, costs, taxes and break-even point in one simple dashboard. Start for free and turn on only the modules your business needs today." },
       ],
       facilTitle1: 'Easy from', facilTitle2: 'day one.',
       facil: [

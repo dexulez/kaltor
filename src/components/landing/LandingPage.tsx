@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, createContext, useContext } from 'react'
-import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users } from 'lucide-react'
+import { ShoppingCart, Building2, Package, Wrench, Hammer, BarChart2, Receipt, Store, Settings, BookOpen, Banknote, Truck, Target, TrendingUp, Eye, AlertTriangle, Zap, SlidersHorizontal, Globe, Users, X } from 'lucide-react'
 import ChatWidget from '@/components/chat/ChatWidget'
 import { formatConversion, type ConversionInfo } from '@/lib/currency'
 import { LANGS, LANDING_TXT, MODULOS_TXT, PLANES_TXT, type Lang } from '@/lib/i18n/landing'
@@ -836,6 +836,19 @@ const FACIL_ICONS = [Globe, Zap, Users]
 function ParaQuienEs() {
   const { lang } = useLang()
   const t = LANDING_TXT[lang].paraQuienEs
+  const [abierto, setAbierto] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (abierto === null) return
+    function handler(e: KeyboardEvent) {
+      if (e.key === 'Escape') setAbierto(null)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [abierto])
+
+  const negocioAbierto = abierto !== null ? t.negocios[abierto] : null
+  const IconAbierto = abierto !== null ? NEGOCIO_ICONS[abierto] : null
 
   return (
     <section className="kaltor-section" style={{ padding: '96px 48px', backgroundColor: '#fff' }}>
@@ -855,10 +868,20 @@ function ParaQuienEs() {
           {t.negocios.map(({ titulo, texto }, i) => {
             const Icon = NEGOCIO_ICONS[i]
             return (
-            <div key={titulo} style={{
-              padding: '24px 22px', borderRadius: 14,
-              border: `1px solid ${C.line}`, backgroundColor: C.paper,
-            }}>
+            <div
+              key={titulo}
+              onClick={() => setAbierto(i)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setAbierto(i) }}
+              style={{
+                padding: '24px 22px', borderRadius: 14,
+                border: `1px solid ${C.line}`, backgroundColor: C.paper,
+                cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,0.08)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none' }}
+            >
               <div style={{
                 width: 44, height: 44, borderRadius: '50%',
                 backgroundColor: C.signal,
@@ -902,6 +925,72 @@ function ParaQuienEs() {
           <a href="#planes" style={{ color: C.signal, fontWeight: 600, textDecoration: 'none' }}>{t.recomendacionLink}</a>
         </p>
       </div>
+
+      {/* Popup: cómo mejora Kaltor este tipo de negocio */}
+      {negocioAbierto && (
+        <div
+          onClick={() => setAbierto(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 300,
+            backgroundColor: 'rgba(16,27,38,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20, animation: 'popupIn 0.15s ease',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'relative', width: '100%', maxWidth: 460,
+              backgroundColor: C.navy, color: C.paper,
+              borderRadius: 20, padding: '32px 30px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+            }}
+          >
+            <button
+              onClick={() => setAbierto(null)}
+              aria-label="Cerrar"
+              style={{
+                position: 'absolute', top: 16, right: 16,
+                width: 32, height: 32, borderRadius: '50%', border: 'none',
+                backgroundColor: 'rgba(255,255,255,0.08)', color: C.paper,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+              <span style={{
+                width: 48, height: 48, borderRadius: '50%',
+                backgroundColor: C.signal,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {IconAbierto && <IconAbierto size={22} color="#fff" strokeWidth={1.8} />}
+              </span>
+              <h3 style={{ fontFamily: FD, fontSize: 20, fontWeight: 700, margin: 0, color: C.paper }}>
+                {negocioAbierto.titulo}
+              </h3>
+            </div>
+
+            <p style={{ fontSize: 15.5, lineHeight: 1.7, opacity: 0.85, margin: 0 }}>
+              {negocioAbierto.beneficio}
+            </p>
+
+            <a
+              href="#planes"
+              onClick={() => setAbierto(null)}
+              style={{
+                display: 'inline-block', marginTop: 22,
+                color: C.signal, fontWeight: 600, fontSize: 15, textDecoration: 'none',
+              }}
+            >
+              {t.recomendacionLink}
+            </a>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
