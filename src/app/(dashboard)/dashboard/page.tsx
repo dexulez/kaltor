@@ -7,8 +7,10 @@ import QRScannerOT from '@/components/dashboard/QRScannerOT'
 import { labelTipoEquipo } from '@/lib/tipoEquipo'
 import { ESTADO_COLOR, ESTADO_LABEL } from '@/lib/ot-estados'
 import type { ModuloNegocio } from '@/lib/modulos'
+import { GraficoArea, GraficoPastel } from '@/components/informes/Charts'
 
 const TZ = 'America/Santiago'
+const DIAS_LABEL = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
 const CAT_ICON: Record<string, string> = {
   arriendo: '🏠', servicios: '💡', sueldos: '👤', materiales: '🧹',
@@ -180,6 +182,47 @@ export default async function DashboardPage() {
     timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
+  // ── Gráficas: ventas de los últimos 7 días y por categoría ──────────────────
+  let ventasPorDia: { fecha: string; total: number }[] = []
+  let ventasPorCategoria: { name: string; value: number }[] = []
+  if (tieneVentas) {
+    const hace7DiasDate = new Date(`${hoy}T00:00:00Z`)
+    hace7DiasDate.setUTCDate(hace7DiasDate.getUTCDate() - 6)
+    const desde7dias = hace7DiasDate.toISOString()
+
+    const [{ data: ventas7dRaw }, { data: itemsRaw }] = await Promise.all([
+      supabase.from('sales').select('total, created_at').gte('created_at', desde7dias).eq('anulada', false),
+      supabase.from('sale_items').select('cantidad, subtotal, product_id, created_at, products(product_categories(nombre))').gte('created_at', desde7dias),
+    ])
+
+    const dias = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(hace7DiasDate)
+      d.setUTCDate(d.getUTCDate() + i)
+      return { fecha: d.toISOString().slice(0, 10), label: DIAS_LABEL[d.getUTCDay()] }
+    })
+    const porDiaMap: Record<string, number> = Object.fromEntries(dias.map(d => [d.fecha, 0]))
+    ;(ventas7dRaw ?? []).forEach(v => {
+      const dia = (v.created_at as string).slice(0, 10)
+      if (dia in porDiaMap) porDiaMap[dia] += v.total as number
+    })
+    ventasPorDia = dias.map(d => ({ fecha: d.label, total: porDiaMap[d.fecha] }))
+
+    const porCategoriaMap: Record<string, number> = {}
+    ;(itemsRaw ?? []).forEach(it => {
+      let nombreCat = 'Servicios'
+      if (it.product_id) {
+        const prod = it.products as { product_categories?: { nombre?: string } | { nombre?: string }[] | null } | null
+        const catRel = prod?.product_categories
+        const cat = Array.isArray(catRel) ? catRel[0] : catRel
+        nombreCat = cat?.nombre ?? 'Sin categoría'
+      }
+      porCategoriaMap[nombreCat] = (porCategoriaMap[nombreCat] ?? 0) + (it.subtotal ?? 0)
+    })
+    ventasPorCategoria = Object.entries(porCategoriaMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }
+
   return (
     <div className="p-4 sm:p-6 space-y-5">
 
@@ -277,6 +320,22 @@ export default async function DashboardPage() {
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Gráficas de ventas ───────────────────────────────────────────────── */}
+      {tieneVentas && ventasPorDia.some(d => d.total > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="bg-white rounded-xl border p-4">
+            <p className="font-semibold text-gray-800 text-sm mb-2">Ventas últimos 7 días</p>
+            <GraficoArea data={ventasPorDia} dataKey="total" nameKey="fecha" color="#FF7A1A" height={220} />
+          </div>
+          {ventasPorCategoria.length > 0 && (
+            <div className="bg-white rounded-xl border p-4">
+              <p className="font-semibold text-gray-800 text-sm mb-2">Ventas por categoría</p>
+              <GraficoPastel data={ventasPorCategoria} height={220} />
+            </div>
+          )}
         </div>
       )}
 
