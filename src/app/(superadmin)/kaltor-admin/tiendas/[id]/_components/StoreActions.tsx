@@ -24,13 +24,14 @@ type PlanEspecial = {
 }
 
 export default function StoreActions({
-  storeId, currentPlanId, billingStatus, activo, plans, planEspecialActual,
+  storeId, currentPlanId, billingStatus, activo, plans, dolarClp, planEspecialActual,
 }: {
   storeId: string
   currentPlanId: string | null
   billingStatus: string
   activo: boolean
   plans: Plan[]
+  dolarClp: number | null
   planEspecialActual?: PlanEspecial | null
 }) {
   const router = useRouter()
@@ -45,6 +46,26 @@ export default function StoreActions({
   const [maxUsuariosEspecial, setMaxUsuariosEspecial] = useState('')
   const [sesionUnicaEspecial, setSesionUnicaEspecial] = useState(false)
   const [basadoEnPlanId, setBasadoEnPlanId]   = useState('')
+
+  function onPrecioClpChange(v: string) {
+    setPrecioClpEspecial(v)
+    const num = Number(v)
+    if (dolarClp && v !== '' && !isNaN(num)) {
+      setPrecioUsdEspecial((num / dolarClp).toFixed(2))
+    } else if (v === '') {
+      setPrecioUsdEspecial('')
+    }
+  }
+
+  function onPrecioUsdChange(v: string) {
+    setPrecioUsdEspecial(v)
+    const num = Number(v)
+    if (dolarClp && v !== '' && !isNaN(num)) {
+      setPrecioClpEspecial(String(Math.round(num * dolarClp)))
+    } else if (v === '') {
+      setPrecioClpEspecial('')
+    }
+  }
 
   async function act(action: string, extra?: Record<string, unknown>) {
     setBusy(action)
@@ -172,7 +193,7 @@ export default function StoreActions({
                 <input
                   type="number" min="0" step="10" placeholder="Precio CLP/mes"
                   value={precioClpEspecial}
-                  onChange={e => setPrecioClpEspecial(e.target.value)}
+                  onChange={e => onPrecioClpChange(e.target.value)}
                   className="w-full text-sm focus:outline-none"
                 />
               </div>
@@ -181,11 +202,20 @@ export default function StoreActions({
                 <input
                   type="number" min="0" step="0.5" placeholder="Precio USD/mes"
                   value={precioUsdEspecial}
-                  onChange={e => setPrecioUsdEspecial(e.target.value)}
+                  onChange={e => onPrecioUsdChange(e.target.value)}
                   className="w-full text-sm focus:outline-none"
                 />
               </div>
             </div>
+            {dolarClp ? (
+              <p className="text-[11px] text-gray-400 -mt-1">
+                Conversión automática con dólar ${dolarClp.toLocaleString('es-CL')} CLP (mindicador.cl).
+              </p>
+            ) : (
+              <p className="text-[11px] text-amber-600 -mt-1">
+                No se pudo obtener el valor del dólar — completa ambos precios manualmente.
+              </p>
+            )}
             <div className="flex gap-2 items-center">
               <input
                 type="number" min="1" placeholder="Máx. usuarios (vacío = ilimitado)"

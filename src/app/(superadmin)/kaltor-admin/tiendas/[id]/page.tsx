@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import StoreActions from './_components/StoreActions'
 import StoreModuleToggles from './_components/StoreModuleToggles'
+import { obtenerDolarClp } from '@/lib/currency'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
     { data: users },
     { data: plans },
     { data: storeMods },
+    dolarClp,
   ] = await Promise.all([
     admin.from('stores')
       .select('id, nombre, email, activo, created_at, trial_hasta, plan_id, billing_status, flow_customer_id, flow_subscription_id, ultimo_pago_at, proximo_cobro_at')
@@ -40,6 +42,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
     admin.from('store_modules')
       .select('module_key, activo')
       .eq('store_id', id),
+    obtenerDolarClp(),
   ])
 
   if (storeErr || !storeBase) notFound()
@@ -232,6 +235,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
             billingStatus={billingStatus}
             activo={s.activo}
             plans={catalogPlans as { id: string; nombre: string; precio_mensual: number }[]}
+            dolarClp={dolarClp}
             planEspecialActual={planEspecialActual as {
               nombre: string; precio_mensual: number; precio_mensual_usd: number
               flow_plan_id: string | null; paypal_plan_id: string | null
