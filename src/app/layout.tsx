@@ -9,8 +9,13 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-displ
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
-  title: 'Kaltor',
-  description: 'Sistema integral de gestión para talleres y negocios',
+  metadataBase: new URL('https://kaltorpos.com'),
+  title: {
+    default: 'Kaltor · Gestión de negocio todo en uno',
+    template: '%s · Kaltor',
+  },
+  description: 'Ventas, inventario, taller, compras, contabilidad y reportes en un solo sistema. Controla tu negocio en tiempo real, desde cualquier dispositivo.',
+  keywords: ['software gestión negocio', 'punto de venta', 'sistema para talleres', 'inventario', 'POS Chile', 'Kaltor'],
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -22,6 +27,19 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'Kaltor',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'es_CL',
+    url: 'https://kaltorpos.com',
+    siteName: 'Kaltor',
+    title: 'Kaltor · Gestión de negocio todo en uno',
+    description: 'Ventas, inventario, taller, compras, contabilidad y reportes en un solo sistema. Controla tu negocio en tiempo real.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Kaltor · Gestión de negocio todo en uno',
+    description: 'Ventas, inventario, taller, compras, contabilidad y reportes en un solo sistema.',
   },
 }
 

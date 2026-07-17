@@ -21,6 +21,31 @@
   --kaltor-warning:   #FFB020;
   --kaltor-error:     #F04438;
   --kaltor-info:      #3B82F6;
+  /* Landing: gradientes premium (Stripe/Linear style) sobre la identidad Kaltor */
+  --kaltor-glow-1:    #FF7A1A;
+  --kaltor-glow-2:    #FFB020;
+  --kaltor-glow-3:    #2FB673;
+  --kaltor-glass-bg:  rgba(255, 255, 255, 0.6);
+  --kaltor-glass-brd: rgba(255, 255, 255, 0.5);
+}
+
+@keyframes kaltor-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
+}
+@keyframes kaltor-pulse-glow {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes kaltor-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.kaltor-animate-float { animation: kaltor-float 6s ease-in-out infinite; }
+.kaltor-animate-glow  { animation: kaltor-pulse-glow 3.2s ease-in-out infinite; }
+.kaltor-marquee-track { animation: kaltor-marquee 28s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .kaltor-animate-float, .kaltor-animate-glow, .kaltor-marquee-track { animation: none; }
 }
 
 @custom-variant dark (&:is(.dark *));
