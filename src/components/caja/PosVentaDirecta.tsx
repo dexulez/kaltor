@@ -330,7 +330,7 @@ export default function PosVentaDirecta({ productos, clientes, servicios = [], I
       return true
     }
 
-    // 1. QR interno (TR:P:{uuid})
+    // 1. QR interno (KL:P:{uuid})
     const productId = parseProductoQR(value)
     if (productId) {
       const producto = productosTodos.find(p => p.id === productId)

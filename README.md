@@ -46,7 +46,7 @@ npm run build
 2. En Vercel, crea un proyecto importando el repositorio
 3. Configura como Root Directory la carpeta del proyecto si el repositorio contiene más archivos en niveles superiores
 4. Agrega estas variables de entorno en Vercel:
-	- `NEXT_PUBLIC_SITE_URL` = URL pública final del proyecto, por ejemplo `https://techrepair-pro.vercel.app`
+	- `NEXT_PUBLIC_SITE_URL` = URL pública final del proyecto, por ejemplo `https://app.kaltorpos.com`
 	- `NEXT_PUBLIC_SUPABASE_URL`
 	- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 	- `SUPABASE_SERVICE_ROLE_KEY`

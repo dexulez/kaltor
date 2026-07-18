@@ -4,11 +4,12 @@ import QRCode from 'react-qr-code'
 import { Button } from '@/components/ui/button'
 
 export function buildProductoQRValue(productId: string) {
-  return `TR:P:${productId}`
+  return `KL:P:${productId}`
 }
 
 export function parseProductoQR(value: string): string | null {
-  if (value.startsWith('TR:P:')) return value.slice(5)
+  if (value.startsWith('KL:P:')) return value.slice(5)
+  if (value.startsWith('TR:P:')) return value.slice(5) // etiquetas impresas antes del rebranding a Kaltor
   return null
 }
 
