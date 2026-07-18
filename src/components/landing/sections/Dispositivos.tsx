@@ -19,13 +19,9 @@ export default function Dispositivos() {
 
         <Reveal delay={0.1}>
           <div className="flex items-end justify-center gap-6 mt-14 mb-10 flex-wrap">
-            <div style={{ transform: 'scale(0.68)', transformOrigin: 'bottom' }}>
-              <DeviceFrame kind="tablet"><DashboardMock compact /></DeviceFrame>
-            </div>
+            <DeviceFrame kind="tablet" scale={0.68}><DashboardMock compact /></DeviceFrame>
             <DeviceFrame kind="laptop"><DashboardMock /></DeviceFrame>
-            <div style={{ transform: 'scale(0.68)', transformOrigin: 'bottom' }}>
-              <DeviceFrame kind="phone"><DashboardMock compact /></DeviceFrame>
-            </div>
+            <DeviceFrame kind="phone" scale={0.68}><DashboardMock compact /></DeviceFrame>
           </div>
         </Reveal>
 

@@ -10,13 +10,13 @@ const SIZES: Record<Kind, { w: number; h: number; radius: number; pad: number }>
 }
 
 /** Marco de dispositivo recreado con CSS (no hay screenshots reales del producto todavía). */
-export default function DeviceFrame({ kind, children, style }: { kind: Kind; children: ReactNode; style?: React.CSSProperties }) {
+export default function DeviceFrame({ kind, children, style, scale = 1 }: { kind: Kind; children: ReactNode; style?: React.CSSProperties; scale?: number }) {
   const s = SIZES[kind]
-  return (
+  const frame = (
     <div
       style={{
         width: s.w,
-        maxWidth: '100%',
+        maxWidth: scale === 1 ? '100%' : undefined,
         height: s.h,
         borderRadius: s.radius,
         padding: s.pad,
@@ -42,6 +42,16 @@ export default function DeviceFrame({ kind, children, style }: { kind: Kind; chi
       <div style={{ flex: 1, borderRadius: Math.max(s.radius - 8, 6), overflow: 'hidden' }}>
         {children}
       </div>
+    </div>
+  )
+
+  if (scale === 1) return frame
+
+  // El wrapper colapsa la caja de layout al tamaño visual real, para que el
+  // transform: scale() no deje espacio vacío invisible alrededor del marco.
+  return (
+    <div style={{ width: s.w * scale, height: s.h * scale }}>
+      <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>{frame}</div>
     </div>
   )
 }
