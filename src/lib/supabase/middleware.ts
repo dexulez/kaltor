@@ -38,7 +38,8 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/seguimiento') ||
     request.nextUrl.pathname.startsWith('/pedido') ||
     request.nextUrl.pathname.startsWith('/pagar') ||
-    request.nextUrl.pathname.startsWith('/acceso-b2b')
+    request.nextUrl.pathname.startsWith('/acceso-b2b') ||
+    request.nextUrl.pathname.startsWith('/quiero-ser-vendedor')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
   if (!user && !isAuthRoute && !isPublicRoute && !isApiRoute && !isOpenRoute) {
