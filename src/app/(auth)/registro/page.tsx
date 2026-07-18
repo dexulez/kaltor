@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,20 @@ function clp(n: number) {
 }
 
 export default function RegistroPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegistroForm />
+    </Suspense>
+  )
+}
+
+function RegistroForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const ref = searchParams.get('ref')
+  const dtipo = searchParams.get('dtipo')
+  const dval = searchParams.get('dval')
+  const planParam = searchParams.get('plan')
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     nombre_negocio:     '',
@@ -32,7 +45,7 @@ export default function RegistroPage() {
     email:              '',
     password:           '',
     confirmar_password: '',
-    plan_slug:          'taller-basico',
+    plan_slug:          PLANES.some(p => p.slug === planParam) ? planParam! : 'taller-basico',
   })
 
   function set(k: string, v: string) {
@@ -63,6 +76,9 @@ export default function RegistroPage() {
           email:          form.email,
           password:       form.password,
           plan_slug:      form.plan_slug,
+          ref:            ref || undefined,
+          dtipo:          dtipo || undefined,
+          dval:           dval || undefined,
         }),
       })
 
@@ -206,6 +222,15 @@ export default function RegistroPage() {
               <div className="bg-[#FF7A1A]/8 border border-[#FF7A1A]/20 rounded-lg px-4 py-3 text-sm text-[#C05010]">
                 Los primeros <strong>14 días son gratis</strong>. No se cobra nada hasta que el período de prueba termine.
               </div>
+
+              {/* Descuento por referido */}
+              {ref && (dtipo === 'pct' || dtipo === 'monto') && Number(dval) > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700">
+                  🎉 Tienes un descuento especial de{' '}
+                  <strong>{dtipo === 'pct' ? `${dval}%` : clp(Number(dval))}</strong> por los primeros 6 pagos,
+                  gracias a tu invitación.
+                </div>
+              )}
 
               <Button
                 type="submit"

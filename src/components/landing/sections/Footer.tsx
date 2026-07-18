@@ -77,6 +77,7 @@ export default function Footer() {
               <p style={{ fontFamily: FM, fontSize: 12, letterSpacing: '0.1em', color: C.paper, opacity: 0.4, marginBottom: 14 }}>EMPRESA</p>
               <div className="flex flex-col gap-3">
                 <a href="/login" style={{ fontSize: 14.5, color: C.paper, opacity: 0.65, textDecoration: 'none' }}>{t.footer.entrar}</a>
+                <a href="/quiero-ser-vendedor" style={{ fontSize: 14.5, color: C.paper, opacity: 0.65, textDecoration: 'none' }}>Quiero ser vendedor</a>
                 <a href="#" style={{ fontSize: 14.5, color: C.paper, opacity: 0.65, textDecoration: 'none' }}>Blog</a>
                 <a href="mailto:contacto@kaltorpos.com" style={{ fontSize: 14.5, color: C.paper, opacity: 0.65, textDecoration: 'none' }}>Contacto</a>
                 <a href="https://wa.me/56900000000" style={{ fontSize: 14.5, color: C.paper, opacity: 0.65, textDecoration: 'none' }}>Soporte por WhatsApp</a>

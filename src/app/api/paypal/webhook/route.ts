@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifyWebhookSignature } from '@/lib/paypal/client'
 import type { PayPalWebhookEvent } from '@/lib/paypal/types'
+import { procesarPago } from '@/lib/vendedores/procesarPago'
 
 // PayPal envía webhooks como POST con JSON
 export async function POST(req: NextRequest) {
@@ -54,13 +55,23 @@ export async function POST(req: NextRequest) {
       const proximo = new Date(hoy)
       proximo.setMonth(proximo.getMonth() + 1)
 
-      await admin.from('stores')
+      const { data: storeActualizada } = await admin.from('stores')
         .update({
           billing_status:   'active',
           ultimo_pago_at:   hoy.toISOString(),
           proximo_cobro_at: proximo.toISOString(),
         })
         .eq('paypal_subscription_id', subscriptionId)
+        .select('id')
+        .maybeSingle()
+
+      if (storeActualizada) {
+        await procesarPago(admin, {
+          storeId: storeActualizada.id,
+          proveedor: 'paypal',
+          proveedorRef: event.resource?.id ?? subscriptionId,
+        }).catch(err => console.error('[paypal/webhook] error procesando pago:', err instanceof Error ? err.message : err))
+      }
       break
     }
 

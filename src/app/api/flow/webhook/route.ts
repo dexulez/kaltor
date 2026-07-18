@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifyWebhookSignature } from '@/lib/flow/client'
+import { procesarPago } from '@/lib/vendedores/procesarPago'
 
 // Flow envía webhooks como POST con form-urlencoded
 export async function POST(req: NextRequest) {
@@ -39,13 +40,26 @@ export async function POST(req: NextRequest) {
       const proximo = new Date(hoy)
       proximo.setMonth(proximo.getMonth() + 1)
 
-      await admin.from('stores')
+      const { data: storeActualizada } = await admin.from('stores')
         .update({
           billing_status:    'active',
           ultimo_pago_at:    hoy.toISOString(),
           proximo_cobro_at:  proximo.toISOString(),
         })
         .eq('flow_subscription_id', subscriptionId)
+        .select('id')
+        .maybeSingle()
+
+      if (storeActualizada) {
+        const montoParam = Number(params.amount)
+        const proveedorRef = params.flowOrder || subscriptionId
+        await procesarPago(admin, {
+          storeId: storeActualizada.id,
+          proveedor: 'flow',
+          proveedorRef,
+          montoOverride: Number.isFinite(montoParam) && montoParam > 0 ? montoParam : undefined,
+        }).catch(err => console.error('[flow/webhook] error procesando pago:', err instanceof Error ? err.message : err))
+      }
 
     } else if (status === 3) {
       // Pago rechazado

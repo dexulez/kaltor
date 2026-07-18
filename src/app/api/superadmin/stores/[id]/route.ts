@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createPlan as createFlowPlan } from '@/lib/flow/client'
 import { createPlan as createPaypalPlan } from '@/lib/paypal/client'
+import { crearPlanEspecialParaTienda } from '@/lib/planesEspeciales'
 
 const SUPER_ADMIN_EMAIL = process.env.KALTOR_SUPER_ADMIN_EMAIL
 
@@ -176,63 +177,25 @@ export async function PATCH(
         }
 
         const { data: storeFull } = await admin.from('stores').select('slug').eq('id', storeId).single()
-        const slug = `especial-${storeFull?.slug ?? storeId}-${Date.now().toString(36)}`
-        const precioMensualRedondeado = Math.round(precioMensual)
-        const precioUsdRedondeado = Math.round(precioMensualUsd * 100) / 100
 
-        const { data: newPlan, error: planInsertErr } = await admin
-          .from('plans')
-          .insert({
-            nombre,
-            slug,
-            precio_mensual: precioMensualRedondeado,
-            precio_anual: precioMensualRedondeado * 10,
-            precio_mensual_usd: precioUsdRedondeado,
-            precios_pais: {},
-            max_usuarios: maxUsuarios,
-            sesion_unica: sesionUnica,
-            activo: false,
-            es_especial: true,
-            store_especial_id: storeId,
-          })
-          .select('id, slug')
-          .single()
-
-        if (planInsertErr || !newPlan) {
-          return NextResponse.json({ error: planInsertErr?.message ?? 'No se pudo crear el plan' }, { status: 500 })
-        }
-
-        // Clonar módulos del plan de referencia elegido
-        const { data: refMods } = await admin
-          .from('plan_modules').select('module_key').eq('plan_id', basadoEnPlanId)
-
-        if (refMods && refMods.length > 0) {
-          await admin.from('plan_modules').insert(
-            refMods.map(m => ({ plan_id: newPlan.id, module_key: m.module_key }))
-          )
-        }
-
-        const { error: assignErr } = await admin.from('stores').update({ plan_id: newPlan.id }).eq('id', storeId)
-        if (assignErr) throw assignErr
-
-        // Reasignar módulos de la tienda (mismo patrón que change_plan)
-        if (refMods && refMods.length > 0) {
-          await admin.from('store_modules').delete().eq('store_id', storeId)
-          const { error: modsErr } = await admin.from('store_modules').insert(
-            refMods.map(m => ({ store_id: storeId, module_key: m.module_key, activo: true }))
-          )
-          if (modsErr) console.error('[superadmin] store_modules update error:', modsErr.message)
-        }
-
-        const warnings = await generarCobroPlanEspecial(admin, {
-          id: newPlan.id,
-          slug: newPlan.slug,
+        const resultado = await crearPlanEspecialParaTienda(admin, {
+          storeId,
+          storeSlug: storeFull?.slug,
           nombre,
-          precio_mensual: precioMensualRedondeado,
-          precio_mensual_usd: precioUsdRedondeado,
+          precioMensual,
+          precioMensualUsd,
+          maxUsuarios,
+          sesionUnica,
+          basadoEnPlanId,
         })
 
-        return NextResponse.json({ ok: true, plan_id: newPlan.id, warnings })
+        if (!resultado.ok) {
+          return NextResponse.json({ error: resultado.error }, { status: 500 })
+        }
+
+        const warnings = await generarCobroPlanEspecial(admin, resultado.plan)
+
+        return NextResponse.json({ ok: true, plan_id: resultado.plan.id, warnings })
       }
 
       case 'retry_special_plan_billing': {

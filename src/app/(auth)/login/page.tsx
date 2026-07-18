@@ -41,7 +41,15 @@ export default function LoginPage() {
     // Si el usuario pertenece a más de una empresa, se le pide elegir con cuál entrar
     const res = await fetch('/api/auth/mis-empresas')
     const { empresas } = res.ok ? await res.json() : { empresas: [] }
-    const destino = (empresas?.length ?? 0) > 1 ? '/seleccionar-empresa' : '/dashboard'
+
+    let destino = (empresas?.length ?? 0) > 1 ? '/seleccionar-empresa' : '/dashboard'
+
+    // Sin ninguna tienda: puede ser un vendedor externo, no un dueño de tienda
+    if ((empresas?.length ?? 0) === 0) {
+      const vendedorRes = await fetch('/api/vendedores/mi-estado')
+      const { esVendedor } = vendedorRes.ok ? await vendedorRes.json() : { esVendedor: false }
+      if (esVendedor) destino = '/panel-vendedor'
+    }
 
     router.push(destino)
     router.refresh()
@@ -98,6 +106,12 @@ export default function LoginPage() {
           ¿Nuevo en Kaltor?{' '}
           <a href="/registro" className="text-[#FF7A1A] hover:underline font-medium">
             Crear cuenta gratis
+          </a>
+        </p>
+        <p className="text-center text-sm text-gray-500 mt-2">
+          ¿Quieres ser vendedor?{' '}
+          <a href="/quiero-ser-vendedor" className="text-[#FF7A1A] hover:underline font-medium">
+            Postula aquí
           </a>
         </p>
       </div>

@@ -7,7 +7,7 @@ export default async function PlanesPage() {
   const admin = createServiceClient()
   const { data: plans } = await admin
     .from('plans')
-    .select('id, nombre, slug, precio_mensual, precio_anual, precio_mensual_usd, precios_pais, activo')
+    .select('id, nombre, slug, precio_mensual, precio_anual, precio_mensual_usd, precios_pais, activo, comision_vendedor_monto')
     .order('precio_mensual', { ascending: true })
 
   return (

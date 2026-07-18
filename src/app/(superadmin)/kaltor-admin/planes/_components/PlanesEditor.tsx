@@ -14,6 +14,7 @@ type Plan = {
   precio_mensual_usd: number
   precios_pais: Record<string, number>
   activo: boolean
+  comision_vendedor_monto: number | null
 }
 
 const PAISES_TABLA: { region: string; pais: string; nombre: string }[] = [
@@ -51,7 +52,11 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
       Object.fromEntries(PAISES_TABLA.map(({ pais }) => [pais, String(p.precios_pais?.[pais] ?? '')])),
     ]))
   )
+  const [valoresComision, setValoresComision] = useState<Record<string, string>>(
+    Object.fromEntries(plans.map(p => [p.id, p.comision_vendedor_monto != null ? String(p.comision_vendedor_monto) : '']))
+  )
   const [busy, setBusy] = useState<string | null>(null)
+  const [busyComision, setBusyComision] = useState<string | null>(null)
   const [busyPaises, setBusyPaises] = useState<string | null>(null)
   const [expandido, setExpandido] = useState<string | null>(null)
   const [tasas, setTasas] = useState<Record<string, number> | null>(null)
@@ -124,6 +129,31 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
     }
   }
 
+  async function guardarComision(plan: Plan) {
+    const raw = valoresComision[plan.id]
+    const monto = raw?.trim() === '' ? null : Number(raw)
+    if (monto !== null && (!Number.isFinite(monto) || monto < 0)) {
+      toast.error('Comisión inválida')
+      return
+    }
+    setBusyComision(plan.id)
+    try {
+      const res = await fetch(`/api/superadmin/plans/${plan.id}/comision-vendedor`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comision_vendedor_monto: monto }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'Error'); return }
+      toast.success(`Comisión de ${plan.nombre} actualizada`)
+      router.refresh()
+    } catch {
+      toast.error('Error de conexión')
+    } finally {
+      setBusyComision(null)
+    }
+  }
+
   async function guardarPorPais(plan: Plan) {
     const precios: Record<string, number> = {}
     for (const { pais } of PAISES_TABLA) {
@@ -158,6 +188,7 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
               <th className="px-4 py-3 font-medium">Precio CLP /mes</th>
               <th className="px-4 py-3 font-medium">CLP /año (calculado)</th>
               <th className="px-4 py-3 font-medium">Precio USD /mes</th>
+              <th className="px-4 py-3 font-medium">Comisión vendedor</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -189,6 +220,25 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
                       />
                     </div>
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-gray-400 text-xs">$</span>
+                      <input
+                        type="number" min="0" step="10"
+                        placeholder="sin comisión"
+                        value={valoresComision[p.id] ?? ''}
+                        onChange={e => setValoresComision(v => ({ ...v, [p.id]: e.target.value }))}
+                        className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF7A1A]/30 focus:border-[#FF7A1A]"
+                      />
+                      <button
+                        onClick={() => guardarComision(p)}
+                        disabled={busyComision === p.id}
+                        className="bg-[#FF7A1A]/10 hover:bg-[#FF7A1A]/20 text-[#C05010] border border-[#FF7A1A]/25 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                      >
+                        {busyComision === p.id ? '...' : 'OK'}
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -209,7 +259,7 @@ export default function PlanesEditor({ plans }: { plans: Plan[] }) {
                 </tr>
                 {expandido === p.id && (
                   <tr className="border-b border-gray-100 bg-gray-50/60">
-                    <td colSpan={5} className="px-4 py-4">
+                    <td colSpan={6} className="px-4 py-4">
                       <p className="text-xs text-gray-500 mb-3">
                         Precio manual por país (moneda local). Estos valores son el precio real
                         que verá el visitante de ese país. Si se deja vacío, se usa la conversión
