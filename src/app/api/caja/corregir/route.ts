@@ -20,9 +20,13 @@ type ItemVentaManual = {
   precio_unitario: number
 }
 
-type VentaManual = {
-  items: ItemVentaManual[]
+type GrupoVenta = {
   metodo_pago: string
+  items: ItemVentaManual[]
+}
+
+type VentaManual = {
+  grupos: GrupoVenta[]
   tipo_documento: string
   customer_id?: string | null
 }
@@ -90,15 +94,20 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.venta) {
-    if (!METODOS_VALIDOS.includes(body.venta.metodo_pago)) {
-      return NextResponse.json({ error: 'Método de pago inválido' }, { status: 400 })
-    }
-    if (!Array.isArray(body.venta.items) || body.venta.items.length === 0) {
+    if (!Array.isArray(body.venta.grupos) || body.venta.grupos.length === 0) {
       return NextResponse.json({ error: 'Agrega al menos un producto o servicio a la venta' }, { status: 400 })
     }
-    for (const item of body.venta.items) {
-      if (!item.nombre || !(item.cantidad > 0) || !(item.precio_unitario >= 0)) {
-        return NextResponse.json({ error: 'Ítem de venta inválido' }, { status: 400 })
+    for (const grupo of body.venta.grupos) {
+      if (!METODOS_VALIDOS.includes(grupo.metodo_pago)) {
+        return NextResponse.json({ error: 'Método de pago inválido' }, { status: 400 })
+      }
+      if (!Array.isArray(grupo.items) || grupo.items.length === 0) {
+        return NextResponse.json({ error: 'Cada venta debe tener al menos un ítem' }, { status: 400 })
+      }
+      for (const item of grupo.items) {
+        if (!item.nombre || !(item.cantidad > 0) || !(item.precio_unitario >= 0)) {
+          return NextResponse.json({ error: 'Ítem de venta inválido' }, { status: 400 })
+        }
       }
     }
   }
@@ -189,77 +198,80 @@ export async function POST(req: NextRequest) {
     sesion = actualizada
   }
 
-  let ventaId: string | null = null
+  const ventaIds: string[] = []
   if (body.venta && sesion) {
-    const items = body.venta.items
-    const totalVenta = Math.round(items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0))
-
     const { data: sysConfig } = await admin
       .from('system_config')
       .select('iva')
       .eq('store_id', storeId)
       .maybeSingle()
     const ivaRate = (sysConfig as { iva?: number } | null)?.iva ?? 19
-    const netoTotal = Math.round(totalVenta / (1 + ivaRate / 100))
-    const ivaTotal = totalVenta - netoTotal
-
     const horaVenta = body.modo === 'apertura_retroactiva' ? `${sesion.fecha}T12:00:00` : new Date(`${sesion.fecha}T12:00:00`).toISOString()
-    const { data: ventaCreada, error: ventaError } = await admin.from('sales').insert({
-      store_id: storeId,
-      tipo: 'directa',
-      customer_id: body.venta.customer_id ?? null,
-      subtotal: netoTotal,
-      iva: ivaTotal,
-      ppm: 0,
-      total: totalVenta,
-      metodo_pago: body.venta.metodo_pago,
-      tipo_documento: body.venta.tipo_documento,
-      usuario_id: user.id,
-      notas: `Venta registrada por corrección de caja (${sesion.fecha}). Motivo: ${motivo}`,
-      created_at: horaVenta,
-    }).select().single()
 
-    if (ventaError || !ventaCreada) {
-      return NextResponse.json({ error: 'La caja se guardó pero la venta falló: ' + (ventaError?.message ?? '') }, { status: 500 })
-    }
-    ventaId = ventaCreada.id
+    for (const grupo of body.venta.grupos) {
+      const items = grupo.items
+      const totalVenta = Math.round(items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0))
+      const netoTotal = Math.round(totalVenta / (1 + ivaRate / 100))
+      const ivaTotal = totalVenta - netoTotal
 
-    const { error: itemsError } = await admin.from('sale_items').insert(items.map(i => ({
-      sale_id: ventaId,
-      store_id: storeId,
-      product_id: i.product_id,
-      nombre: i.nombre,
-      cantidad: i.cantidad,
-      precio_unitario: i.precio_unitario,
-      subtotal: i.cantidad * i.precio_unitario,
-    })))
-    if (itemsError) {
-      return NextResponse.json({ error: 'La venta se creó pero fallaron sus ítems: ' + itemsError.message }, { status: 500 })
-    }
-
-    for (const item of items) {
-      if (!item.product_id) continue
-      const { data: producto } = await admin
-        .from('products')
-        .select('stock_actual')
-        .eq('id', item.product_id)
-        .eq('store_id', storeId)
-        .maybeSingle()
-      if (!producto) continue
-      const stockAnterior = producto.stock_actual as number
-      const stockNuevo = stockAnterior - item.cantidad
-      await admin.from('products').update({ stock_actual: stockNuevo }).eq('id', item.product_id).eq('store_id', storeId)
-      await admin.from('stock_movements').insert({
+      const { data: ventaCreada, error: ventaError } = await admin.from('sales').insert({
         store_id: storeId,
-        product_id: item.product_id,
-        tipo: 'salida',
-        cantidad: item.cantidad,
-        stock_anterior: stockAnterior,
-        stock_nuevo: stockNuevo,
-        razon: `Venta ${ventaCreada.numero_venta} (corrección de caja)`,
-        referencia_id: ventaId,
-        referencia_tipo: 'sale',
-      })
+        tipo: 'directa',
+        customer_id: body.venta.customer_id ?? null,
+        subtotal: netoTotal,
+        iva: ivaTotal,
+        ppm: 0,
+        total: totalVenta,
+        metodo_pago: grupo.metodo_pago,
+        tipo_documento: body.venta.tipo_documento,
+        usuario_id: user.id,
+        notas: `Venta registrada por corrección de caja (${sesion.fecha}). Motivo: ${motivo}`,
+        created_at: horaVenta,
+      }).select().single()
+
+      if (ventaError || !ventaCreada) {
+        return NextResponse.json({ error: 'La caja se guardó pero una venta falló: ' + (ventaError?.message ?? '') }, { status: 500 })
+      }
+      const ventaId = ventaCreada.id
+      ventaIds.push(ventaId)
+
+      const { error: itemsError } = await admin.from('sale_items').insert(items.map(i => ({
+        sale_id: ventaId,
+        store_id: storeId,
+        product_id: i.product_id,
+        nombre: i.nombre,
+        cantidad: i.cantidad,
+        precio_unitario: i.precio_unitario,
+        subtotal: i.cantidad * i.precio_unitario,
+      })))
+      if (itemsError) {
+        return NextResponse.json({ error: 'Una venta se creó pero fallaron sus ítems: ' + itemsError.message }, { status: 500 })
+      }
+
+      for (const item of items) {
+        if (!item.product_id) continue
+        const { data: producto } = await admin
+          .from('products')
+          .select('stock_actual')
+          .eq('id', item.product_id)
+          .eq('store_id', storeId)
+          .maybeSingle()
+        if (!producto) continue
+        const stockAnterior = producto.stock_actual as number
+        const stockNuevo = stockAnterior - item.cantidad
+        await admin.from('products').update({ stock_actual: stockNuevo }).eq('id', item.product_id).eq('store_id', storeId)
+        await admin.from('stock_movements').insert({
+          store_id: storeId,
+          product_id: item.product_id,
+          tipo: 'salida',
+          cantidad: item.cantidad,
+          stock_anterior: stockAnterior,
+          stock_nuevo: stockNuevo,
+          razon: `Venta ${ventaCreada.numero_venta} (corrección de caja)`,
+          referencia_id: ventaId,
+          referencia_tipo: 'sale',
+        })
+      }
     }
   }
 
@@ -276,9 +288,9 @@ export async function POST(req: NextRequest) {
       transferencia_cierre: sesion!.transferencia_cierre,
       otros_cierre: sesion!.otros_cierre,
     },
-    venta_id: ventaId,
+    venta_ids: ventaIds.length > 0 ? ventaIds : null,
     usuario_id: user.id,
   })
 
-  return NextResponse.json({ ok: true, sesionId: sesion!.id, ventaId })
+  return NextResponse.json({ ok: true, sesionId: sesion!.id, ventaIds })
 }

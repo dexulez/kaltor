@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS correcciones_caja (
   motivo             TEXT NOT NULL,
   valores_anteriores JSONB,
   valores_nuevos     JSONB NOT NULL,
-  venta_id           UUID REFERENCES sales(id),
+  venta_ids          UUID[],
   usuario_id         UUID REFERENCES auth.users(id),
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );

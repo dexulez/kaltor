@@ -34,12 +34,22 @@ type ServicioBusqueda = {
   tipo_reparacion: string
 }
 
+type MetodoPago = 'efectivo' | 'transferencia' | 'debito' | 'credito'
+
 type ItemVenta = {
   key: string
   product_id: string | null
   nombre: string
   cantidad: number
   precio_unitario: number
+  metodo_pago: MetodoPago
+}
+
+const METODO_LABELS: Record<MetodoPago, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  debito: 'Débito',
+  credito: 'Crédito',
 }
 
 interface Props {
@@ -69,7 +79,6 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir, product
   const [pin, setPin] = useState('')
 
   const [agregarVenta, setAgregarVenta] = useState(false)
-  const [ventaMetodo, setVentaMetodo] = useState('efectivo')
   const [ventaTipoDoc, setVentaTipoDoc] = useState('boleta')
   const [busqueda, setBusqueda] = useState('')
   const [itemsVenta, setItemsVenta] = useState<ItemVenta[]>([])
@@ -101,7 +110,7 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir, product
     setItemsVenta(items => {
       const existe = items.find(i => i.product_id === p.id)
       if (existe) return items.map(i => i.product_id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i)
-      return [...items, { key: p.id, product_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: p.precio_venta }]
+      return [...items, { key: p.id, product_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: p.precio_venta, metodo_pago: 'efectivo' }]
     })
     setBusqueda('')
   }
@@ -109,7 +118,7 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir, product
   function agregarServicioCatalogo(s: ServicioBusqueda) {
     setItemsVenta(items => {
       if (items.find(i => i.key === `sv-${s.id}`)) return items
-      return [...items, { key: `sv-${s.id}`, product_id: null, nombre: s.nombre, cantidad: 1, precio_unitario: s.precio_base }]
+      return [...items, { key: `sv-${s.id}`, product_id: null, nombre: s.nombre, cantidad: 1, precio_unitario: s.precio_base, metodo_pago: 'efectivo' }]
     })
     setBusqueda('')
   }
@@ -125,7 +134,18 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir, product
     setItemsVenta(items => items.map(i => i.key === key ? { ...i, precio_unitario: n } : i))
   }
 
+  function cambiarMetodoItem(key: string, metodo: MetodoPago) {
+    setItemsVenta(items => items.map(i => i.key === key ? { ...i, metodo_pago: metodo } : i))
+  }
+
   const totalVenta = itemsVenta.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+
+  const gruposPago = Object.values(itemsVenta.reduce((acc, i) => {
+    if (!acc[i.metodo_pago]) acc[i.metodo_pago] = { metodo_pago: i.metodo_pago, total: 0, cantidadItems: 0 }
+    acc[i.metodo_pago].total += i.cantidad * i.precio_unitario
+    acc[i.metodo_pago].cantidadItems += 1
+    return acc
+  }, {} as Record<string, { metodo_pago: MetodoPago; total: number; cantidadItems: number }>))
 
   function cerrar() {
     setOpen(false)
@@ -163,9 +183,13 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir, product
         transferencia_cierre: parseInt(transferenciaCierre) || 0,
         otros_cierre: parseInt(otrosCierre) || 0,
         venta: agregarVenta ? {
-          items: itemsVenta.map(i => ({ product_id: i.product_id, nombre: i.nombre, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
-          metodo_pago: ventaMetodo,
           tipo_documento: ventaTipoDoc,
+          grupos: gruposPago.map(g => ({
+            metodo_pago: g.metodo_pago,
+            items: itemsVenta
+              .filter(i => i.metodo_pago === g.metodo_pago)
+              .map(i => ({ product_id: i.product_id, nombre: i.nombre, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
+          })),
         } : null,
       }),
     })
@@ -323,6 +347,17 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir, product
                                       className="w-20 text-right border rounded px-1.5 py-1 text-xs font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
                                     />
                                   </td>
+                                  <td className="px-1.5 py-1">
+                                    <select
+                                      value={i.metodo_pago}
+                                      onChange={e => cambiarMetodoItem(i.key, e.target.value as MetodoPago)}
+                                      className="border rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    >
+                                      {(Object.keys(METODO_LABELS) as MetodoPago[]).map(m => (
+                                        <option key={m} value={m}>{METODO_LABELS[m]}</option>
+                                      ))}
+                                    </select>
+                                  </td>
                                   <td className="px-2 py-1.5">
                                     <button type="button" onClick={() => quitarItem(i.key)} className="text-red-400 hover:text-red-600 text-base leading-none">×</button>
                                   </td>
@@ -337,23 +372,25 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir, product
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Método de pago</Label>
-                          <select value={ventaMetodo} onChange={e => setVentaMetodo(e.target.value)} className="w-full h-8 rounded-lg border px-2 text-sm">
-                            <option value="efectivo">Efectivo</option>
-                            <option value="transferencia">Transferencia</option>
-                            <option value="debito">Débito</option>
-                            <option value="credito">Crédito</option>
-                          </select>
+                      {gruposPago.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-2.5 space-y-1">
+                          <p className="text-xs font-semibold text-blue-800">
+                            Se registrará{gruposPago.length > 1 ? 'n' : ''} {gruposPago.length} venta{gruposPago.length > 1 ? 's' : ''}:
+                          </p>
+                          {gruposPago.map(g => (
+                            <p key={g.metodo_pago} className="text-xs text-blue-700">
+                              • {METODO_LABELS[g.metodo_pago]} — {g.cantidadItems} ítem{g.cantidadItems > 1 ? 's' : ''} — {formatCLP(g.total)}
+                            </p>
+                          ))}
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Documento</Label>
-                          <select value={ventaTipoDoc} onChange={e => setVentaTipoDoc(e.target.value)} className="w-full h-8 rounded-lg border px-2 text-sm">
-                            <option value="boleta">Boleta</option>
-                            <option value="factura">Factura</option>
-                          </select>
-                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">Documento (para todas las ventas)</Label>
+                        <select value={ventaTipoDoc} onChange={e => setVentaTipoDoc(e.target.value)} className="w-full h-8 rounded-lg border px-2 text-sm">
+                          <option value="boleta">Boleta</option>
+                          <option value="factura">Factura</option>
+                        </select>
                       </div>
                     </div>
                   )}
