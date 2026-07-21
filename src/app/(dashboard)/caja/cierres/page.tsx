@@ -3,6 +3,8 @@ import BotonVolver from '@/components/shared/BotonVolver'
 import { formatCLP } from '@/lib/calculations'
 import ReimprimirCierreBtn from '@/components/caja/ReimprimirCierreBtn'
 import VentasSesionModal from '@/components/caja/VentasSesionModal'
+import CorregirCajaModal from '@/components/caja/CorregirCajaModal'
+import { tieneSubPermiso } from '@/lib/modulos'
 
 const TZ = 'America/Santiago'
 
@@ -12,8 +14,9 @@ function horaLocal(iso: string) {
 
 export default async function CierresCajaPage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: sesiones }, { data: sysConf }] = await Promise.all([
+  const [{ data: sesiones }, { data: sysConf }, { data: perfil }, { data: correcciones }] = await Promise.all([
     supabase.from('sesiones_caja')
       .select('*')
       .order('fecha', { ascending: false })
@@ -21,7 +24,25 @@ export default async function CierresCajaPage() {
     supabase.from('system_config')
       .select('iva, comision_debito, comision_credito, comision_transferencia, nombre_local, rut_local, direccion, telefono, email, logo_url')
       .maybeSingle(),
+    supabase.from('user_profiles').select('permisos_modulos, roles(nombre)').eq('id', user!.id).single(),
+    supabase.from('correcciones_caja')
+      .select('id, sesion_id, tipo, motivo, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50),
   ])
+
+  const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
+  const rolNombre = (Array.isArray(rolesData) ? rolesData[0]?.nombre : rolesData?.nombre) ?? ''
+  const permisos = perfil?.permisos_modulos as Record<string, boolean> | null
+  const puedeCorregir = tieneSubPermiso('caja.corregir_caja', rolNombre, permisos)
+
+  type Correccion = { id: string; sesion_id: string; tipo: string; motivo: string; created_at: string }
+  const correccionesPorSesion = new Map<string, Correccion[]>()
+  for (const c of (correcciones ?? []) as Correccion[]) {
+    const lista = correccionesPorSesion.get(c.sesion_id) ?? []
+    lista.push(c)
+    correccionesPorSesion.set(c.sesion_id, lista)
+  }
 
   const conf = sysConf as {
     iva?: number; comision_debito?: number; comision_credito?: number; comision_transferencia?: number
@@ -49,10 +70,13 @@ export default async function CierresCajaPage() {
 
   return (
     <div className="p-6 space-y-5">
-      <div>
-        <BotonVolver label="← Volver a Caja" />
-        <h1 className="text-2xl font-bold text-gray-900 mt-1">Historial de cierres de caja</h1>
-        <p className="text-gray-500 text-sm mt-0.5">{cerradas.length} cierre{cerradas.length !== 1 ? 's' : ''} registrado{cerradas.length !== 1 ? 's' : ''}</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <BotonVolver label="← Volver a Caja" />
+          <h1 className="text-2xl font-bold text-gray-900 mt-1">Historial de cierres de caja</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{cerradas.length} cierre{cerradas.length !== 1 ? 's' : ''} registrado{cerradas.length !== 1 ? 's' : ''}</p>
+        </div>
+        <CorregirCajaModal mode="nueva" puedeCorregir={puedeCorregir} />
       </div>
 
       {/* Resumen mes actual */}
@@ -99,8 +123,9 @@ export default async function CierresCajaPage() {
                 {cerradas.map(ses => {
                   const total = (ses.efectivo_cierre ?? 0) + (ses.transbank_cierre ?? 0) + (ses.transferencia_cierre ?? 0) + (ses.otros_cierre ?? 0)
                   const dif = ses.diferencia_efectivo ?? 0
+                  const correccionesSesion = correccionesPorSesion.get(ses.id) ?? []
                   return (
-                    <tr key={ses.id} className="hover:bg-gray-50">
+                    <tr key={ses.id} className="hover:bg-gray-50 align-top">
                       <td className="px-3 py-3 font-medium">
                         {new Date(ses.fecha + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </td>
@@ -141,7 +166,29 @@ export default async function CierresCajaPage() {
                             comisionCredito={conf?.comision_credito ?? 2.5}
                             comisionTransferencia={conf?.comision_transferencia ?? 0}
                           />
+                          <CorregirCajaModal
+                            mode="editar"
+                            puedeCorregir={puedeCorregir}
+                            sesion={{
+                              id: ses.id,
+                              fecha: ses.fecha,
+                              efectivo_apertura: ses.efectivo_apertura,
+                              efectivo_cierre: ses.efectivo_cierre,
+                              transbank_cierre: ses.transbank_cierre,
+                              transferencia_cierre: ses.transferencia_cierre,
+                              otros_cierre: ses.otros_cierre,
+                            }}
+                          />
                         </div>
+                        {correccionesSesion.length > 0 && (
+                          <div className="mt-1.5 space-y-0.5">
+                            {correccionesSesion.map(c => (
+                              <p key={c.id} className="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">
+                                ✏️ {new Date(c.created_at).toLocaleDateString('es-CL')}: {c.motivo}
+                              </p>
+                            ))}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )
