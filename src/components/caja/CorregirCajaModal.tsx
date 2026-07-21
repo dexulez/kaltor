@@ -18,15 +18,41 @@ type SesionExistente = {
   otros_cierre: number | null
 }
 
+type ProductoBusqueda = {
+  id: string
+  nombre: string
+  sku?: string | null
+  precio_venta: number
+  stock_actual: number
+  unidad_medida: string
+}
+
+type ServicioBusqueda = {
+  id: string
+  nombre: string
+  precio_base: number
+  tipo_reparacion: string
+}
+
+type ItemVenta = {
+  key: string
+  product_id: string | null
+  nombre: string
+  cantidad: number
+  precio_unitario: number
+}
+
 interface Props {
   mode: 'editar' | 'nueva'
   sesion?: SesionExistente
   puedeCorregir: boolean
+  productos: ProductoBusqueda[]
+  servicios: ServicioBusqueda[]
 }
 
 const TZ = 'America/Santiago'
 
-export default function CorregirCajaModal({ mode, sesion, puedeCorregir }: Props) {
+export default function CorregirCajaModal({ mode, sesion, puedeCorregir, productos, servicios }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [paso, setPaso] = useState<'form' | 'autorizar'>('form')
@@ -43,9 +69,10 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir }: Props
   const [pin, setPin] = useState('')
 
   const [agregarVenta, setAgregarVenta] = useState(false)
-  const [ventaMonto, setVentaMonto] = useState('')
   const [ventaMetodo, setVentaMetodo] = useState('efectivo')
   const [ventaTipoDoc, setVentaTipoDoc] = useState('boleta')
+  const [busqueda, setBusqueda] = useState('')
+  const [itemsVenta, setItemsVenta] = useState<ItemVenta[]>([])
 
   function resetForm() {
     setPaso('form')
@@ -58,8 +85,47 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir }: Props
     setMotivo('')
     setPin('')
     setAgregarVenta(false)
-    setVentaMonto('')
+    setBusqueda('')
+    setItemsVenta([])
   }
+
+  const q = busqueda.toLowerCase().trim()
+  const productosFiltrados = q ? productos.filter(p =>
+    p.nombre.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))
+  ).slice(0, 20) : []
+  const serviciosFiltrados = q ? servicios.filter(s =>
+    s.nombre.toLowerCase().includes(q) || s.tipo_reparacion.toLowerCase().includes(q)
+  ).slice(0, 20) : []
+
+  function agregarProducto(p: ProductoBusqueda) {
+    setItemsVenta(items => {
+      const existe = items.find(i => i.product_id === p.id)
+      if (existe) return items.map(i => i.product_id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i)
+      return [...items, { key: p.id, product_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: p.precio_venta }]
+    })
+    setBusqueda('')
+  }
+
+  function agregarServicioCatalogo(s: ServicioBusqueda) {
+    setItemsVenta(items => {
+      if (items.find(i => i.key === `sv-${s.id}`)) return items
+      return [...items, { key: `sv-${s.id}`, product_id: null, nombre: s.nombre, cantidad: 1, precio_unitario: s.precio_base }]
+    })
+    setBusqueda('')
+  }
+
+  function quitarItem(key: string) { setItemsVenta(items => items.filter(i => i.key !== key)) }
+
+  function cambiarCantidadItem(key: string, delta: number) {
+    setItemsVenta(items => items.map(i => i.key === key ? { ...i, cantidad: Math.max(1, i.cantidad + delta) } : i))
+  }
+
+  function cambiarPrecioItem(key: string, valor: string) {
+    const n = parseInt(valor.replace(/\D/g, '')) || 0
+    setItemsVenta(items => items.map(i => i.key === key ? { ...i, precio_unitario: n } : i))
+  }
+
+  const totalVenta = itemsVenta.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
 
   function cerrar() {
     setOpen(false)
@@ -70,7 +136,7 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir }: Props
     if (motivo.trim().length < 10) { toast.error('Escribe una nota de justificación (mínimo 10 caracteres)'); return }
     if (mode === 'nueva' && !fecha) { toast.error('Selecciona la fecha de la caja'); return }
     if (mode === 'nueva' && fecha >= hoy) { toast.error('La fecha debe ser anterior a hoy'); return }
-    if (agregarVenta && !(parseInt(ventaMonto) > 0)) { toast.error('Ingresa el monto de la venta manual'); return }
+    if (agregarVenta && itemsVenta.length === 0) { toast.error('Agrega al menos un producto o servicio'); return }
     if (puedeCorregir) {
       ejecutar()
     } else {
@@ -97,7 +163,7 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir }: Props
         transferencia_cierre: parseInt(transferenciaCierre) || 0,
         otros_cierre: parseInt(otrosCierre) || 0,
         venta: agregarVenta ? {
-          monto: parseInt(ventaMonto) || 0,
+          items: itemsVenta.map(i => ({ product_id: i.product_id, nombre: i.nombre, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
           metodo_pago: ventaMetodo,
           tipo_documento: ventaTipoDoc,
         } : null,
@@ -192,30 +258,102 @@ export default function CorregirCajaModal({ mode, sesion, puedeCorregir }: Props
                 <div className="border rounded-xl p-3 space-y-2">
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                     <input type="checkbox" checked={agregarVenta} onChange={e => setAgregarVenta(e.target.checked)} />
-                    Agregar una venta manual a esta caja
+                    Agregar productos/servicios vendidos a esta caja
                   </label>
                   {agregarVenta && (
-                    <div className="grid grid-cols-2 gap-3 pt-1">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Monto</Label>
-                        <Input type="number" min={0} value={ventaMonto} onChange={e => setVentaMonto(e.target.value)} />
-                        {parseInt(ventaMonto) > 0 && <p className="text-xs text-green-700">{formatCLP(parseInt(ventaMonto))}</p>}
+                    <div className="space-y-2 pt-1">
+                      <div className="relative">
+                        <Input
+                          placeholder="Buscar producto o servicio..."
+                          value={busqueda}
+                          onChange={e => setBusqueda(e.target.value)}
+                        />
+                        {busqueda && (
+                          <div className="absolute z-10 left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                            {productosFiltrados.length === 0 && serviciosFiltrados.length === 0 ? (
+                              <p className="text-center text-gray-400 text-xs py-3">Sin resultados para &quot;{busqueda}&quot;</p>
+                            ) : (
+                              <>
+                                {serviciosFiltrados.map(s => (
+                                  <button key={s.id} type="button" onClick={() => agregarServicioCatalogo(s)}
+                                    className="w-full text-left px-3 py-2 border-b last:border-0 hover:bg-purple-50 transition-colors bg-purple-50/40 flex justify-between items-center gap-2">
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-gray-900 text-sm truncate">{s.nombre}</p>
+                                      <span className="text-xs text-purple-600">🔩 Servicio</span>
+                                    </div>
+                                    <p className="font-bold text-purple-700 text-sm shrink-0">{formatCLP(s.precio_base)}</p>
+                                  </button>
+                                ))}
+                                {productosFiltrados.map(p => (
+                                  <button key={p.id} type="button" onClick={() => agregarProducto(p)}
+                                    className="w-full text-left px-3 py-2 border-b last:border-0 hover:bg-blue-50 transition-colors flex justify-between items-center gap-2">
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-gray-900 text-sm truncate">{p.nombre}</p>
+                                      <span className="text-xs text-gray-400">Stock: {p.stock_actual}</span>
+                                    </div>
+                                    <p className="font-bold text-blue-700 text-sm shrink-0">{formatCLP(p.precio_venta)}</p>
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Método de pago</Label>
-                        <select value={ventaMetodo} onChange={e => setVentaMetodo(e.target.value)} className="w-full h-8 rounded-lg border px-2 text-sm">
-                          <option value="efectivo">Efectivo</option>
-                          <option value="transferencia">Transferencia</option>
-                          <option value="debito">Débito</option>
-                          <option value="credito">Crédito</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1 col-span-2">
-                        <Label className="text-xs">Documento</Label>
-                        <select value={ventaTipoDoc} onChange={e => setVentaTipoDoc(e.target.value)} className="w-full h-8 rounded-lg border px-2 text-sm">
-                          <option value="boleta">Boleta</option>
-                          <option value="factura">Factura</option>
-                        </select>
+
+                      {itemsVenta.length > 0 && (
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <tbody className="divide-y">
+                              {itemsVenta.map(i => (
+                                <tr key={i.key}>
+                                  <td className="px-2 py-1.5 font-medium text-xs">{i.nombre}</td>
+                                  <td className="px-2 py-1.5">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <button type="button" onClick={() => cambiarCantidadItem(i.key, -1)} className="w-5 h-5 rounded-full border hover:bg-gray-100 text-sm leading-none shrink-0">−</button>
+                                      <span className="w-5 text-center text-xs font-bold">{i.cantidad}</span>
+                                      <button type="button" onClick={() => cambiarCantidadItem(i.key, 1)} className="w-5 h-5 rounded-full border hover:bg-gray-100 text-sm leading-none shrink-0">+</button>
+                                    </div>
+                                  </td>
+                                  <td className="px-1.5 py-1">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={i.precio_unitario}
+                                      onChange={e => cambiarPrecioItem(i.key, e.target.value)}
+                                      className="w-20 text-right border rounded px-1.5 py-1 text-xs font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <button type="button" onClick={() => quitarItem(i.key)} className="text-red-400 hover:text-red-600 text-base leading-none">×</button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <div className="bg-gray-50 border-t px-3 py-1.5 flex justify-between items-center">
+                            <span className="text-xs text-gray-500">Total venta</span>
+                            <span className="font-bold text-sm text-gray-900">{formatCLP(totalVenta)}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Método de pago</Label>
+                          <select value={ventaMetodo} onChange={e => setVentaMetodo(e.target.value)} className="w-full h-8 rounded-lg border px-2 text-sm">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="debito">Débito</option>
+                            <option value="credito">Crédito</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Documento</Label>
+                          <select value={ventaTipoDoc} onChange={e => setVentaTipoDoc(e.target.value)} className="w-full h-8 rounded-lg border px-2 text-sm">
+                            <option value="boleta">Boleta</option>
+                            <option value="factura">Factura</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                   )}

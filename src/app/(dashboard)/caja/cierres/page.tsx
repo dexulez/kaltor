@@ -16,7 +16,7 @@ export default async function CierresCajaPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: sesiones }, { data: sysConf }, { data: perfil }, { data: correcciones }] = await Promise.all([
+  const [{ data: sesiones }, { data: sysConf }, { data: perfil }, { data: correcciones }, { data: productos }, { data: servicios }] = await Promise.all([
     supabase.from('sesiones_caja')
       .select('*')
       .order('fecha', { ascending: false })
@@ -29,6 +29,8 @@ export default async function CierresCajaPage() {
       .select('id, sesion_id, tipo, motivo, created_at')
       .order('created_at', { ascending: false })
       .limit(50),
+    supabase.from('products').select('id, nombre, sku, precio_venta, stock_actual, unidad_medida').eq('activo', true).order('nombre'),
+    supabase.from('repair_services').select('id, nombre, precio_base, tipo_reparacion').eq('activo', true).order('nombre'),
   ])
 
   const rolesData = perfil?.roles as { nombre?: string } | { nombre?: string }[] | null
@@ -76,7 +78,12 @@ export default async function CierresCajaPage() {
           <h1 className="text-2xl font-bold text-gray-900 mt-1">Historial de cierres de caja</h1>
           <p className="text-gray-500 text-sm mt-0.5">{cerradas.length} cierre{cerradas.length !== 1 ? 's' : ''} registrado{cerradas.length !== 1 ? 's' : ''}</p>
         </div>
-        <CorregirCajaModal mode="nueva" puedeCorregir={puedeCorregir} />
+        <CorregirCajaModal
+          mode="nueva"
+          puedeCorregir={puedeCorregir}
+          productos={productos ?? []}
+          servicios={servicios ?? []}
+        />
       </div>
 
       {/* Resumen mes actual */}
@@ -169,6 +176,8 @@ export default async function CierresCajaPage() {
                           <CorregirCajaModal
                             mode="editar"
                             puedeCorregir={puedeCorregir}
+                            productos={productos ?? []}
+                            servicios={servicios ?? []}
                             sesion={{
                               id: ses.id,
                               fecha: ses.fecha,
