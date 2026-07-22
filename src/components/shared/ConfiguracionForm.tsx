@@ -68,6 +68,8 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
     mayusculas_automaticas: (config as Record<string, unknown>).mayusculas_automaticas === true,
     mostrar_stock_b2b: (config as Record<string, unknown>).mostrar_stock_b2b !== false,
     terminos_condiciones: config.terminos_condiciones ?? TC_DEFAULT,
+    mostrar_firmas_comprobante: (config as Record<string, unknown>).mostrar_firmas_comprobante !== false,
+    firmas_posicion: ((config as Record<string, unknown>).firmas_posicion === 'terminos' ? 'terminos' : 'frontal') as 'frontal' | 'terminos',
     costo_insumos_promedio: String(config.costo_insumos_promedio ?? 0),
     asistente_ia_activo: (config as Record<string, unknown>).asistente_ia_activo !== false,
     asistente_ia_posicion: ((config as Record<string, unknown>).asistente_ia_posicion === 'izquierda' ? 'izquierda' : 'derecha') as 'izquierda' | 'derecha',
@@ -174,6 +176,8 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
       mayusculas_automaticas: form.mayusculas_automaticas,
       mostrar_stock_b2b: form.mostrar_stock_b2b,
       terminos_condiciones: form.terminos_condiciones.trim() || null,
+      mostrar_firmas_comprobante: form.mostrar_firmas_comprobante,
+      firmas_posicion: form.firmas_posicion,
       costo_insumos_promedio: parseInt(form.costo_insumos_promedio) || 0,
       asistente_ia_activo: form.asistente_ia_activo,
       asistente_ia_posicion: form.asistente_ia_posicion,
@@ -183,7 +187,7 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
 
     // Columnas agregadas en migraciones posteriores: si todavía no existen en
     // la base de datos, reintentar sin ellas en vez de fallar el guardado completo.
-    const COLUMNAS_OPCIONALES = ['mostrar_tecnico_pdf', 'mayusculas_automaticas', 'mostrar_stock_b2b', 'asistente_ia_activo', 'asistente_ia_posicion']
+    const COLUMNAS_OPCIONALES = ['mostrar_tecnico_pdf', 'mayusculas_automaticas', 'mostrar_stock_b2b', 'asistente_ia_activo', 'asistente_ia_posicion', 'mostrar_firmas_comprobante', 'firmas_posicion']
     while (error && COLUMNAS_OPCIONALES.some(c => error!.message.includes(c))) {
       const columna = COLUMNAS_OPCIONALES.find(c => error!.message.includes(c))!
       delete payload[columna]
@@ -405,6 +409,43 @@ export default function ConfiguracionForm({ config }: { config: ConfigData }) {
           className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono leading-relaxed resize-y"
           placeholder="Escribe los términos y condiciones que aparecerán en el comprobante..."
         />
+
+        <div className="border-t pt-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.mostrar_firmas_comprobante}
+              onChange={e => set('mostrar_firmas_comprobante', e.target.checked)}
+            />
+            Mostrar firma de ambas partes (cliente y tienda) en el comprobante
+          </label>
+          <p className="text-xs text-gray-500">
+            Controla si se imprimen los espacios de firma en el comprobante de recepción (copia del cliente y copia de la tienda)
+          </p>
+
+          {form.mostrar_firmas_comprobante && (
+            <div className="flex items-center gap-4 pl-6 pt-1">
+              <label className="flex items-center gap-1.5 text-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="firmas_posicion"
+                  checked={form.firmas_posicion === 'frontal'}
+                  onChange={() => set('firmas_posicion', 'frontal')}
+                />
+                Junto a los datos del comprobante (frente)
+              </label>
+              <label className="flex items-center gap-1.5 text-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="firmas_posicion"
+                  checked={form.firmas_posicion === 'terminos'}
+                  onChange={() => set('firmas_posicion', 'terminos')}
+                />
+                Junto a los Términos y Condiciones
+              </label>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex justify-end">

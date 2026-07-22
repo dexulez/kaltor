@@ -112,6 +112,8 @@ export default async function OTDetallePage({ params }: { params: Promise<{ id: 
     email: config?.email ?? null,
     logo_url: configRaw?.logo_url as string | null ?? null,
     terminos_condiciones: configRaw?.terminos_condiciones as string | null ?? null,
+    mostrar_firmas_comprobante: configRaw?.mostrar_firmas_comprobante as boolean | null ?? null,
+    firmas_posicion: configRaw?.firmas_posicion as string | null ?? null,
   }
 
   return (

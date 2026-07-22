@@ -43,6 +43,8 @@ interface Config {
   email?: string | null
   logo_url?: string | null
   terminos_condiciones?: string | null
+  mostrar_firmas_comprobante?: boolean | null
+  firmas_posicion?: string | null
 }
 
 interface Props { ot: OTParaCompartir; config: Config; baseUrl: string; mostrarTecnico?: boolean }
@@ -118,12 +120,40 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
     ? new Date(ot.fecha_estimada_entrega + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : null
   const tc = config.terminos_condiciones || TC_DEFAULT
+  const mostrarFirmas = config.mostrar_firmas_comprobante !== false
+  // Si se eligió "junto a los T&C" pero esta impresión no incluye T&C, la firma
+  // vuelve a mostrarse en el frente para no perderla por completo.
+  const firmasJuntoTC = mostrarFirmas && config.firmas_posicion === 'terminos' && incluirTC
+  const firmasFrontal = mostrarFirmas && !firmasJuntoTC
 
   // ── Generadores de HTML ────────────────────────────────────────────────────
 
   const logoHtml = config.logo_url
     ? `<img src="${config.logo_url}" style="max-height:11mm;max-width:42mm;display:block;object-fit:contain" alt="Logo">`
     : `<span style="font-size:18pt">🔧</span>`
+
+  // Bloque de firma compacto, para adjuntar junto a los T&C cuando así se configura
+  function firmaJuntoTCHtml(size: 'compacta' | 'normal' | 'ticket'): string {
+    if (!firmasJuntoTC) return ''
+    if (size === 'compacta') {
+      return `<div style="display:flex;gap:6mm;margin-top:2mm;padding-top:2mm;border-top:1px solid #d1d5db">
+        <div style="text-align:center;flex:1"><div style="height:7mm;border-bottom:1px solid #000"></div><div style="font-size:5.5pt;color:#6b7280;margin-top:0.5mm">Firma y RUT cliente</div></div>
+        <div style="text-align:center;flex:1"><div style="height:7mm;border-bottom:1px solid #000"></div><div style="font-size:5.5pt;color:#6b7280;margin-top:0.5mm">Firma técnico / Sello</div></div>
+      </div>`
+    }
+    if (size === 'ticket') {
+      return `<div style="margin-top:4mm">
+        <div style="height:14mm;border-bottom:1.5px solid #000;margin-bottom:1.5mm"></div>
+        <div style="text-align:center;font-size:8pt;color:#555;margin-bottom:3mm">Firma técnico / Sello empresa</div>
+        <div style="height:14mm;border-bottom:1.5px solid #000;margin-bottom:1.5mm"></div>
+        <div style="text-align:center;font-size:8pt;color:#555">Firma y RUT cliente</div>
+      </div>`
+    }
+    return `<div style="display:flex;gap:10mm;margin-top:4mm;padding-top:3mm;border-top:1px solid #d1d5db">
+      <div style="text-align:center;flex:1"><div style="height:12mm;border-bottom:1px solid #000"></div><div style="font-size:7.5pt;color:#6b7280;margin-top:1mm">Firma y RUT cliente</div></div>
+      <div style="text-align:center;flex:1"><div style="height:12mm;border-bottom:1px solid #000"></div><div style="font-size:7.5pt;color:#6b7280;margin-top:1mm">Firma técnico / Sello</div></div>
+    </div>`
+  }
 
   // A4/Carta: T&C en la misma página, fluye bajo el contenido OT
   const tcSamePageHtml = incluirTC ? `
@@ -134,6 +164,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       <ol style="font-size:6pt;column-count:2;column-gap:5mm;line-height:1.4;padding-left:5mm;margin:0">
         ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:1.5mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
       </ol>
+      ${firmaJuntoTCHtml('compacta')}
     </div>` : ''
 
   // A5: T&C en página trasera (salto de página), sin líneas de firma
@@ -151,6 +182,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       <ol style="font-size:8.5pt;column-count:${cols};column-gap:6mm;line-height:1.6;padding-left:5mm;margin:0">
         ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:2.5mm;break-inside:avoid">${l.replace(/^•\s*/, '')}</li>`).join('')}
       </ol>
+      ${firmaJuntoTCHtml('normal')}
     </div>`
   }
 
@@ -160,6 +192,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
       <ol style="font-size:7pt;line-height:1.45;padding-left:5mm;margin:0">
         ${tc.split('\n').filter(Boolean).map(l => `<li style="margin-bottom:1.5mm">${l.replace(/^•\s*/, '')}</li>`).join('')}
       </ol>
+      ${firmaJuntoTCHtml('ticket')}
     </div>` : ''
 
   // ── CSS base compartido ────────────────────────────────────────────────────
@@ -308,6 +341,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   }
 
   function firmasHtml() {
+    if (!firmasFrontal) return ''
     return `<div class="sig-row">
       <div class="sig">Firma y RUT cliente</div>
       <div class="sig">Firma técnico / Sello</div>
@@ -326,6 +360,7 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
   }
 
   function firmaRow() {
+    if (!firmasFrontal) return ''
     return `<div style="display:flex;gap:8mm;margin-top:2mm">
       <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma y RUT cliente</div></div>
       <div style="text-align:center"><div style="height:10mm;border-bottom:1px solid #000;width:40mm"></div><div style="font-size:6.5pt;color:#6b7280;margin-top:1mm">Firma técnico / Sello</div></div>
@@ -476,17 +511,19 @@ export default function OTBotonesCompartir({ ot, config, baseUrl, mostrarTecnico
         <div style="font-size:7.5pt;font-family:monospace;word-break:break-all;color:#1e3a5f">${trackingUrl}</div>
       </div>
 
+      ${firmasFrontal ? `
       <!-- Firma técnico -->
       <div style="margin-top:3mm">
         <div style="height:14mm;border-bottom:1.5px solid #000;margin-bottom:1.5mm"></div>
         <div style="text-align:center;font-size:8pt;color:#555">Firma técnico / Sello empresa</div>
-      </div>
+      </div>` : ''}
       ${tcTicketHtml}
+      ${firmasFrontal ? `
       <!-- Firma cliente -->
       <div style="margin-top:4mm">
         <div style="height:14mm;border-bottom:1.5px solid #000;margin-bottom:1.5mm"></div>
         <div style="text-align:center;font-size:8pt;color:#555">${incluirTC ? 'Firma y RUT cliente — acepta los T&amp;C' : 'Firma y RUT cliente'}</div>
-      </div>
+      </div>` : ''}
       <div style="height:14mm"></div>`
   }
 
