@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { formatCLP } from '@/lib/calculations'
 import AbonarProveedorBtn from '@/components/compras/AbonarProveedorBtn'
+import ListaPreciosProveedorBtn from '@/components/compras/ListaPreciosProveedorBtn'
 import { tieneSubPermiso } from '@/lib/modulos'
 
 export default async function ProveedoresPage() {
@@ -126,6 +127,15 @@ export default async function ProveedoresPage() {
                             Nueva OC
                           </Button>
                         </Link>
+                      )}
+                      {puedeEditar && (
+                        <ListaPreciosProveedorBtn
+                          supplierId={p.id}
+                          nombreProveedor={p.nombre}
+                          listaPreciosUrl={p.lista_precios_url}
+                          listaPreciosNombre={p.lista_precios_nombre}
+                          listaPreciosActualizadoAt={p.lista_precios_actualizado_at}
+                        />
                       )}
                       {puedeEditar && (
                         <Link href={`/compras/proveedor/${p.id}/editar`}>

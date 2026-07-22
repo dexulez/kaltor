@@ -209,6 +209,9 @@ export interface Supplier {
   calificacion?: number
   activo: boolean
   notas?: string
+  lista_precios_url?: string | null
+  lista_precios_nombre?: string | null
+  lista_precios_actualizado_at?: string | null
   created_at: string
   updated_at: string
 }
