@@ -2,9 +2,22 @@ import { createClient } from '@/lib/supabase/server'
 import ConfiguracionForm from '@/components/shared/ConfiguracionForm'
 import Link from 'next/link'
 
+type RoleRelation = { nombre?: string } | { nombre?: string }[] | null
+
+function getRoleName(roles: RoleRelation) {
+  if (Array.isArray(roles)) return roles[0]?.nombre ?? ''
+  return roles?.nombre ?? ''
+}
+
 export default async function ConfiguracionPage() {
   const supabase = await createClient()
   const { data } = await supabase.from('system_config').select('*').single()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: perfilPropio } = user
+    ? await supabase.from('user_profiles').select('roles(nombre)').eq('id', user.id).single()
+    : { data: null }
+  const rolNombre = getRoleName(perfilPropio?.roles as RoleRelation)
 
   const config = data ?? {
     id: '',
@@ -83,6 +96,17 @@ export default async function ConfiguracionPage() {
           </div>
           <span className="ml-auto text-gray-300">→</span>
         </Link>
+        {rolNombre === 'administrador' && (
+          <Link href="/configuracion/respaldo"
+            className="flex items-center gap-3 bg-white rounded-xl border border-red-200 p-4 hover:border-red-400 hover:bg-red-50 transition-colors">
+            <span className="text-2xl">🗄️</span>
+            <div>
+              <p className="font-semibold text-gray-800 text-sm">Respaldo y limpieza</p>
+              <p className="text-xs text-gray-400">Descarga respaldos y borra datos por categoría</p>
+            </div>
+            <span className="ml-auto text-gray-300">→</span>
+          </Link>
+        )}
       </div>
     </div>
   )
