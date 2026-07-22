@@ -395,8 +395,8 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
       toast.error('No se encontraron productos en el archivo de Bsale.')
       return
     }
-    if (dataRows.length > 500) {
-      toast.error('Máximo 500 productos por carga. Divide el archivo en partes.')
+    if (dataRows.length > 5000) {
+      toast.error('Máximo 5000 productos por carga. Divide el archivo en partes.')
       return
     }
 
@@ -432,8 +432,8 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
           setCargando(false)
           return
         }
-        if (rows.length > 500) {
-          toast.error('Máximo 500 productos por carga. Divide el archivo en partes.')
+        if (rows.length > 5000) {
+          toast.error('Máximo 5000 productos por carga. Divide el archivo en partes.')
           setCargando(false)
           return
         }
@@ -684,7 +684,7 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
           <div className="flex-1">
             <h2 className="font-semibold text-gray-800">Completa y sube el archivo Excel</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              Rellena la hoja &ldquo;Productos&rdquo; con tus datos y sube el archivo aquí. Máximo 500 filas por carga.
+              Rellena la hoja &ldquo;Productos&rdquo; con tus datos y sube el archivo aquí. Máximo 5000 filas por carga.
             </p>
             <p className="text-xs text-gray-400 mt-1">
               También puedes subir directamente el archivo exportado desde <strong>Bsale</strong> (Inventario → Exportar) — el sistema detecta el formato automáticamente y convierte los datos.

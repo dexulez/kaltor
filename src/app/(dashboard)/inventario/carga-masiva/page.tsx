@@ -16,7 +16,7 @@ export default async function CargaMasivaPage() {
         <BotonVolver label="← Volver al inventario" />
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Carga masiva de productos</h1>
         <p className="text-gray-500 text-sm">
-          Importa hasta 500 productos a la vez usando un archivo Excel.
+          Importa hasta 5000 productos a la vez usando un archivo Excel.
         </p>
       </div>
 
