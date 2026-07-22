@@ -267,6 +267,8 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
   const [importando, setImportando] = useState(false)
   const [importResult, setImportResult] = useState<{ ok: number; errores: number } | null>(null)
   const [origenBsale, setOrigenBsale] = useState(false)
+  const [resolucionCategoria, setResolucionCategoria] = useState<Record<string, string>>({})
+  const [resolviendo, setResolviendo] = useState(false)
 
   // ── Generar plantilla Excel ──────────────────────────────────────────────
   function descargarPlantilla() {
@@ -398,34 +400,7 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
       return
     }
 
-    // Detectar categorías (Tipo de Producto) que no existen aún en el sistema
-    const tiposDetectados = dataRows.map(r => {
-      const t = String((col.tipoProducto >= 0 ? r[col.tipoProducto] : '') ?? '').trim()
-      return t || CATEGORIA_FALLBACK_BSALE
-    })
-    const tiposUnicos = Array.from(new Set(tiposDetectados))
-    let categoriasActuales = categoriasLocal
-    const faltantes = tiposUnicos.filter(t => !categoriasActuales.some(c => c.nombre.toLowerCase() === t.toLowerCase()))
-
-    if (faltantes.length > 0) {
-      const crear = confirm(
-        `Bsale trae ${faltantes.length} categoría(s) que no existen en tu sistema:\n\n${faltantes.join(', ')}\n\n¿Crearlas automáticamente para continuar con la importación?\n\n(Si eliges "Cancelar", esos productos quedarán marcados con error y podrás crear las categorías manualmente antes de reintentar).`
-      )
-      if (crear) {
-        const { data: nuevas, error } = await supabase
-          .from('product_categories')
-          .insert(faltantes.map(nombre => ({ nombre, tipo: 'accesorio', vendible: true })))
-          .select('id, nombre, tipo')
-        if (error) {
-          toast.error('Error al crear categorías: ' + error.message)
-        } else if (nuevas) {
-          categoriasActuales = [...categoriasActuales, ...(nuevas as Categoria[])]
-          setCategoriasLocal(categoriasActuales)
-        }
-      }
-    }
-
-    const parsed = dataRows.map((row, i) => parseBsaleRow(row, headerIdx + i + 2, col, categoriasActuales))
+    const parsed = dataRows.map((row, i) => parseBsaleRow(row, headerIdx + i + 2, col, categoriasLocal))
     setFilas(parsed)
     toast.success(`Archivo de Bsale detectado: ${parsed.length} producto(s) leídos`)
   }
@@ -436,6 +411,7 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
     if (!file) return
     setCargando(true)
     setImportResult(null)
+    setResolucionCategoria({})
 
     try {
       const buf = await file.arrayBuffer()
@@ -472,6 +448,63 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
     setCargando(false)
     // Reset input para permitir subir el mismo archivo de nuevo
     if (inputRef.current) inputRef.current.value = ''
+  }
+
+  // ── Resolver categorías del archivo que no existen en el sistema ────────
+  // Nombres únicos de categoría que vienen informados en el archivo pero no matchean ninguna existente
+  const categoriasFaltantes = Array.from(
+    new Set(filas.filter(f => f.categoria_nombre && !f.categoria_id).map(f => f.categoria_nombre))
+  )
+
+  async function aplicarResolucionCategorias() {
+    const pendientes = categoriasFaltantes.filter(nombre => resolucionCategoria[nombre])
+    if (pendientes.length === 0) { toast.error('Elige qué hacer con al menos una categoría'); return }
+
+    setResolviendo(true)
+    let categoriasActuales = categoriasLocal
+    const aCrear = pendientes.filter(nombre => resolucionCategoria[nombre] === 'CREAR')
+
+    if (aCrear.length > 0) {
+      const { data: nuevas, error } = await supabase
+        .from('product_categories')
+        .insert(aCrear.map(nombre => ({ nombre, tipo: 'accesorio', vendible: true })))
+        .select('id, nombre, tipo')
+      if (error) {
+        toast.error('Error al crear categorías: ' + error.message)
+        setResolviendo(false)
+        return
+      }
+      categoriasActuales = [...categoriasActuales, ...((nuevas ?? []) as Categoria[])]
+      setCategoriasLocal(categoriasActuales)
+    }
+
+    const idResuelto = new Map<string, string>()
+    for (const nombre of pendientes) {
+      const accion = resolucionCategoria[nombre]
+      if (accion === 'CREAR') {
+        const creada = categoriasActuales.find(c => c.nombre.toLowerCase() === nombre.toLowerCase())
+        if (creada) idResuelto.set(nombre, creada.id)
+      } else {
+        idResuelto.set(nombre, accion) // accion ya es el id de la categoría existente elegida
+      }
+    }
+
+    setFilas(prev => prev.map(f => {
+      const nuevoId = idResuelto.get(f.categoria_nombre)
+      if (!nuevoId) return f
+      return {
+        ...f,
+        categoria_id: nuevoId,
+        errores: f.errores.filter(e => e !== `Categoría "${f.categoria_nombre}" no encontrada`),
+      }
+    }))
+    setResolucionCategoria(prev => {
+      const resto = { ...prev }
+      pendientes.forEach(n => delete resto[n])
+      return resto
+    })
+    setResolviendo(false)
+    toast.success('Categorías resueltas')
   }
 
   // ── Importar productos válidos ───────────────────────────────────────────
@@ -675,6 +708,51 @@ export default function CargaMasivaForm({ categorias, proveedores }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Categorías del archivo que no existen en el sistema */}
+      {categoriasFaltantes.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-3">
+          <div className="flex items-start gap-4">
+            <div className="text-3xl">⚠️</div>
+            <div className="flex-1">
+              <h2 className="font-semibold text-amber-900">
+                {categoriasFaltantes.length} categoría(s) del archivo no existen en el sistema
+              </h2>
+              <p className="text-sm text-amber-700 mt-0.5">
+                Para cada una, elige si quieres crearla como categoría nueva o mapearla a una ya existente.
+              </p>
+
+              <div className="mt-3 space-y-2">
+                {categoriasFaltantes.map(nombre => (
+                  <div key={nombre} className="flex items-center gap-3 bg-white rounded-lg border p-2.5">
+                    <span className="text-sm font-medium text-gray-800 flex-1">&ldquo;{nombre}&rdquo;</span>
+                    <select
+                      className="border rounded-lg px-2 py-1.5 text-sm min-w-[220px]"
+                      value={resolucionCategoria[nombre] ?? ''}
+                      onChange={(e) => setResolucionCategoria(prev => ({ ...prev, [nombre]: e.target.value }))}
+                    >
+                      <option value="">Elige qué hacer...</option>
+                      <option value="CREAR">➕ Crear categoría nueva</option>
+                      {categoriasLocal.map(c => (
+                        <option key={c.id} value={c.id}>Usar existente: {c.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                onClick={aplicarResolucionCategorias}
+                disabled={resolviendo || categoriasFaltantes.every(n => !resolucionCategoria[n])}
+                className="mt-3"
+                size="sm"
+              >
+                {resolviendo ? 'Aplicando...' : 'Aplicar y revalidar filas'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Paso 3: Vista previa */}
       {filas.length > 0 && (
