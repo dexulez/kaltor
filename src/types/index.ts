@@ -216,6 +216,19 @@ export interface Supplier {
   updated_at: string
 }
 
+export interface SupplierProductPrice {
+  id: string
+  supplier_id: string
+  product_id?: string | null
+  nombre_repuesto: string
+  sku_proveedor?: string | null
+  precio: number
+  disponible: boolean
+  notas?: string | null
+  actualizado_at: string
+  created_at: string
+}
+
 export type UnidadMedida = 'unidad' | 'kg' | 'g' | 'litro' | 'ml' | 'metro' | 'cm' | 'caja'
 
 export interface Product {

@@ -138,6 +138,13 @@ export default async function ProveedoresPage() {
                         />
                       )}
                       {puedeEditar && (
+                        <Link href={`/compras/proveedor/${p.id}/precios`}>
+                          <Button size="sm" variant="outline" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50">
+                            💲 Precios
+                          </Button>
+                        </Link>
+                      )}
+                      {puedeEditar && (
                         <Link href={`/compras/proveedor/${p.id}/editar`}>
                           <Button variant="outline" size="sm">Editar</Button>
                         </Link>

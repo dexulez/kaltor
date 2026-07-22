@@ -20,6 +20,19 @@ interface ItemOC {
   precio_unitario: number
 }
 
+interface ComparacionPrecio {
+  id: string
+  precio: number
+  disponible: boolean
+  supplier_id: string
+  suppliers: { nombre: string } | { nombre: string }[] | null
+}
+
+function nombreProveedorDe(c: ComparacionPrecio): string {
+  const s = c.suppliers
+  return (Array.isArray(s) ? s[0]?.nombre : s?.nombre) ?? 'Proveedor'
+}
+
 interface Props {
   proveedores: Supplier[]
   productos: Product[]
@@ -43,6 +56,8 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
     { id: crypto.randomUUID(), product_id: null, nombre: '', cantidad_solicitada: 1, precio_unitario: 0 },
   ])
   const [busquedaProducto, setBusquedaProducto] = useState<Record<string, string>>({})
+  const [comparaciones, setComparaciones] = useState<Record<string, ComparacionPrecio[]>>({})
+  const [comparando, setComparando] = useState<Record<string, boolean>>({})
 
   const proveedorOcasional = proveedores.find(p => p.nombre === PROVEEDOR_OCASIONAL)
   const proveedoresOrdenados = proveedorOcasional
@@ -72,6 +87,23 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
       precio_unitario: producto.precio_costo,
     } : i))
     setBusquedaProducto(prev => ({ ...prev, [itemId]: '' }))
+  }
+
+  async function alternarComparacion(item: ItemOC) {
+    const abierto = comparando[item.id]
+    if (abierto) {
+      setComparando(prev => ({ ...prev, [item.id]: false }))
+      return
+    }
+    setComparando(prev => ({ ...prev, [item.id]: true }))
+    const nombreTrim = item.nombre.trim()
+    if (!nombreTrim) return
+    const query = supabase.from('supplier_product_prices').select('id, precio, disponible, supplier_id, suppliers(nombre)')
+    const { data, error } = item.product_id
+      ? await query.eq('product_id', item.product_id).order('precio', { ascending: true })
+      : await query.ilike('nombre_repuesto', `%${nombreTrim}%`).order('precio', { ascending: true })
+    if (error) { toast.error('Error al buscar precios: ' + error.message); return }
+    setComparaciones(prev => ({ ...prev, [item.id]: (data ?? []) as unknown as ComparacionPrecio[] }))
   }
 
   const costoEnvioNum = parseInt(costoEnvio) || 0
@@ -340,6 +372,12 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
                     <Input type="number" min={0} value={item.precio_unitario}
                       onChange={e => setItem(item.id, 'precio_unitario', parseInt(e.target.value) || 0)}
                       className="text-sm" />
+                    {item.nombre.trim().length >= 3 && (
+                      <button type="button" onClick={() => alternarComparacion(item)}
+                        className="text-[10px] text-emerald-600 hover:text-emerald-800 font-medium">
+                        {comparando[item.id] ? '✕ Ocultar precios' : '💲 Comparar proveedores'}
+                      </button>
+                    )}
                   </div>
                   <div className="sm:col-span-2 flex items-end justify-between gap-2 pb-0.5">
                     <div className="space-y-1">
@@ -351,6 +389,34 @@ export default function NuevaOrdenCompraForm({ proveedores, productos }: Props) 
                       disabled={items.length === 1}>×</button>
                   </div>
                 </div>
+
+                {comparando[item.id] && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm">
+                    {comparaciones[item.id] === undefined ? (
+                      <p className="text-xs text-emerald-700">Buscando precios cargados de este repuesto...</p>
+                    ) : comparaciones[item.id].length === 0 ? (
+                      <p className="text-xs text-emerald-700">Ningún proveedor tiene precio cargado para este repuesto todavía.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] text-emerald-700 uppercase tracking-wide font-semibold">Precios cargados por proveedor</p>
+                        {comparaciones[item.id].map(c => (
+                          <div key={c.id} className={`flex items-center justify-between gap-2 rounded-md px-2 py-1 ${c.supplier_id === supplierId ? 'bg-emerald-100' : ''}`}>
+                            <span className={`truncate ${c.disponible ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
+                              {nombreProveedorDe(c)}
+                              {c.supplier_id === supplierId && <span className="text-[10px] text-emerald-700 font-semibold"> (proveedor actual)</span>}
+                              {!c.disponible && <span className="text-[10px] text-gray-400"> (sin stock)</span>}
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="font-semibold text-gray-800">{formatCLP(c.precio)}</span>
+                              <button type="button" onClick={() => setItem(item.id, 'precio_unitario', c.precio)}
+                                className="text-[10px] text-blue-600 hover:text-blue-800 font-medium">Usar</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}
